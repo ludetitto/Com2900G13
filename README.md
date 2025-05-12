@@ -8,4 +8,5 @@ Práctico integrador para la materia Bases de Datos Aplicadas.
   
   <ins>Nombre y apellido</ins>: Camila Antonio Vallejos ---> <ins>Alias</ins>:  Camila
   
-  <ins>Nombre y apellido</ins>: ---> <ins>Alias</ins>:
+  <ins>Nombre y apellido</ins>: Franco Benvenuto ---> <ins>Alias</ins>:  Franco
+
