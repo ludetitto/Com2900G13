@@ -6,11 +6,11 @@
 -- Descripción: Creación de la base de datos Com3900G13 con configuración ajustada y portable
 
 -- Se utiliza un mecanismo de SQL dinámico para poder insertar la ruta adecuada.
-DECLARE @dbName NVARCHAR(128) = 'Com3900G13';
-DECLARE @dataFile NVARCHAR(260); -- Suficientes caracteres para guardar la ruta.
-DECLARE @logFile NVARCHAR(260);
-DECLARE @dataPath NVARCHAR(260);
-DECLARE @sql NVARCHAR(MAX); -- Puede crecer hasta 2GB (máximo).
+DECLARE @dbName VARCHAR(128) = 'Com3900G13';
+DECLARE @dataFile VARCHAR(260); -- Suficientes caracteres para guardar la ruta.
+DECLARE @logFile VARCHAR(260);
+DECLARE @dataPath VARCHAR(260);
+DECLARE @sql VARCHAR(MAX); -- Puede crecer hasta 2GB (máximo).
 
 -- Se obtiene la ruta del usuario
 SET @dataPath = CAST(SERVERPROPERTY('InstanceDefaultDataPath') AS NVARCHAR(260));
@@ -39,14 +39,13 @@ BEGIN
         MAXSIZE = 200MB
     );
 
-    -- Ajustar modelo de recuperación si no se requiere backup en caliente
     ALTER DATABASE [' + @dbName + '] SET RECOVERY SIMPLE;
 	';
 	EXEC(@sql);
 END
 ELSE
 BEGIN
-    PRINT 'La base de datos Com3900G13 ya existe. No se creó nuevamente.';
+    PRINT 'La base de datos Com3900G13 ya existe.';
 END;
 
 -- Usar la base de datos creada o existente
