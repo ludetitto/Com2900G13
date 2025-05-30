@@ -1,193 +1,234 @@
--- Trabajo Práctico Integrador - Entrega 4
--- Fecha: 19/05/2025
--- Comisión: 2900 - Grupo: 13
--- Materia: Bases de Datos Aplicadas
--- Descripción: Creación de tablas con validación para reejecución segura
-
--- Crear esquema si no existe
-IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'sol_norte')
-    EXEC('CREATE SCHEMA sol_norte');
+/* =========================================================================
+   Trabajo Práctico Integrador - Bases de Datos Aplicadas
+   Grupo N°: 13
+   Comisión: 2900
+   Fecha de Entrega: 17/06/2025
+   Materia: Bases de Datos Aplicadas
+   Alumnos: Vignardel Francisco 45778667
+            De Titto Lucia 46501934
+            Benvenuto Franco 44760004
+ ========================================================================= */
+USE SolNorteDB;
 GO
 
--- Eliminar tablas si existen (en orden inverso por dependencias)
-DROP TABLE IF EXISTS
-    sol_norte.Notificacion,
-    sol_norte.Morosidad,
-    sol_norte.Reintegro,
-    sol_norte.Clima,
-    sol_norte.PagoACuenta,
-    sol_norte.Pago,
-    sol_norte.DetalleFactura,
-    sol_norte.Factura,
-    sol_norte.MedioDePago,
-    sol_norte.ActividadExtra,
-    sol_norte.Actividad,
-    sol_norte.Invitado,
-    sol_norte.Socio,
-    sol_norte.GrupoFamiliar,
-    sol_norte.Usuario,
-    sol_norte.CategoriaSocio,
-    sol_norte.RolSocio;
+-- Crear esquemas personalizados
+CREATE SCHEMA administracion;
 GO
 
--- Crear tablas (orden correcto)
+CREATE SCHEMA socios;
+GO
 
-CREATE TABLE sol_norte.RolSocio (
-    id_rol INT PRIMARY KEY,
-    nombre VARCHAR(30) NOT NULL,
-    descripcion VARCHAR(100)
+CREATE SCHEMA actividades;
+GO
+
+CREATE SCHEMA pagos;
+GO
+
+CREATE SCHEMA facturacion;
+GO
+
+/* =======================
+   TABLAS DEL MÓDULO ADMINISTRACIÓN
+   ======================= */
+
+CREATE TABLE administracion.Area (
+    id_area INT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    descripcion VARCHAR(200)
 );
+GO
 
-CREATE TABLE sol_norte.CategoriaSocio (
+CREATE TABLE administracion.Rol (
+    id_rol INT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    descripcion VARCHAR(200)
+);
+GO
+
+CREATE TABLE administracion.Usuario (
+    id_usuario INT PRIMARY KEY,
+    id_area INT NOT NULL,
+    id_rol INT NOT NULL,
+    username VARCHAR(50) NOT NULL,
+    password VARCHAR(100) NOT NULL,
+    fecha_vencimiento_password DATE,
+    FOREIGN KEY (id_area) REFERENCES administracion.Area(id_area),
+    FOREIGN KEY (id_rol) REFERENCES administracion.Rol(id_rol)
+);
+GO
+
+/* =======================
+   TABLAS DEL MÓDULO SOCIOS
+   ======================= */
+
+CREATE TABLE socios.GrupoFamiliar (
+    id_grupo INT PRIMARY KEY,
+    id_socio_ref INT NOT NULL,
+    descuento DECIMAL(4,2)
+);
+GO
+
+CREATE TABLE socios.CategoriaSocio (
     id_categoria INT PRIMARY KEY,
     nombre VARCHAR(50),
-    años INT,
-    costo_membresía DECIMAL(10, 2),
+    edad INT,
+    costo_membresia DECIMAL(8,2),
     vigencia DATE
 );
+GO
 
-CREATE TABLE sol_norte.Usuario (
-    id_usuario INT PRIMARY KEY,
-    username VARCHAR(50) NOT NULL,
-    password VARCHAR(64) NOT NULL,
-    rol VARCHAR(20),
-    fecha_vencimiento_password DATE
-);
-
-CREATE TABLE sol_norte.GrupoFamiliar (
-    id_grupo INT PRIMARY KEY,
-    id_adulto_responsable INT,
-    descuento DECIMAL(5, 2)
-);
-
-CREATE TABLE sol_norte.Socio (
+CREATE TABLE socios.Socio (
     id_socio INT PRIMARY KEY,
-    id_usuario INT NOT NULL,
+    id_grupo INT,
     id_categoria INT NOT NULL,
-    id_rol INT NOT NULL,
-    dni INT NOT NULL,
     nombre VARCHAR(50),
     apellido VARCHAR(50),
-    email VARCHAR(70),
+    dni CHAR(8),
+    email VARCHAR(100),
     fecha_nacimiento DATE,
     tel_contacto VARCHAR(20),
     tel_emergencia VARCHAR(20),
-    nombre_obra_social VARCHAR(50),
-    nro_obra_social INT,
-    FOREIGN KEY (id_usuario) REFERENCES sol_norte.Usuario(id_usuario),
-    FOREIGN KEY (id_categoria) REFERENCES sol_norte.CategoriaSocio(id_categoria),
-    FOREIGN KEY (id_rol) REFERENCES sol_norte.RolSocio(id_rol)
+    obra_social VARCHAR(100),
+    nro_obra_social VARCHAR(50),
+    saldo DECIMAL(10,2),
+    activo BIT,
+    FOREIGN KEY (id_grupo) REFERENCES socios.GrupoFamiliar(id_grupo),
+    FOREIGN KEY (id_categoria) REFERENCES socios.CategoriaSocio(id_categoria)
 );
+GO
 
-CREATE TABLE sol_norte.Invitado (
+CREATE TABLE socios.Invitado (
     id_invitado INT PRIMARY KEY,
-    id_socio_responsable INT NOT NULL,
+    id_socio_responsable INT,
     nombre VARCHAR(50),
     apellido VARCHAR(50),
-    dni INT,
-    email VARCHAR(70),
+    dni VARCHAR(8),
+    email VARCHAR(100),
     tel_emergencia VARCHAR(20),
-    nombre_obra_social VARCHAR(50),
-    nro_obra_social INT,
-    FOREIGN KEY (id_socio_responsable) REFERENCES sol_norte.Socio(id_socio)
+    nombre_obra_social VARCHAR(100),
+    nro_obra_social VARCHAR(50),
+    FOREIGN KEY (id_socio_responsable) REFERENCES socios.Socio(id_socio)
 );
+GO
 
-CREATE TABLE sol_norte.Actividad (
+/* =======================
+   TABLAS DEL MÓDULO ACTIVIDADES
+   ======================= */
+
+CREATE TABLE actividades.Meastro (
+    id_maestro INT PRIMARY KEY,
+    nombre VARCHAR(100),
+    apellido VARCHAR(100),
+    tel_contacto VARCHAR(50)
+);
+GO
+
+CREATE TABLE actividades.Actividad (
     id_actividad INT PRIMARY KEY,
-    nombre VARCHAR(50),
-    costo DECIMAL(10, 2),
-    horarios VARCHAR(100)
+    id_maestro INT,
+    nombre VARCHAR(100),
+    costo DECIMAL(7,2),
+    horario NVARCHAR(50),
+    FOREIGN KEY (id_maestro) REFERENCES actividades.Meastro(id_maestro)
 );
+GO
 
-CREATE TABLE sol_norte.ActividadExtra (
-    id_extra INT PRIMARY KEY,
-    nombre VARCHAR(50),
-    costo DECIMAL(10, 2)
-);
+/* =======================
+   TABLAS DEL MÓDULO PAGOS
+   ======================= */
 
-CREATE TABLE sol_norte.MedioDePago (
+CREATE TABLE pagos.MedioDePago (
     id_medio INT PRIMARY KEY,
     nombre VARCHAR(50),
     debito_automatico BIT
 );
+GO
 
-CREATE TABLE sol_norte.Factura (
-    id_factura INT PRIMARY KEY,
-    fecha_emision DATE,
-    vencimiento1 DATE,
-    vencimiento2 DATE,
-    monto_total DECIMAL(10, 2),
-    estado VARCHAR(20)
+CREATE TABLE pagos.Pago (
+    id_pago INT PRIMARY KEY,
+    id_socio INT,
+    id_medio INT,
+    id_actividad INT,
+    fecha DATE,
+    monto DECIMAL(10,2),
+    detalle VARCHAR(100),
+    FOREIGN KEY (id_socio) REFERENCES socios.Socio(id_socio),
+    FOREIGN KEY (id_medio) REFERENCES pagos.MedioDePago(id_medio),
+    FOREIGN KEY (id_actividad) REFERENCES actividades.Actividad(id_actividad)
 );
+GO
 
-CREATE TABLE sol_norte.DetalleFactura (
-    id_detalle_factura INT PRIMARY KEY,
-    id_factura INT NOT NULL,
+CREATE TABLE pagos.PagoACuenta (
+    id_pago_cuenta INT PRIMARY KEY,
+    id_pago INT,
+    monto DECIMAL(10,2),
+    fecha DATE,
+    FOREIGN KEY (id_pago) REFERENCES pagos.Pago(id_pago)
+);
+GO
+
+CREATE TABLE pagos.Reembolso (
+    id_reembolso INT PRIMARY KEY,
+    id_pago INT,
+    medio VARCHAR(100),
+    monto DECIMAL(10,2),
+    medio_pago_original VARCHAR(100),
+    fecha DATE,
+    FOREIGN KEY (id_pago) REFERENCES pagos.Pago(id_pago)
+);
+GO
+
+/* =======================
+   TABLAS DEL MÓDULO FACTURACIÓN Y CLASES
+   ======================= */
+
+CREATE TABLE facturacion.Factura (
+    id_factura INT PRIMARY KEY,
+    id_socio INT NOT NULL,
+    fecha_emision DATE,
+    vencimiento DATE,
+    estado VARCHAR(20),
+    monto_total DECIMAL(10,2),
+    anulada BIT,
+    FOREIGN KEY (id_socio) REFERENCES socios.Socio(id_socio)
+);
+GO
+
+CREATE TABLE facturacion.DetalleFactura (
+    id_detalle INT PRIMARY KEY,
+    id_factura INT,
     tipo_item VARCHAR(50),
     descripcion VARCHAR(100),
-    monto DECIMAL(10, 2),
+    monto DECIMAL(10,2),
     cantidad INT,
-    FOREIGN KEY (id_factura) REFERENCES sol_norte.Factura(id_factura)
+    FOREIGN KEY (id_factura) REFERENCES facturacion.Factura(id_factura)
 );
+GO
 
-CREATE TABLE sol_norte.Pago (
-    id_pago INT PRIMARY KEY,
-    id_socio INT NOT NULL,
-    id_factura INT NOT NULL,
-    id_medio INT,
-    id_extra INT,
-    monto DECIMAL(10, 2),
-    fecha DATE,
-    estado VARCHAR(20),
-    FOREIGN KEY (id_socio) REFERENCES sol_norte.Socio(id_socio),
-    FOREIGN KEY (id_factura) REFERENCES sol_norte.Factura(id_factura),
-    FOREIGN KEY (id_medio) REFERENCES sol_norte.MedioDePago(id_medio),
-    FOREIGN KEY (id_extra) REFERENCES sol_norte.ActividadExtra(id_extra)
-);
-
-CREATE TABLE sol_norte.PagoACuenta (
-    id_pago_cuenta INT PRIMARY KEY,
-    id_pago INT NOT NULL,
-    id_socio INT NOT NULL,
-    monto DECIMAL(10, 2),
-    fecha DATE,
-    FOREIGN KEY (id_pago) REFERENCES sol_norte.Pago(id_pago),
-    FOREIGN KEY (id_socio) REFERENCES sol_norte.Socio(id_socio)
-);
-
-CREATE TABLE sol_norte.Clima (
-    id_clima INT PRIMARY KEY,
+CREATE TABLE actividades.Clase (
+    id_clase INT PRIMARY KEY,
+    id_actividad INT,
     fecha DATE,
     hubo_lluvia BIT,
-    detalle VARCHAR(100)
+    detalle VARCHAR(100),
+    FOREIGN KEY (id_actividad) REFERENCES actividades.Actividad(id_actividad)
 );
+GO
 
-CREATE TABLE sol_norte.Reintegro (
-    id_reintegro INT PRIMARY KEY,
-    id_pago INT NOT NULL,
-    id_pago_cuenta INT NOT NULL,
-    id_clima INT NOT NULL,
-    motivo VARCHAR(100),
-    monto DECIMAL(10, 2),
-    fecha DATE,
-    FOREIGN KEY (id_pago) REFERENCES sol_norte.Pago(id_pago),
-    FOREIGN KEY (id_pago_cuenta) REFERENCES sol_norte.PagoACuenta(id_pago_cuenta),
-    FOREIGN KEY (id_clima) REFERENCES sol_norte.Clima(id_clima)
-);
-
-CREATE TABLE sol_norte.Morosidad (
+CREATE TABLE facturacion.Morosidad (
     id_morosidad INT PRIMARY KEY,
-    id_factura INT NOT NULL,
-    recargo DECIMAL(5, 2),
-    fecha_bloqueo DATE,
-    FOREIGN KEY (id_factura) REFERENCES sol_norte.Factura(id_factura)
+    id_factura INT,
+    fecha_2do_venc DATE,
+    recargo DECIMAL(10,2),
+    FOREIGN KEY (id_factura) REFERENCES facturacion.Factura(id_factura)
 );
+GO
 
-CREATE TABLE sol_norte.Notificacion (
-    id_notificacion INT PRIMARY KEY,
-    id_morosidad INT NOT NULL,
-    mensaje VARCHAR(100),
+CREATE TABLE facturacion.Notificacion (
+    id_notif INT PRIMARY KEY,
+    id_factura INT,
     fecha DATE,
     destinatario VARCHAR(100),
-    FOREIGN KEY (id_morosidad) REFERENCES sol_norte.Morosidad(id_morosidad)
+    FOREIGN KEY (id_factura) REFERENCES facturacion.Factura(id_factura)
 );
+GO
