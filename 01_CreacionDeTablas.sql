@@ -8,7 +8,7 @@
             De Titto Lucia 46501934
             Benvenuto Franco 44760004
  ========================================================================= */
-USE SolNorteDB;
+USE COM2900G13;
 GO
 
 -- Crear esquemas personalizados
