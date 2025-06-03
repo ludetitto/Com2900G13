@@ -52,7 +52,7 @@ ELSE
 BEGIN
     PRINT 'La base de datos ' + @dbName + ' ya existe.';
 END;
-
+GO
 -- Usar la base de datos creada o existente
 USE COM2900G13;
 GO
