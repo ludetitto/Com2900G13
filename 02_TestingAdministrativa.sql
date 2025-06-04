@@ -7,12 +7,12 @@
 USE COM2900G13;
 GO
 /*_____________________________________________________________________
-  ________________________ spGestionarPersonas ________________________
+  ________________________ P_GestionarPersonas ________________________
   _____________________________________________________________________*/
 
 -- ✅ PRUEBA 1: Inserción válida de persona
 -- Esperado: Se inserta el registro correctamente
-EXEC administracion.spGestionarPersonas
+EXEC administracion.P_GestionarPersonas
     @nombre = 'Juan',
     @apellido = 'Pérez',
     @dni = '12345678',
@@ -26,7 +26,7 @@ GO
 
 -- ✅ PRUEBA 2: Modificación válida de persona existente
 -- Esperado: Se actualizan los datos correctamente
-EXEC administracion.spGestionarPersonas
+EXEC administracion.P_GestionarPersonas
     @nombre = 'Juan Carlos',
     @apellido = 'Pérez',
     @dni = '12345678',
@@ -40,7 +40,7 @@ GO
 
 -- ✅ PRUEBA 3: Eliminación válida de persona
 -- Esperado: Se elimina el registro con DNI dado
-EXEC administracion.spGestionarPersonas
+EXEC administracion.P_GestionarPersonas
     @nombre = NULL,
     @apellido = NULL,
     @dni = '12345678',
@@ -53,7 +53,7 @@ EXEC administracion.spGestionarPersonas
 GO
 
 -- ❌ PRUEBA 4: Modificar persona inexistente
-EXEC administracion.spGestionarPersonas
+EXEC administracion.P_GestionarPersonas
     @nombre = 'No Existe',
     @apellido = 'Apellido',
     @dni = '99999999',
@@ -67,7 +67,7 @@ GO
 
 -- ❌ PRUEBA 5: Operación inválida
 -- Esperado: Error por operación no permitida
-EXEC administracion.spGestionarPersonas
+EXEC administracion.P_GestionarPersonas
     @nombre = NULL,
     @apellido = NULL,
     @dni = '12345678',
@@ -80,95 +80,12 @@ EXEC administracion.spGestionarPersonas
 GO
 
 /*____________________________________________________________________
-  _________________________ spGestionarAreas _________________________
+  _________________________ P_ImportarSocios _________________________
   ____________________________________________________________________*/
 
--- ✅ PRUEBA 1: Inserción de nueva área 'Tesorería'
--- Esperado: Inserción exitosa
-EXEC administracion.spGestionarAreas
-    @nombre = 'Tesorería',
-    @descripcion = 'Área encargada de la gestión financiera',
-    @operacion = 'Insertar';
-GO
+  EXEC Administracion.P_ImportarSocios
+    @RutaArchivo = 'C:\Users\ldeti\Documents\SQL Server Management Studio\Code Snippets\SQL\My Code Snippets\csv.csv';
 
--- ✅ PRUEBA 2: Modificación de la descripción de 'Tesorería'
--- Esperado: Actualización exitosa
-EXEC administracion.spGestionarAreas
-    @nombre = 'Tesorería',
-    @descripcion = 'Área responsable del control financiero y pagos',
-    @operacion = 'Modificar';
-GO
-
--- ❌ PRUEBA 3: Intentar modificar un área que no existe ('Cocina')
--- Esperado: Falla con mensaje "No existe el rol para modificar."
-EXEC administracion.spGestionarAreas
-    @nombre = 'Cocina',
-    @descripcion = 'Área de preparación de alimentos',
-    @operacion = 'Modificar';
-GO
-
--- ✅ PRUEBA 4: Eliminación del área 'Tesorería'
--- Esperado: Eliminación exitosa
-EXEC administracion.spGestionarAreas
-    @nombre = 'Tesorería',
-    @descripcion = NULL,
-    @operacion = 'Eliminar';
-GO
-
--- ❌ PRUEBA 5: Operación no reconocida ('Actualizar')
--- Esperado: Error "Operación inválida. Usar Insertar, Modificar o Eliminar."
-EXEC administracion.spGestionarAreas
-    @nombre = 'Administración',
-    @descripcion = 'Área general',
-    @operacion = 'Actualizar';
-GO
-
-/*____________________________________________________________________
-  _________________________ spGestionarRoles _________________________
-  ____________________________________________________________________*/
-
--- ✅ PRUEBA 1: Inserción válida
--- Esperado: Inserta un rol "Profesor" en el área 2
-EXEC administracion.spGestionarRoles
-    @nombre = 'Profesor',
-    @descripcion = 'Encargado de dictar clases',
-    @id_area = 2,
-    @operacion = 'Insertar';
-GO
-
--- ❌ PRUEBA 2: Modificar rol inexistente
--- Esperado: Error "No existe el rol en el área indicada para modificar."
-EXEC administracion.spGestionarRoles
-    @nombre = 'Gerente',
-    @descripcion = 'Modificado',
-    @id_area = 3,
-    @operacion = 'Modificar';
-GO
-
--- ✅ PRUEBA 3: Modificar descripción del rol "Profesor" en área 2
--- Esperado: Actualiza la descripción
-EXEC administracion.spGestionarRoles
-    @nombre = 'Profesor',
-    @descripcion = 'Dicta clases de forma presencial y virtual',
-    @id_area = 2,
-    @operacion = 'Modificar';
-GO
-
--- ✅ PRUEBA 4: Eliminar rol existente
--- Esperado: Se elimina el registro "Profesor" en área 2
-EXEC administracion.spGestionarRoles
-    @nombre = 'Profesor',
-    @descripcion = '', -- no se usa en Eliminar
-    @id_area = 2,
-    @operacion = 'Eliminar';
-GO
-
--- ❌ PRUEBA 5: Operación inválida
--- Esperado: Error "Operación inválida..."
-EXEC administracion.spGestionarRoles
-    @nombre = 'Administrador',
-    @descripcion = 'Supervisa el sistema',
-    @id_area = 1,
-    @operacion = 'Actualizar';
-GO
-
+SELECT * FROM administracion.Persona
+DELETE FROM administracion.Persona
+WHERE dni > 0
