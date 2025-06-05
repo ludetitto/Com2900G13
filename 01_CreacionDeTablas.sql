@@ -12,7 +12,12 @@ USE COM2900G13;
 GO
 
 --DROP PROCEDURE IF EXISTS pagos.spRegistrarCobranza
---DROP PROCEDURE IF EXISTS administracion.spGestionarPersonas
+DROP PROCEDURE IF EXISTS administracion.P_GestionarGrupoFamiliar
+DROP PROCEDURE IF EXISTS administracion.P_GestionarSocio
+DROP PROCEDURE IF EXISTS administracion.P_GestionarCategoriaSocio
+DROP PROCEDURE IF EXISTS administracion.P_GestionarInvitados
+DROP PROCEDURE IF EXISTS administracion.P_GestionarProfesor
+DROP PROCEDURE IF EXISTS administracion.P_GestionarPersona
 
 /* ============================
    BORRADO DE OBJETOS DE LA BD
@@ -89,12 +94,21 @@ CREATE TABLE administracion.Persona (
 	id_persona INT IDENTITY(1,1) PRIMARY KEY,
 	nombre CHAR(50) NOT NULL,
     apellido CHAR(50) NOT NULL,
-    dni VARCHAR(10) NOT NULL,
+    dni VARCHAR(10) UNIQUE NOT NULL,
     email VARCHAR(70),
     fecha_nacimiento DATE NOT NULL,
     tel_contacto CHAR(15),
     tel_emergencia CHAR(15),
-	borrado BIT
+	borrado BIT,
+	CONSTRAINT CHK_persona_dni CHECK (
+        LEN(LTRIM(RTRIM(dni))) = 10 AND dni LIKE '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
+    ),
+    CONSTRAINT CHK_persona_email CHECK (
+        email LIKE '%_@__%.__%'
+    ),
+    CONSTRAINT CHK_persona_fecha_nacimiento CHECK (
+        fecha_nacimiento <= GETDATE()
+    )
 );
 GO
 
@@ -119,7 +133,19 @@ CREATE TABLE administracion.CategoriaSocio (
     nombre VARCHAR(50),
     años INT,
     costo_membresia DECIMAL(10,2),
-    vigencia DATE
+    vigencia DATE,
+	CONSTRAINT CHK_categoria_nombre CHECK (
+        LTRIM(RTRIM(nombre)) <> ''
+    ),
+    CONSTRAINT CHK_categoria_años CHECK (
+        años >= 0
+    ),
+    CONSTRAINT CHK_categoria_costo CHECK (
+        costo_membresia >= 0
+    ),
+    CONSTRAINT CHK_categoria_vigencia CHECK (
+        vigencia >= GETDATE()
+    )
 );
 GO
 
@@ -134,7 +160,7 @@ CREATE TABLE administracion.Socio (
 	nro_socio CHAR(20),
     obra_social VARCHAR(100),
 	nro_obra_social VARCHAR(100),
-    saldo DECIMAL(10,2),
+    saldo DECIMAL(10,2) NOT NULL,
     activo BIT,
 	CONSTRAINT FK_socio_persona_id FOREIGN KEY (id_persona) REFERENCES administracion.Persona(id_persona),
 	CONSTRAINT FK_socio_categoria_id FOREIGN KEY (id_categoria) REFERENCES administracion.CategoriaSocio(id_categoria)
@@ -161,8 +187,11 @@ GO
 CREATE TABLE administracion.Invitado (
     id_invitado INT IDENTITY(1,1) PRIMARY KEY,
 	id_socio INT,
-	dni VARCHAR(10) NOT NULL,
+	dni VARCHAR(10) UNIQUE NOT NULL,
 	CONSTRAINT FK_invitado_socio_id FOREIGN KEY (id_socio) REFERENCES administracion.Socio(id_socio),
+	CONSTRAINT CHK_invitado_dni CHECK (
+        LEN(LTRIM(RTRIM(dni))) = 10 AND dni LIKE '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
+    ),
 );
 GO
 
@@ -266,7 +295,7 @@ GO
 CREATE TABLE facturacion.EmisorFactura (
 	id_emisor INT IDENTITY(1,1) PRIMARY KEY,
 	razon_social VARCHAR(100),
-	cuil VARCHAR(20) NOT NULL,
+	cuil VARCHAR(20) UNIQUE NOT NULL,
 	direccion VARCHAR(200),
 	pais VARCHAR(50),
 	localidad VARCHAR(50),

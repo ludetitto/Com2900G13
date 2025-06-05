@@ -12,14 +12,14 @@ USE COM2900G13;
 GO
 
 /*____________________________________________________________________
-  _________________________ P_GestionarPersonas ______________________
+  _________________________ P_GestionarPersona _______________________
   ____________________________________________________________________*/
 
-IF OBJECT_ID('administracion.P_GestionarPersonas', 'P') IS NOT NULL
-    DROP PROCEDURE administracion.P_GestionarPersonas;
+IF OBJECT_ID('administracion.P_GestionarPersona', 'P') IS NOT NULL
+    DROP PROCEDURE administracion.P_GestionarPersona;
 GO
 
-CREATE PROCEDURE administracion.P_GestionarPersonas
+CREATE PROCEDURE administracion.P_GestionarPersona
     @nombre VARCHAR(50),
     @apellido CHAR(50),
     @dni CHAR(10),
@@ -33,9 +33,33 @@ BEGIN
     SET NOCOUNT ON;
 
     BEGIN TRY
-        BEGIN TRANSACTION;
+		
+		IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
+		BEGIN
+			RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+		END
 
-        IF @operacion = 'Eliminar'
+		IF @operacion = 'Insertar'
+        BEGIN
+            IF @nombre IS NULL OR LTRIM(RTRIM(@nombre)) = ''
+                RAISERROR('El nombre es obligatorio.', 16, 1);
+
+            IF @apellido IS NULL OR LTRIM(RTRIM(@apellido)) = ''
+                RAISERROR('El apellido es obligatorio.', 16, 1);
+
+            IF @dni IS NULL OR LEN(LTRIM(RTRIM(@dni))) > 10
+                RAISERROR('El DNI debe hasta 10 caracteres.', 16, 1);
+
+            IF @fecha_nacimiento IS NULL OR @fecha_nacimiento > GETDATE()
+                RAISERROR('La fecha de nacimiento es inválida.', 16, 1);
+
+        END
+
+        BEGIN TRANSACTION;
+        
+		IF @operacion = 'Eliminar'
         BEGIN
             UPDATE administracion.Persona
 			SET borrado = 1
@@ -64,11 +88,98 @@ BEGIN
             INSERT INTO administracion.Persona (nombre, apellido, dni, email, fecha_nacimiento, tel_contacto, tel_emergencia, borrado)
             VALUES (@nombre, @apellido, @dni, @email, @fecha_nacimiento, @tel_contacto, @tel_emergencia, 0);
         END
-        ELSE
-        BEGIN
-            RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
             ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        DECLARE @ErrSeverity INT = ERROR_SEVERITY();
+        RAISERROR(@ErrMsg, @ErrSeverity, 1);
+    END CATCH
+END;
+GO
+
+/*____________________________________________________________________
+  _______________________ P_GestionarProfesor ________________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('administracion.P_GestionarProfesor', 'P') IS NOT NULL
+    DROP PROCEDURE administracion.P_GestionarProfesor;
+GO
+
+CREATE PROCEDURE administracion.P_GestionarProfesor
+    @nombre VARCHAR(50),
+    @apellido CHAR(50),
+    @dni CHAR(10),
+    @email VARCHAR(70),
+    @fecha_nacimiento DATE,
+    @tel_contacto CHAR(15),
+    @tel_emergencia CHAR(15),
+    @operacion CHAR(10)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    BEGIN TRY
+        IF @operacion NOT IN ('Insertar', 'Eliminar')
+        BEGIN
+            RAISERROR('Operación inválida. Usar Insertar o Eliminar.', 16, 1);
             RETURN;
+        END
+
+        BEGIN TRANSACTION;
+
+        DECLARE @id_persona INT;
+
+        IF @operacion = 'Insertar'
+        BEGIN
+            -- Verificamos si ya existe la persona
+            SELECT @id_persona = id_persona
+            FROM administracion.Persona
+            WHERE dni = @dni;
+
+            -- Si no existe, la insertamos
+            IF @id_persona IS NULL
+            BEGIN
+                EXEC administracion.P_GestionarPersona
+					 @nombre, 
+					 @apellido, 
+					 @dni, 
+					 @email, 
+					 @fecha_nacimiento, 
+					 @tel_contacto, 
+					 @tel_emergencia, 
+					 'Insertar'
+				
+				SET @id_persona = (SELECT 1 FROM administracion.Persona WHERE dni = @dni)
+            END
+
+            -- Insertamos al profesor
+
+            INSERT INTO administracion.Profesor (id_persona)
+            VALUES (@id_persona);
+        END
+        ELSE IF @operacion = 'Eliminar'
+        BEGIN
+            -- Obtenemos el ID de persona
+            SELECT @id_persona = id_persona
+            FROM administracion.Persona
+            WHERE dni = @dni;
+
+            IF @id_persona IS NULL
+            BEGIN
+                RAISERROR('No se encontró una persona con el DNI especificado.', 16, 1);
+                ROLLBACK TRANSACTION;
+                RETURN;
+            END
+
+            UPDATE administracion.Persona 
+			SET borrado = 1
+			WHERE id_persona = @id_persona;
+
         END
 
         COMMIT TRANSACTION;
@@ -85,133 +196,262 @@ END;
 GO
 
 /*____________________________________________________________________
-  _________________________ P_ImportarSocios _________________________
+  ____________________ P_GestionarCategoriaSocio _____________________
   ____________________________________________________________________*/
 
-IF OBJECT_ID('administracion.P_ImportarSocios', 'P') IS NOT NULL
-    DROP PROCEDURE administracion.P_ImportarSocios;
+IF OBJECT_ID('administracion.P_GestionarCategoriaSocio', 'P') IS NOT NULL
+    DROP PROCEDURE administracion.P_GestionarCategoriaSocio;
 GO
 
-/*CREATE PROCEDURE administracion.P_ImportarSocios
-    @RutaArchivo VARCHAR(255)
+CREATE PROCEDURE administracion.P_GestionarCategoriaSocio
+    @id_categoria INT = NULL,
+    @nombre VARCHAR(50),
+    @años INT,
+    @costo_membresia DECIMAL(10,2),
+    @vigencia DATE,
+    @operacion CHAR(10)
 AS
 BEGIN
-	-- Habilitar las consultas ad hoc
-	EXEC sp_configure 'show advanced options', 1;
-	RECONFIGURE;
-	EXEC sp_configure 'Ad Hoc Distributed Queries', 1;
-	RECONFIGURE;
+    SET NOCOUNT ON;
 
-	IF OBJECT_ID('tempdb.##tablaAux', 'U') IS NOT NULL
-		DROP TABLE ##tablaAux;
-	
-	CREATE TABLE ##tablaAux ( -- Tabla temporal global para la carga temporal
-		id_socio INT IDENTITY(1,1) PRIMARY KEY,
-		nro_socio VARCHAR(20),
-		nombre VARCHAR(50),
-		apellido CHAR(50),
-		dni CHAR(10),
-		email VARCHAR(70),
-		fecha_nacimiento DATE NOT NULL,
-		tel_contacto CHAR(15),
-		obra_social VARCHAR(100),
-		nro_obra_social INT,
-		tel_emergencia CHAR(15)
-	);
+    BEGIN TRY
+        IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
+        BEGIN
+            RAISERROR('Operación inválida.', 16, 1);
+            RETURN;
+        END
 
-	-- Construir SQL dinámico para usar OPENROWSET con variable
-    DECLARE @sql NVARCHAR(MAX);
+        BEGIN TRANSACTION;
 
-    SET @sql = N'
-    INSERT INTO ##tablaAux (nro_socio, nombre, apellido, dni, email, fecha_nacimiento, tel_contacto, obra_social, nro_obra_social, tel_emergencia)
-    SELECT nro_socio, nombre, apellido, dni, email, fecha_nacimiento, tel_contacto, obra_social, nro_obra_social, tel_emergencia
-    FROM OPENROWSET(
-        ''Microsoft.ACE.OLEDB.12.0'',
-        ''Excel 12.0; Database=' + @RutaArchivo + '; HDR=YES'',
-        ''SELECT * FROM [Responsables de PagoA1$]''
-    );';
+        IF @operacion = 'Insertar'
+        BEGIN
+            INSERT INTO administracion.CategoriaSocio (nombre, años, costo_membresia, vigencia)
+            VALUES (@nombre, @años, @costo_membresia, @vigencia);
+        END
+        ELSE IF @operacion = 'Modificar'
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM administracion.CategoriaSocio WHERE id_categoria = @id_categoria)
+                RAISERROR('Categoría no encontrada.', 16, 1);
 
-    EXEC sp_executesql @sql;
-END;*/
+            UPDATE administracion.CategoriaSocio
+            SET nombre = @nombre, años = @años, costo_membresia = @costo_membresia, vigencia = @vigencia
+            WHERE id_categoria = @id_categoria;
+        END
+        ELSE IF @operacion = 'Eliminar'
+        BEGIN
+            DELETE FROM administracion.CategoriaSocio WHERE id_categoria = @id_categoria;
+        END
 
-IF OBJECT_ID('administracion.P_ImportarSocios', 'P') IS NOT NULL
-    DROP PROCEDURE administracion.P_ImportarSocios;
-GO
-
-CREATE PROCEDURE administracion.P_ImportarSocios
-    @RutaArchivo VARCHAR(255)
-AS
-BEGIN
-	--DROP TABLE tempdb.##tablaAux;
-	
-	CREATE TABLE ##tablaAux ( -- Tabla temporal global para la carga temporal
-		nro_socio VARCHAR(20),
-		nombre VARCHAR(50),
-		apellido CHAR(50),
-		dni CHAR(10),
-		email VARCHAR(70),
-		fecha_nacimiento VARCHAR(10),
-		tel_contacto CHAR(15),
-		obra_social VARCHAR(100),
-		nro_obra_social VARCHAR(100),
-		tel_emergencia CHAR(50)
-	);
-
-    DECLARE @SQL VARCHAR(MAX);
-	SET @SQL = '
-	BULK INSERT ##tablaAux
-	FROM ''' + @RutaArchivo + '''
-	WITH (
-		FIELDTERMINATOR = '';'',
-		ROWTERMINATOR = ''\n'',
-		FIRSTROW = 2
-	);';
-
-	EXEC (@SQL);
-
-	-- Creacion de las personas asociadas a la membresia
-	DECLARE @i INT = 1;
-	DECLARE @max INT;
-
-	SELECT @max = COUNT(*) FROM ##tablaAux; -- aprovechando que es incremental
-
-	WHILE @i <= @max
-	BEGIN
-		DECLARE 
-			@nombre NVARCHAR(100),
-			@apellido NVARCHAR(100),
-			@dni VARCHAR(20),
-			@email NVARCHAR(100),
-			@fecha_nacimiento DATE,
-			@tel_contacto VARCHAR(20),
-			@tel_emergencia VARCHAR(20);
-
-		SELECT
-			@nombre = nombre,
-			@apellido = apellido,
-			@dni = dni,
-			@email = email,
-			@fecha_nacimiento = CONVERT(DATE, fecha_nacimiento, 103),
-			@tel_contacto = tel_contacto,
-			@tel_emergencia = tel_emergencia
-		FROM ##tablaAux
-		ORDER BY nro_socio
-		OFFSET @i - 1 ROWS
-		FETCH NEXT 1 ROW ONLY;
-
-		IF @nombre IS NOT NULL  -- salteamos si no hay fila
-		BEGIN
-			EXEC administracion.P_GestionarPersonas
-				@nombre = @nombre,
-				@apellido = @apellido,
-				@dni = @dni,
-				@email = @email,
-				@fecha_nacimiento = @fecha_nacimiento,
-				@tel_contacto = @tel_contacto,
-				@tel_emergencia = @tel_emergencia,
-				@operacion = 'Insertar';
-		END
-
-		SET @i += 1;
-	END
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR(@ErrMsg, 16, 1);
+    END CATCH
 END;
+GO
+
+/*____________________________________________________________________
+  _________________________ P_GestionarSocios _________________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('administracion.P_GestionarSocio', 'P') IS NOT NULL
+    DROP PROCEDURE administracion.P_GestionarSocio;
+GO
+
+CREATE PROCEDURE administracion.P_GestionarSocio
+    @nombre VARCHAR(50),
+    @apellido CHAR(50),
+    @dni CHAR(10),
+    @email VARCHAR(70),
+    @fecha_nacimiento DATE,
+    @tel_contacto CHAR(15),
+    @tel_emergencia CHAR(15),
+    @categoria VARCHAR(50),
+    @nro_socio CHAR(20),
+    @obra_social VARCHAR(100),
+    @nro_obra_social VARCHAR(100),
+    @saldo DECIMAL(10,2),
+    @operacion CHAR(10)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    BEGIN TRY
+        IF @operacion NOT IN ('Insertar', 'Eliminar')
+        BEGIN
+            RAISERROR('Operación inválida. Usar Insertar o Eliminar.', 16, 1);
+            RETURN;
+        END
+
+        BEGIN TRANSACTION;
+
+        DECLARE @id_persona INT;
+		DECLARE @activo BIT;
+
+        IF @operacion = 'Insertar'
+        BEGIN
+            -- Verificamos si ya existe la persona
+            SET @id_persona = (SELECT id_persona FROM administracion.Persona WHERE dni = @dni)
+
+            -- Si no existe, la insertamos
+            IF @id_persona IS NULL
+            BEGIN
+                EXEC administracion.P_GestionarPersona
+					 @nombre, 
+					 @apellido, 
+					 @dni, 
+					 @email, 
+					 @fecha_nacimiento, 
+					 @tel_contacto, 
+					 @tel_emergencia, 
+					 'Insertar'
+            END
+
+			-- Asignamos estado de activo
+			SET @activo = 1;
+
+            -- Insertamos al socio
+			SET @id_persona = (SELECT id_persona FROM administracion.Persona WHERE dni = @dni)
+
+            INSERT INTO administracion.Socio (
+                id_persona, id_categoria, nro_socio, obra_social, nro_obra_social, saldo, activo
+            )
+            VALUES (
+                @id_persona, 
+				(SELECT id_categoria FROM administracion.CategoriaSocio WHERE nombre = @categoria), 
+				@nro_socio, 
+				@obra_social, 
+				@nro_obra_social, 
+				@saldo, 
+				@activo
+            );
+        END
+        ELSE IF @operacion = 'Eliminar'
+        BEGIN
+            -- Obtenemos el ID de persona
+            SET @id_persona = (SELECT id_persona FROM administracion.Persona WHERE dni = @dni)
+
+            IF @id_persona IS NULL
+            BEGIN
+                RAISERROR('No se encontró una persona con el DNI especificado.', 16, 1);
+                ROLLBACK TRANSACTION;
+                RETURN;
+            END
+
+            UPDATE administracion.Persona 
+			SET borrado = 1
+			WHERE id_persona = @id_persona;
+        END
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRANSACTION;
+
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        DECLARE @ErrSeverity INT = ERROR_SEVERITY();
+        RAISERROR(@ErrMsg, @ErrSeverity, 1);
+    END CATCH
+END;
+GO
+
+/*____________________________________________________________________
+  _____________________ P_GestionarGrupoFamiliar _____________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('administracion.P_GestionarGrupoFamiliar', 'P') IS NOT NULL
+    DROP PROCEDURE administracion.P_GestionarGrupoFamiliar;
+GO
+
+CREATE PROCEDURE administracion.P_GestionarGrupoFamiliar
+    @id_grupo INT = NULL,
+    @id_socio INT,
+    @id_socio_rp INT,
+    @operacion CHAR(10)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    BEGIN TRY
+        IF @operacion NOT IN ('Insertar', 'Eliminar')
+        BEGIN
+            RAISERROR('Operación inválida.', 16, 1);
+            RETURN;
+        END
+
+        BEGIN TRANSACTION;
+
+        IF @operacion = 'Insertar'
+        BEGIN
+            INSERT INTO administracion.GrupoFamiliar (id_socio, id_socio_rp)
+            VALUES (@id_socio, @id_socio_rp);
+        END
+        ELSE IF @operacion = 'Eliminar'
+        BEGIN
+            DELETE FROM administracion.GrupoFamiliar WHERE id_grupo = @id_grupo;
+        END
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR(@ErrMsg, 16, 1);
+    END CATCH
+END;
+GO
+
+/*____________________________________________________________________
+  _______________________ P_GestionarInvitado _______________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('administracion.P_GestionarInvitado', 'P') IS NOT NULL
+    DROP PROCEDURE administracion.P_GestionarInvitado;
+GO
+
+CREATE PROCEDURE administracion.P_GestionarInvitado
+    @id_invitado INT = NULL,
+    @id_socio INT,
+    @dni VARCHAR(10),
+    @operacion CHAR(10)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    BEGIN TRY
+        IF @operacion NOT IN ('Insertar', 'Eliminar')
+        BEGIN
+            RAISERROR('Operación inválida.', 16, 1);
+            RETURN;
+        END
+
+        IF @operacion = 'Insertar'
+        BEGIN
+            IF @dni IS NULL OR LEN(LTRIM(RTRIM(@dni))) <> 10 OR @dni NOT LIKE '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
+                RAISERROR('DNI inválido.', 16, 1);
+        END
+
+        BEGIN TRANSACTION;
+
+        IF @operacion = 'Insertar'
+        BEGIN
+            INSERT INTO administracion.Invitado (id_socio, dni)
+            VALUES (@id_socio, @dni);
+        END
+        ELSE IF @operacion = 'Eliminar'
+        BEGIN
+            DELETE FROM administracion.Invitado WHERE id_invitado = @id_invitado;
+        END
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR(@ErrMsg, 16, 1);
+    END CATCH
+END;
+GO
