@@ -55,7 +55,7 @@ END
 
 IF NOT EXISTS (
     SELECT 1 FROM facturacion.Factura 
-    WHERE leyenda = 'Cuota Junio' AND anulada = 0 AND id_socio = (SELECT id_socio FROM administracion.Socio WHERE nro_socio = 'SOC1000')
+    WHERE leyenda = 'Consumidor Final' AND anulada = 0 AND id_socio = (SELECT id_socio FROM administracion.Socio WHERE nro_socio = 'SOC1000')
 )
 BEGIN
     INSERT INTO facturacion.Factura (
@@ -64,7 +64,7 @@ BEGIN
     VALUES (
         (SELECT id_emisor FROM facturacion.EmisorFactura WHERE razon_social = 'Club Sol Norte'),
         (SELECT id_socio FROM administracion.Socio WHERE nro_socio = 'SOC1000'),
-        'Cuota Junio', 5000.00, '2025-06-01', '2025-06-30', 'Emitida', 0
+        'Consumidor Final', 5000.00, '2025-06-01', '2025-06-30', 'Emitida', 0
     );
 END
 
@@ -78,7 +78,7 @@ DECLARE @idActividadExtra INT = (SELECT id_extra FROM actividades.ActividadExtra
 DECLARE @idFacturaValida INT = (
     SELECT TOP 1 id_factura 
     FROM facturacion.Factura 
-    WHERE id_socio = @idSocio AND anulada = 0 AND leyenda = 'Cuota Junio'
+    WHERE id_socio = @idSocio AND anulada = 0 AND leyenda = 'Consumidor Final'
 );
 
 EXEC cobranzas.spRegistrarCobranza 
@@ -92,13 +92,11 @@ EXEC cobranzas.spRegistrarCobranza
 SELECT 'PRUEBA 1 - OK' AS Resultado, * FROM cobranzas.Pago WHERE id_factura = @idFacturaValida;
 SELECT 'PRUEBA 1 - Saldo actualizado' AS Resultado, saldo FROM administracion.Socio WHERE id_socio = @idSocio;
 
-
-
 -- ✅ TEST 2: Pago válido sin actividad extra
 DECLARE @idSocio INT = (SELECT id_socio FROM administracion.Socio WHERE nro_socio = 'SOC1000');
-DECLARE @idFacturaValida INT = (
+DECLARE @idFactura2 INT = (
     SELECT TOP 1 id_factura FROM facturacion.Factura 
-    WHERE id_socio = @idSocio AND anulada = 0
+    WHERE id_socio = @idSocio AND anulada = 0 AND leyenda = 'Consumidor Final'
 );
 
 EXEC cobranzas.spRegistrarCobranza 
@@ -107,15 +105,13 @@ EXEC cobranzas.spRegistrarCobranza
     @fecha = '2025-06-04',
     @medioPago = 'Transferencia',
     @idActividadExtra = NULL,
-    @idFactura = @idFacturaValida;
+    @idFactura = @idFactura2;
 
--- 🔎 Resultado esperado: inserción en cobranzas.Pago
-SELECT 'TEST 2 - OK' AS Resultado, * FROM cobranzas.Pago WHERE id_factura = @idFacturaValida;
+SELECT 'TEST 2 - OK' AS Resultado, * FROM cobranzas.Pago WHERE id_factura = @idFactura2;
 
 -- ❌ TEST 3: Medio de pago no registrado
-
 DECLARE @idSocio INT = (SELECT id_socio FROM administracion.Socio WHERE nro_socio = 'SOC1000');
-DECLARE @idFactura INT = (SELECT TOP 1 id_factura FROM facturacion.Factura WHERE leyenda = 'Cuota Junio');
+DECLARE @idFactura3 INT = (SELECT TOP 1 id_factura FROM facturacion.Factura WHERE leyenda = 'Consumidor Final');
 
 BEGIN TRY
     EXEC cobranzas.spRegistrarCobranza 
@@ -124,74 +120,69 @@ BEGIN TRY
         @fecha = '2025-06-04',
         @medioPago = 'Bitcoin',
         @idActividadExtra = NULL,
-        @idFactura = @idFactura;
+        @idFactura = @idFactura3;
 END TRY
 BEGIN CATCH
     SELECT 'TEST 3 - ERROR ESPERADO' AS Resultado, ERROR_MESSAGE() AS ErrorMsg;
 END CATCH;
 
 
--- ❌ TEST 4: Medio de pago prohibido (Efectivo)
+-- ❌ TEST 4 y 5: Medio de pago prohibido
 DECLARE @idSocio INT = (SELECT id_socio FROM administracion.Socio WHERE nro_socio = 'SOC1000');
-DECLARE @idFactura INT = (SELECT TOP 1 id_factura FROM facturacion.Factura WHERE leyenda = 'Cuota Junio');
+DECLARE @idFactura45 INT = (SELECT TOP 1 id_factura FROM facturacion.Factura WHERE leyenda = 'Consumidor Final');
+
 BEGIN TRY
     EXEC cobranzas.spRegistrarCobranza 
-        @idSocio = @idSocio,
-        @monto = 500.00,
-        @fecha = '2025-06-04',
-        @medioPago = 'Efectivo',
-        @idActividadExtra = NULL,
-        @idFactura = @idFactura;
+        @idSocio = @idSocio, 
+        @monto = 500, 
+        @fecha = '2025-06-04', 
+        @medioPago = 'Efectivo', 
+        @idActividadExtra = NULL, 
+        @idFactura = @idFactura45;
 END TRY
-BEGIN CATCH
-    SELECT 'TEST 4 - ERROR ESPERADO' AS Resultado, ERROR_MESSAGE() AS ErrorMsg;
+BEGIN CATCH 
+    SELECT 'TEST 4 - ERROR ESPERADO' AS Resultado, ERROR_MESSAGE() AS ErrorMsg; 
 END CATCH;
 
-
--- ❌ TEST 5: Medio de pago prohibido (Cheque)
-DECLARE @idSocio INT = (SELECT id_socio FROM administracion.Socio WHERE nro_socio = 'SOC1000');
-DECLARE @idFactura INT = (SELECT TOP 1 id_factura FROM facturacion.Factura WHERE leyenda = 'Cuota Junio');
 BEGIN TRY
     EXEC cobranzas.spRegistrarCobranza 
-        @idSocio = @idSocio,
-        @monto = 500.00,
-        @fecha = '2025-06-04',
-        @medioPago = 'Cheque',
-        @idActividadExtra = NULL,
-        @idFactura = @idFactura;
+        @idSocio = @idSocio, 
+        @monto = 500, 
+        @fecha = '2025-06-04', 
+        @medioPago = 'Cheque', 
+        @idActividadExtra = NULL, 
+        @idFactura = @idFactura45;
 END TRY
-BEGIN CATCH
-    SELECT 'TEST 5 - ERROR ESPERADO' AS Resultado, ERROR_MESSAGE() AS ErrorMsg;
+BEGIN CATCH 
+    SELECT 'TEST 5 - ERROR ESPERADO' AS Resultado, ERROR_MESSAGE() AS ErrorMsg; 
 END CATCH;
 
--- ❌ TEST 6: Actividad extra no existente
+-- ❌ TEST 6: Actividad inexistente
 DECLARE @idSocio INT = (SELECT id_socio FROM administracion.Socio WHERE nro_socio = 'SOC1000');
-DECLARE @idFactura INT = (SELECT TOP 1 id_factura FROM facturacion.Factura WHERE leyenda = 'Cuota Junio');
+DECLARE @idFactura45 INT = (SELECT TOP 1 id_factura FROM facturacion.Factura WHERE leyenda = 'Consumidor Final');
+
 BEGIN TRY
     EXEC cobranzas.spRegistrarCobranza 
-        @idSocio = @idSocio,
-        @monto = 1000.00,
-        @fecha = '2025-06-04',
-        @medioPago = 'Tarjeta',
-        @idActividadExtra = 9999, -- inexistente
-        @idFactura = @idFactura;
+        @idSocio = @idSocio, 
+        @monto = 1000, 
+        @fecha = '2025-06-04', 
+        @medioPago = 'Tarjeta', 
+        @idActividadExtra = 9999, -- ID inexistente
+        @idFactura = @idFactura45;
 END TRY
 BEGIN CATCH
     SELECT 'TEST 6 - ERROR ESPERADO' AS Resultado, ERROR_MESSAGE() AS ErrorMsg;
 END CATCH;
 
-
--- ❌ TEST 7: Factura anulada
+-- ❌ TEST 7: Factura anulada con leyenda = 'Consumidor Final'
 DECLARE @idSocio INT = (SELECT id_socio FROM administracion.Socio WHERE nro_socio = 'SOC1000');
 
--- Crear una factura anulada para el test
 INSERT INTO facturacion.Factura (
     id_emisor, id_socio, leyenda, monto_total, fecha_emision, fecha_vencimiento, estado, anulada
-)
-VALUES (
+) VALUES (
     (SELECT TOP 1 id_emisor FROM facturacion.EmisorFactura),
     @idSocio,
-    'Factura Anulada Test',
+    'Consumidor Final',
     1000.00,
     '2025-06-01',
     '2025-06-30',
@@ -203,86 +194,49 @@ DECLARE @idFacturaAnulada INT = SCOPE_IDENTITY();
 
 BEGIN TRY
     EXEC cobranzas.spRegistrarCobranza 
-        @idSocio = @idSocio,
-        @monto = 500.00,
-        @fecha = '2025-06-05',
-        @medioPago = 'Tarjeta',
-        @idActividadExtra = NULL,
+        @idSocio = @idSocio, 
+        @monto = 500, 
+        @fecha = '2025-06-05', 
+        @medioPago = 'Tarjeta', 
+        @idActividadExtra = NULL, 
         @idFactura = @idFacturaAnulada;
 END TRY
 BEGIN CATCH
     SELECT 'TEST 7 - ERROR ESPERADO' AS Resultado, ERROR_MESSAGE() AS ErrorMsg;
 END CATCH;
 
-
-
 -- ❌ TEST 8: Socio inactivo
-
--- Insertar persona inactiva (si no existe)
 IF NOT EXISTS (SELECT 1 FROM administracion.Persona WHERE dni = '0000000003')
 BEGIN
     INSERT INTO administracion.Persona (nombre, apellido, dni, email, fecha_nacimiento, tel_contacto, tel_emergencia, borrado)
     VALUES ('Inactivo', 'Socio', '0000000003', 'inactivo@email.com', '1995-01-01', '1111222233', '2222333344', 0);
 END
 
--- Obtener idPersona
 DECLARE @idPersonaInactiva INT = (SELECT id_persona FROM administracion.Persona WHERE dni = '0000000003');
 
--- Insertar socio inactivo (si no existe)
 IF NOT EXISTS (SELECT 1 FROM administracion.Socio WHERE nro_socio = 'SOCINACTIVO')
 BEGIN
     INSERT INTO administracion.Socio (
         id_persona, id_categoria, nro_socio, obra_social, nro_obra_social, saldo, activo
     )
-    VALUES (
-        @idPersonaInactiva, 
-        (SELECT TOP 1 id_categoria FROM administracion.CategoriaSocio), 
-        'SOCINACTIVO', 
-        'OSDE', 
-        '999999', 
-        5000.00, 
-        0
-    );
+    VALUES (@idPersonaInactiva, (SELECT TOP 1 id_categoria FROM administracion.CategoriaSocio), 'SOCINACTIVO', 'OSDE', '999999', 5000.00, 0);
 END
 
--- Insertar factura para el socio inactivo (si no existe)
 IF NOT EXISTS (
     SELECT 1 FROM facturacion.Factura 
-    WHERE leyenda = 'Factura Inactivo' 
-    AND id_socio = (SELECT id_socio FROM administracion.Socio WHERE nro_socio = 'SOCINACTIVO')
+    WHERE leyenda = 'Consumidor Final' AND id_socio = (SELECT id_socio FROM administracion.Socio WHERE nro_socio = 'SOCINACTIVO')
 )
 BEGIN
     INSERT INTO facturacion.Factura (
         id_emisor, id_socio, leyenda, monto_total, fecha_emision, fecha_vencimiento, estado, anulada
     )
-    VALUES (
-        (SELECT TOP 1 id_emisor FROM facturacion.EmisorFactura),
-        (SELECT id_socio FROM administracion.Socio WHERE nro_socio = 'SOCINACTIVO'),
-        'Factura Inactivo',
-        2000.00,
-        '2025-06-01',
-        '2025-06-30',
-        'Emitida',
-        0
-    );
+    VALUES ((SELECT TOP 1 id_emisor FROM facturacion.EmisorFactura), (SELECT id_socio FROM administracion.Socio WHERE nro_socio = 'SOCINACTIVO'), 'Consumidor Final', 2000.00, '2025-06-01', '2025-06-30', 'Emitida', 0);
 END
 
--- Ejecutar SP con socio inactivo (declaración de variables)
 DECLARE @idSocioInactivo INT = (SELECT id_socio FROM administracion.Socio WHERE nro_socio = 'SOCINACTIVO');
-DECLARE @idFacturaInactivo INT = (
-    SELECT TOP 1 id_factura FROM facturacion.Factura 
-    WHERE leyenda = 'Factura Inactivo' AND id_socio = @idSocioInactivo
-);
+DECLARE @idFacturaInactivo INT = (SELECT TOP 1 id_factura FROM facturacion.Factura WHERE leyenda = 'Consumidor Final' AND id_socio = @idSocioInactivo);
 
 BEGIN TRY
-    EXEC cobranzas.spRegistrarCobranza 
-        @idSocio = @idSocioInactivo,
-        @monto = 500.00,
-        @fecha = '2025-06-05',
-        @medioPago = 'Tarjeta',
-        @idActividadExtra = NULL,
-        @idFactura = @idFacturaInactivo;
+    EXEC cobranzas.spRegistrarCobranza @idSocio = @idSocioInactivo, @monto = 500, @fecha = '2025-06-05', @medioPago = 'Tarjeta', @idActividadExtra = NULL, @idFactura = @idFacturaInactivo;
 END TRY
-BEGIN CATCH
-    SELECT 'TEST 8 - ERROR ESPERADO' AS Resultado, ERROR_MESSAGE() AS ErrorMsg;
-END CATCH;
+BEGIN CATCH SELECT 'TEST 8 - ERROR ESPERADO' AS Resultado, ERROR_MESSAGE() AS ErrorMsg; END CATCH;
