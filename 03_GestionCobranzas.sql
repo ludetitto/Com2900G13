@@ -8,12 +8,12 @@
             De Titto Lucia 46501934
             Benvenuto Franco 44760004
 ========================================================================= */
--- Eliminar si ya existe
-IF OBJECT_ID('pagos.spRegistrarCobranza', 'P') IS NOT NULL
-    DROP PROCEDURE pagos.spRegistrarCobranza;
+USE COM2900G13
+IF OBJECT_ID('cobranzas.spRegistrarCobranza', 'P') IS NOT NULL
+    DROP PROCEDURE cobranzas.spRegistrarCobranza;
 GO
 
-CREATE PROCEDURE pagos.spRegistrarCobranza
+CREATE PROCEDURE cobranzas.spRegistrarCobranza
     @idSocio INT,
     @monto DECIMAL(10, 2),
     @fecha DATE,
@@ -28,7 +28,7 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
-        -- Validación del medio de pago
+        -- Validación del medio de pago no permitido
         IF @medioPago IN ('Efectivo', 'Cheque')
         BEGIN
             RAISERROR('No se aceptan pagos en Efectivo ni Cheque.', 16, 1);
@@ -39,7 +39,7 @@ BEGIN
         -- Validación del medio de pago registrado
         DECLARE @idMedioPago INT;
         SELECT @idMedioPago = id_medio 
-        FROM pagos.MedioDePago 
+        FROM cobranzas.MedioDePago 
         WHERE nombre = @medioPago;
 
         IF @idMedioPago IS NULL
@@ -50,26 +50,35 @@ BEGIN
         END;
 
         -- Validación del socio
-        IF NOT EXISTS (SELECT 1 FROM socios.Socio WHERE id_socio = @idSocio)
+        IF NOT EXISTS (
+            SELECT 1 FROM administracion.Socio 
+            WHERE id_socio = @idSocio AND activo = 1
+        )
         BEGIN
-            RAISERROR('El socio especificado no existe.', 16, 1);
+            RAISERROR('El socio especificado no existe o no está activo.', 16, 1);
             ROLLBACK TRANSACTION;
             RETURN;
         END;
 
-        -- Validación actividad extra
-        IF @idActividadExtra IS NOT NULL AND NOT EXISTS (SELECT 1 FROM actividades.ActividadExtra WHERE id_actividad_extra = @idActividadExtra)
+        -- Validación de la actividad extra (opcional)
+        IF @idActividadExtra IS NOT NULL AND NOT EXISTS (
+            SELECT 1 
+            FROM actividades.ActividadExtra 
+            WHERE id_extra = @idActividadExtra
+        )
         BEGIN
             RAISERROR('La actividad extra especificada no existe.', 16, 1);
             ROLLBACK TRANSACTION;
             RETURN;
         END;
 
-        -- Validar factura asociada al socio
+        -- Validar existencia de factura válida asociada al socio
         IF NOT EXISTS (
             SELECT 1 
             FROM facturacion.Factura 
-            WHERE id_factura = @idFactura AND id_socio = @idSocio AND anulada = 0
+            WHERE id_factura = @idFactura 
+              AND id_socio = @idSocio 
+              AND anulada = 0
         )
         BEGIN
             RAISERROR('La factura no existe, no pertenece al socio o está anulada.', 16, 1);
@@ -78,34 +87,32 @@ BEGIN
         END;
 
         -- Insertar el pago
-        INSERT INTO pagos.Pago (
-            id_socio, 
+        INSERT INTO cobranzas.Pago (
             id_factura,
-            id_medio, 
-            id_actividad_extra, 
-            fecha, 
-            monto, 
-            detalle
+            id_medio,
+            monto,
+            fecha_emision,
+            fecha_vencimiento,
+            estado
         )
         VALUES (
-            @idSocio, 
             @idFactura,
-            @idMedioPago, 
-            @idActividadExtra, 
-            @fecha, 
-            @monto, 
-            'Cobranza registrada mediante ' + @medioPago
+            @idMedioPago,
+            @monto,
+            GETDATE(),
+            @fecha,
+            'Pagado'
         );
 
-        -- Actualizar saldo del socio
-        UPDATE socios.Socio
+        -- Actualizar el saldo del socio
+        UPDATE administracion.Socio
         SET saldo = saldo - @monto
         WHERE id_socio = @idSocio;
 
         COMMIT TRANSACTION;
     END TRY
     BEGIN CATCH
-        IF @@TRANCOUNT > 0
+        IF XACT_STATE() <> 0
             ROLLBACK TRANSACTION;
 
         DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
