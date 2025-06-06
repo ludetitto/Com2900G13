@@ -391,8 +391,8 @@ CREATE TABLE cobranzas.PagoACuenta (
 );
 GO
 
-IF OBJECT_ID('cobranzas.PagoACuenta', 'U') IS NOT NULL
-    DROP TABLE cobranzas.PagoACuenta;
+IF OBJECT_ID('cobranzas.NotaDeCredito', 'U') IS NOT NULL
+    DROP TABLE cobranzas.NotaDeCredito;
 GO
 
 CREATE TABLE cobranzas.NotaDeCredito (

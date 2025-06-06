@@ -316,3 +316,109 @@ END CATCH;
 SELECT 'TEST 3 - Verificación final' AS Resultado, * 
 FROM cobranzas.MedioDePago 
 WHERE nombre IN ('Tarjeta', 'Mastercard');
+
+
+
+-- TESTING GenerarReembolso
+
+-- ✅ TEST 1: Reembolso válido
+DECLARE @idPagoValido INT = (
+    SELECT TOP 1 id_pago
+    FROM cobranzas.Pago
+    ORDER BY fecha_emision DESC
+);
+
+BEGIN TRY
+    EXEC cobranzas.GenerarReembolso 
+        @idPago = @idPagoValido,
+        @monto = 300.00,
+        @motivo = 'Error en facturación';
+    SELECT 'TEST 1 - OK' AS Resultado, * FROM cobranzas.NotaDeCredito WHERE id_pago = @idPagoValido;
+END TRY
+BEGIN CATCH
+    SELECT 'TEST 1 - ERROR NO ESPERADO' AS Resultado, ERROR_MESSAGE() AS ErrorMsg;
+END CATCH;
+
+-- ❌ TEST 2: ID de pago inexistente
+BEGIN TRY
+    EXEC cobranzas.GenerarReembolso 
+        @idPago = -1,
+        @monto = 100.00,
+        @motivo = 'Pago inválido';
+END TRY
+BEGIN CATCH
+    SELECT 'TEST 2 - ERROR ESPERADO' AS Resultado, ERROR_MESSAGE() AS ErrorMsg;
+END CATCH;
+
+-- TESTING RegistrarPagoACuenta
+
+-- ✅ TEST 3: Pago a cuenta válido (ver saldo antes y después)
+DECLARE @idSocioPagoCuenta INT = (
+    SELECT TOP 1 id_socio FROM administracion.Socio WHERE activo = 1
+);
+DECLARE @saldoAntes DECIMAL(10,2);
+DECLARE @saldoDespues DECIMAL(10,2);
+
+-- Obtener saldo antes
+SELECT @saldoAntes = saldo FROM administracion.Socio WHERE id_socio = @idSocioPagoCuenta;
+
+BEGIN TRY
+    EXEC cobranzas.RegistrarPagoACuenta 
+        @idSocio = @idSocioPagoCuenta,
+        @monto = 400.00,
+        @fecha = '2025-06-05',
+        @medioPago = 'Transferencia';
+
+    -- Obtener saldo después
+    SELECT @saldoDespues = saldo FROM administracion.Socio WHERE id_socio = @idSocioPagoCuenta;
+
+    SELECT 'TEST 3 - OK' AS Resultado, 
+           @saldoAntes AS SaldoAntes, 
+           @saldoDespues AS SaldoDespues;
+
+    SELECT * FROM cobranzas.PagoACuenta 
+    WHERE id_socio = @idSocioPagoCuenta 
+    ORDER BY fecha DESC;
+END TRY
+BEGIN CATCH
+    SELECT 'TEST 3 - ERROR NO ESPERADO' AS Resultado, ERROR_MESSAGE() AS ErrorMsg;
+END CATCH;
+
+
+-- ❌ TEST 4: Medio de pago inválido
+DECLARE @idSocioPagoCuenta INT = (
+    SELECT TOP 1 id_socio FROM administracion.Socio WHERE activo = 1
+);
+BEGIN TRY
+    EXEC cobranzas.RegistrarPagoACuenta 
+        @idSocio = @idSocioPagoCuenta,
+        @monto = 300.00,
+        @fecha = '2025-06-05',
+        @medioPago = 'Billetes';
+END TRY
+BEGIN CATCH
+    SELECT 'TEST 4 - ERROR ESPERADO' AS Resultado, ERROR_MESSAGE() AS ErrorMsg;
+END CATCH;
+
+
+-- ❌ TEST 5: Socio inactivo
+DECLARE @idSocioInactivoCuenta INT = (
+    SELECT TOP 1 id_socio FROM administracion.Socio WHERE activo = 0
+);
+
+BEGIN TRY
+    EXEC cobranzas.RegistrarPagoACuenta 
+        @idSocio = @idSocioInactivoCuenta,
+        @monto = 200.00,
+        @fecha = '2025-06-05',
+        @medioPago = 'Tarjeta';
+END TRY
+BEGIN CATCH
+    SELECT 'TEST 5 - ERROR ESPERADO' AS Resultado, ERROR_MESSAGE() AS ErrorMsg;
+END CATCH;
+
+
+
+
+
+

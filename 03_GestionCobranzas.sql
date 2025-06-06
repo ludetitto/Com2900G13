@@ -181,3 +181,134 @@ BEGIN
     PRINT 'Débito automático deshabilitado correctamente para el medio de pago especificado.';
 END;
 GO
+
+
+-- SP GENERAR REEMBOLSO
+IF OBJECT_ID('cobranzas.GenerarReembolso', 'P') IS NOT NULL
+    DROP PROCEDURE cobranzas.GenerarReembolso;
+GO
+
+CREATE PROCEDURE cobranzas.GenerarReembolso
+    @idPago INT,
+    @monto DECIMAL(10,2),
+    @motivo NVARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Validar existencia del pago
+        IF NOT EXISTS (
+            SELECT 1 FROM cobranzas.Pago WHERE id_pago = @idPago
+        )
+        BEGIN
+            RAISERROR('No existe un pago con el ID especificado.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END;
+
+        DECLARE @idSocio INT = (
+            SELECT f.id_socio
+            FROM cobranzas.Pago p
+            JOIN facturacion.Factura f ON f.id_factura = p.id_factura
+            WHERE p.id_pago = @idPago
+        );
+
+        -- Insertar nota de crédito (reembolso)
+        INSERT INTO cobranzas.NotaDeCredito (
+            id_pago, monto, fecha_emision, estado, motivo
+        ) VALUES (
+            @idPago, @monto, GETDATE(), 'Emitida', @motivo
+        );
+
+        -- Aumentar el saldo del socio
+        UPDATE administracion.Socio
+        SET saldo = saldo + @monto
+        WHERE id_socio = @idSocio;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+		IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+		DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+		DECLARE @ErrSeverity INT = ERROR_SEVERITY();
+		RAISERROR(@ErrMsg, @ErrSeverity, 1);
+	END CATCH
+END;
+GO
+
+
+-- SP GENERAR PAGO A CUENTA
+IF OBJECT_ID('cobranzas.RegistrarPagoACuenta', 'P') IS NOT NULL
+    DROP PROCEDURE cobranzas.RegistrarPagoACuenta;
+GO
+
+CREATE PROCEDURE cobranzas.RegistrarPagoACuenta
+    @idSocio INT,
+    @monto DECIMAL(10,2),
+    @fecha DATE,
+    @medioPago VARCHAR(50),
+    @motivo VARCHAR(100) = 'Pago a cuenta sin factura'
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- Validar socio activo
+        IF NOT EXISTS (
+            SELECT 1 FROM administracion.Socio WHERE id_socio = @idSocio AND activo = 1
+        )
+        BEGIN
+            RAISERROR('El socio no existe o no está activo.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END;
+
+        -- Validar medio de pago
+        DECLARE @idMedio INT;
+        SELECT @idMedio = id_medio FROM cobranzas.MedioDePago WHERE nombre = @medioPago;
+
+        IF @idMedio IS NULL
+        BEGIN
+            RAISERROR('Medio de pago inválido o no registrado.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END;
+
+        -- Insertar en tabla Pago (sin factura)
+        INSERT INTO cobranzas.Pago (
+            id_factura, id_medio, monto, fecha_emision, fecha_vencimiento, estado
+        ) VALUES (
+            NULL, @idMedio, @monto, GETDATE(), @fecha, 'ACuenta'
+        );
+
+        DECLARE @idPagoGenerado INT = SCOPE_IDENTITY();
+
+        -- Insertar en PagoACuenta
+        INSERT INTO cobranzas.PagoACuenta (
+            id_pago, id_socio, monto, fecha, motivo
+        ) VALUES (
+            @idPagoGenerado, @idSocio, @monto, @fecha, @motivo
+        );
+
+        -- Acreditar monto al saldo del socio
+        UPDATE administracion.Socio
+        SET saldo = saldo + @monto
+        WHERE id_socio = @idSocio;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        DECLARE @ErrSeverity INT = ERROR_SEVERITY();
+        RAISERROR(@ErrMsg, @ErrSeverity, 1);
+    END CATCH
+END;
+GO
