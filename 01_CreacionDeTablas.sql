@@ -11,7 +11,7 @@
 USE COM2900G13;
 GO
 
-DROP PROCEDURE IF EXISTS cobranzas.spRegistrarCobranza
+DROP PROCEDURE IF EXISTS cobranzas.RegistrarCobranza
 DROP PROCEDURE IF EXISTS administracion.P_GestionarGrupoFamiliar
 DROP PROCEDURE IF EXISTS administracion.P_GestionarSocio
 DROP PROCEDURE IF EXISTS administracion.P_GestionarCategoriaSocio

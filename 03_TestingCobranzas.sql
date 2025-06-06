@@ -81,7 +81,7 @@ DECLARE @idFacturaValida INT = (
     WHERE id_socio = @idSocio AND anulada = 0 AND leyenda = 'Consumidor Final'
 );
 
-EXEC cobranzas.spRegistrarCobranza 
+EXEC cobranzas.RegistrarCobranza 
     @idSocio = @idSocio, 
     @monto = 1500.00, 
     @fecha = '2025-06-03', 
@@ -99,7 +99,7 @@ DECLARE @idFactura2 INT = (
     WHERE id_socio = @idSocio AND anulada = 0 AND leyenda = 'Consumidor Final'
 );
 
-EXEC cobranzas.spRegistrarCobranza 
+EXEC cobranzas.RegistrarCobranza 
     @idSocio = @idSocio,
     @monto = 1000.00,
     @fecha = '2025-06-04',
@@ -114,7 +114,7 @@ DECLARE @idSocio INT = (SELECT id_socio FROM administracion.Socio WHERE nro_soci
 DECLARE @idFactura3 INT = (SELECT TOP 1 id_factura FROM facturacion.Factura WHERE leyenda = 'Consumidor Final');
 
 BEGIN TRY
-    EXEC cobranzas.spRegistrarCobranza 
+    EXEC cobranzas.RegistrarCobranza 
         @idSocio = @idSocio,
         @monto = 900.00,
         @fecha = '2025-06-04',
@@ -132,7 +132,7 @@ DECLARE @idSocio INT = (SELECT id_socio FROM administracion.Socio WHERE nro_soci
 DECLARE @idFactura45 INT = (SELECT TOP 1 id_factura FROM facturacion.Factura WHERE leyenda = 'Consumidor Final');
 
 BEGIN TRY
-    EXEC cobranzas.spRegistrarCobranza 
+    EXEC cobranzas.RegistrarCobranza 
         @idSocio = @idSocio, 
         @monto = 500, 
         @fecha = '2025-06-04', 
@@ -145,7 +145,7 @@ BEGIN CATCH
 END CATCH;
 
 BEGIN TRY
-    EXEC cobranzas.spRegistrarCobranza 
+    EXEC cobranzas.RegistrarCobranza 
         @idSocio = @idSocio, 
         @monto = 500, 
         @fecha = '2025-06-04', 
@@ -162,7 +162,7 @@ DECLARE @idSocio INT = (SELECT id_socio FROM administracion.Socio WHERE nro_soci
 DECLARE @idFactura45 INT = (SELECT TOP 1 id_factura FROM facturacion.Factura WHERE leyenda = 'Consumidor Final');
 
 BEGIN TRY
-    EXEC cobranzas.spRegistrarCobranza 
+    EXEC cobranzas.RegistrarCobranza 
         @idSocio = @idSocio, 
         @monto = 1000, 
         @fecha = '2025-06-04', 
@@ -193,7 +193,7 @@ INSERT INTO facturacion.Factura (
 DECLARE @idFacturaAnulada INT = SCOPE_IDENTITY();
 
 BEGIN TRY
-    EXEC cobranzas.spRegistrarCobranza 
+    EXEC cobranzas.RegistrarCobranza 
         @idSocio = @idSocio, 
         @monto = 500, 
         @fecha = '2025-06-05', 
@@ -237,6 +237,82 @@ DECLARE @idSocioInactivo INT = (SELECT id_socio FROM administracion.Socio WHERE 
 DECLARE @idFacturaInactivo INT = (SELECT TOP 1 id_factura FROM facturacion.Factura WHERE leyenda = 'Consumidor Final' AND id_socio = @idSocioInactivo);
 
 BEGIN TRY
-    EXEC cobranzas.spRegistrarCobranza @idSocio = @idSocioInactivo, @monto = 500, @fecha = '2025-06-05', @medioPago = 'Tarjeta', @idActividadExtra = NULL, @idFactura = @idFacturaInactivo;
+    EXEC cobranzas.RegistrarCobranza @idSocio = @idSocioInactivo, @monto = 500, @fecha = '2025-06-05', @medioPago = 'Tarjeta', @idActividadExtra = NULL, @idFactura = @idFacturaInactivo;
 END TRY
 BEGIN CATCH SELECT 'TEST 8 - ERROR ESPERADO' AS Resultado, ERROR_MESSAGE() AS ErrorMsg; END CATCH;
+
+
+-- HABILITAR DEBITO AUTOMATICO TESTING
+
+-- ========================================
+-- TEST 1: Habilitar débito automático para un medio válido
+-- ========================================
+IF NOT EXISTS (SELECT 1 FROM cobranzas.MedioDePago WHERE nombre = 'Tarjeta')
+BEGIN
+    INSERT INTO cobranzas.MedioDePago (nombre, debito_automatico)
+    VALUES ('Tarjeta', 0);
+END
+
+EXEC cobranzas.HabilitarDebitoAutomatico @nombreMedio = 'Tarjeta';
+
+SELECT 'TEST 1 - Estado actualizado correctamente' AS Resultado, nombre, debito_automatico 
+FROM cobranzas.MedioDePago WHERE nombre = 'Tarjeta';
+
+-- ========================================
+-- TEST 2: Intentar habilitar débito automático para medio inexistente
+-- ========================================
+BEGIN TRY
+    EXEC cobranzas.HabilitarDebitoAutomatico @nombreMedio = 'Criptomonedas';
+END TRY
+BEGIN CATCH
+    SELECT 'TEST 2 - ERROR ESPERADO' AS Resultado, ERROR_MESSAGE() AS ErrorMsg;
+END CATCH;
+
+-- ========================================
+-- TEST 3: Insertar nuevo medio y habilitar débito automático
+-- ========================================
+IF NOT EXISTS (SELECT 1 FROM cobranzas.MedioDePago WHERE nombre = 'Mastercard')
+BEGIN
+    INSERT INTO cobranzas.MedioDePago (nombre, debito_automatico)
+    VALUES ('Mastercard', 0);
+END
+
+EXEC cobranzas.HabilitarDebitoAutomatico @nombreMedio = 'Mastercard';
+
+SELECT 'TEST 3 - Mastercard actualizado' AS Resultado, nombre, debito_automatico
+FROM cobranzas.MedioDePago WHERE nombre = 'Mastercard';
+
+-- ========================================
+-- TEST 4: Verificación múltiple de estado final
+-- ========================================
+SELECT 'TEST 4 - Verificación final' AS Resultado, * 
+FROM cobranzas.MedioDePago 
+WHERE nombre IN ('Tarjeta', 'Mastercard');
+
+
+-- TESTING DEHABILITAR DEBITO AUTOMATICO
+
+-- ========================================
+-- TEST 1: Deshabilitar débito automático de un medio existente
+-- ========================================
+EXEC cobranzas.DeshabilitarDebitoAutomatico @nombreMedio = 'Tarjeta';
+
+SELECT 'TEST 1 - Tarjeta actualizado' AS Resultado, nombre, debito_automatico
+FROM cobranzas.MedioDePago WHERE nombre = 'Tarjeta';
+
+-- ========================================
+-- TEST 2: Intentar deshabilitar un medio inexistente
+-- ========================================
+BEGIN TRY
+    EXEC cobranzas.DeshabilitarDebitoAutomatico @nombreMedio = 'VisaBlack';
+END TRY
+BEGIN CATCH
+    SELECT 'TEST 2 - ERROR ESPERADO' AS Resultado, ERROR_MESSAGE() AS ErrorMsg;
+END CATCH;
+
+-- ========================================
+-- TEST 3: Confirmar estado final de varios medios
+-- ========================================
+SELECT 'TEST 3 - Verificación final' AS Resultado, * 
+FROM cobranzas.MedioDePago 
+WHERE nombre IN ('Tarjeta', 'Mastercard');

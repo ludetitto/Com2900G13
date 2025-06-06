@@ -9,11 +9,11 @@
             Benvenuto Franco 44760004
 ========================================================================= */
 USE COM2900G13
-IF OBJECT_ID('cobranzas.spRegistrarCobranza', 'P') IS NOT NULL
-    DROP PROCEDURE cobranzas.spRegistrarCobranza;
+IF OBJECT_ID('cobranzas.RegistrarCobranza', 'P') IS NOT NULL
+    DROP PROCEDURE cobranzas.RegistrarCobranza;
 GO
 
-CREATE PROCEDURE cobranzas.spRegistrarCobranza
+CREATE PROCEDURE cobranzas.RegistrarCobranza
     @idSocio INT,
     @monto DECIMAL(10, 2),
     @fecha DATE,
@@ -119,5 +119,65 @@ BEGIN
         DECLARE @ErrSeverity INT = ERROR_SEVERITY();
         RAISERROR(@ErrMsg, @ErrSeverity, 1);
     END CATCH
+END;
+GO
+
+--STORE PROCEDURE HABILITAR DEBITO AUTOMATICO
+
+IF OBJECT_ID('cobranzas.HabilitarDebitoAutomatico', 'P') IS NOT NULL
+    DROP PROCEDURE cobranzas.HabilitarDebitoAutomatico;
+GO
+
+CREATE PROCEDURE cobranzas.HabilitarDebitoAutomatico
+    @nombreMedio VARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validar existencia del medio de pago
+    IF NOT EXISTS (
+        SELECT 1 FROM cobranzas.MedioDePago WHERE nombre = @nombreMedio
+    )
+    BEGIN
+        RAISERROR('El medio de pago especificado no existe.', 16, 1);
+        RETURN;
+    END
+
+    -- Actualizar el campo debito_automatico a 1
+    UPDATE cobranzas.MedioDePago
+    SET debito_automatico = 1
+    WHERE nombre = @nombreMedio;
+
+    PRINT 'Débito automático habilitado correctamente para el medio de pago especificado.';
+END;
+GO
+
+--STORE PROCEDURE DESHABILITAR DEBITO AUTOMATICO
+
+IF OBJECT_ID('cobranzas.DeshabilitarDebitoAutomatico', 'P') IS NOT NULL
+    DROP PROCEDURE cobranzas.DeshabilitarDebitoAutomatico;
+GO
+
+CREATE PROCEDURE cobranzas.DeshabilitarDebitoAutomatico
+    @nombreMedio VARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validar existencia del medio de pago
+    IF NOT EXISTS (
+        SELECT 1 FROM cobranzas.MedioDePago WHERE nombre = @nombreMedio
+    )
+    BEGIN
+        RAISERROR('El medio de pago especificado no existe.', 16, 1);
+        RETURN;
+    END
+
+    -- Actualizar el campo debito_automatico a 0
+    UPDATE cobranzas.MedioDePago
+    SET debito_automatico = 0
+    WHERE nombre = @nombreMedio;
+
+    PRINT 'Débito automático deshabilitado correctamente para el medio de pago especificado.';
 END;
 GO
