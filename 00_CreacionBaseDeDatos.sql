@@ -10,8 +10,9 @@
    ========================================================================= */
 
 -- Descripción: Creación de la base de datos Com3900G13 con configuración ajustada y portable
-
 -- Se utiliza un mecanismo de SQL dinámico para poder insertar la ruta adecuada.
+--USE MASTER
+--DROP DATABASE COM2900G13
 
 DECLARE @dbName VARCHAR(128) = 'COM2900G13';
 DECLARE @dataFile VARCHAR(260);

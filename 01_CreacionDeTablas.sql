@@ -15,7 +15,7 @@ GO
 DROP PROCEDURE IF EXISTS administracion.P_GestionarGrupoFamiliar
 DROP PROCEDURE IF EXISTS administracion.P_GestionarSocio
 DROP PROCEDURE IF EXISTS administracion.P_GestionarCategoriaSocio
-DROP PROCEDURE IF EXISTS administracion.P_GestionarInvitados
+DROP PROCEDURE IF EXISTS administracion.P_GestionarInvitado
 DROP PROCEDURE IF EXISTS administracion.P_GestionarProfesor
 DROP PROCEDURE IF EXISTS administracion.P_GestionarPersona
 
