@@ -12,7 +12,7 @@ GO
 
 -- ✅ PRUEBA 1: Inserción válida de persona
 -- Esperado: Se inserta el registro correctamente
-EXEC administracion.P_GestionarPersona
+EXEC administracion.GestionarPersona
     @nombre = 'Juan',
     @apellido = 'Pérez',
     @dni = '0012345678',
@@ -23,24 +23,24 @@ EXEC administracion.P_GestionarPersona
     @operacion = 'Insertar';
 -- Resultado esperado: Persona insertada sin errores
 GO
-
+SELECT * FROM administracion.Persona
 -- ✅ PRUEBA 2: Modificación válida de persona existente
 -- Esperado: Se actualizan los datos correctamente
-EXEC administracion.P_GestionarPersona
-    @nombre = 'Juan Carlos',
-    @apellido = 'Pérez',
+EXEC administracion.GestionarPersona
+    @nombre = NULL,
+    @apellido = NULL,
     @dni = '0012345678',
-    @email = 'juan.carlos@email.com',
-    @fecha_nacimiento = '1985-10-25',
-    @tel_contacto = '1112223333',
-    @tel_emergencia = '4445556666',
+    @email = NULL,
+    @fecha_nacimiento = '1985-12-25',
+    @tel_contacto = NULL,
+    @tel_emergencia = NULL,
     @operacion = 'Modificar';
 -- Resultado esperado: Persona modificada sin errores
 GO
 
 -- ✅ PRUEBA 3: Eliminación válida de persona
 -- Esperado: Se elimina el registro con DNI dado
-EXEC administracion.P_GestionarPersona
+EXEC administracion.GestionarPersona
     @nombre = NULL,
     @apellido = NULL,
     @dni = '12345678',
@@ -53,7 +53,7 @@ EXEC administracion.P_GestionarPersona
 GO
 
 -- ❌ PRUEBA 4: Modificar persona inexistente
-EXEC administracion.P_GestionarPersona|
+EXEC administracion.GestionarPersona
     @nombre = 'No Existe',
     @apellido = 'Apellido',
     @dni = '99999999',
@@ -67,7 +67,7 @@ GO
 
 -- ❌ PRUEBA 5: Operación inválida
 -- Esperado: Error por operación no permitida
-EXEC administracion.P_GestionarPersona
+EXEC administracion.GestionarPersona
     @nombre = NULL,
     @apellido = NULL,
     @dni = '12345678',
@@ -84,7 +84,7 @@ GO
   _____________________________________________________________________*/
 
 -- ✅ PRUEBA 1: Inserción válida de categoría
-EXEC administracion.P_GestionarCategoriaSocio
+EXEC administracion.GestionarCategoriaSocio
     @nombre = 'Menores',
     @años = 15,
     @costo_membresia = 1000.00,
@@ -94,7 +94,7 @@ EXEC administracion.P_GestionarCategoriaSocio
 GO
 
 -- ✅ PRUEBA 2: Eliminación válida de categoría
-EXEC administracion.P_GestionarCategoriaSocio
+EXEC administracion.GestionarCategoriaSocio
     @nombre = NULL,
     @años = NULL,
     @costo_membresia = NULL,
@@ -105,7 +105,7 @@ EXEC administracion.P_GestionarCategoriaSocio
 GO
 
 -- ❌ PRUEBA 3: Insertar categoría sin nombre
-EXEC administracion.P_GestionarCategoriaSocio
+EXEC administracion.GestionarCategoriaSocio
     @nombre = '',
     @años = 10,
     @costo_membresia = 500.00,
@@ -121,7 +121,7 @@ SELECT TOP 10 * FROM administracion.CategoriaSocio
   _____________________________________________________________________*/
 
 -- ✅ PRUEBA 1: Inserción válida de socio (persona nueva)
-EXEC administracion.P_GestionarSocio
+EXEC administracion.GestionarSocio
     @nombre = 'Lucas',
     @apellido = 'Martínez',
     @dni = '0034567890',
@@ -141,7 +141,7 @@ SELECT * FROM administracion.Socio
 SELECT * FROM administracion.Persona
 
 -- ✅ PRUEBA 2: Eliminación válida de socio
-EXEC administracion.P_GestionarSocio
+EXEC administracion.GestionarSocio
     @nombre = NULL,
     @apellido = NULL,
     @dni = '0034567890',
@@ -160,7 +160,7 @@ EXEC administracion.P_GestionarSocio
 GO
 
 -- ❌ PRUEBA 3: Eliminar socio inexistente
-EXEC administracion.P_GestionarSocio
+EXEC administracion.GestionarSocio
     @nombre = NULL,
     @apellido = NULL,
     @dni = '9999999999',
@@ -183,7 +183,7 @@ GO
   _____________________________________________________________________*/
 
 -- ✅ PRUEBA 1: Inserción válida de profesor (persona nueva)
-EXEC administracion.P_GestionarProfesor
+EXEC administracion.GestionarProfesor
     @nombre = 'Ana',
     @apellido = 'García',
     @dni = '0023456789',
@@ -196,7 +196,7 @@ EXEC administracion.P_GestionarProfesor
 GO
 
 -- ✅ PRUEBA 2: Eliminación válida de profesor
-EXEC administracion.P_GestionarProfesor
+EXEC administracion.GestionarProfesor
     @nombre = NULL,
     @apellido = NULL,
     @dni = '0023456789',
@@ -209,7 +209,7 @@ EXEC administracion.P_GestionarProfesor
 GO
 
 -- ❌ PRUEBA 3: Eliminación de profesor inexistente
-EXEC administracion.P_GestionarProfesor
+EXEC administracion.GestionarProfesor
     @nombre = NULL,
     @apellido = NULL,
     @dni = '9988776655',
@@ -226,25 +226,25 @@ GO
   _____________________________________________________________________*/
 
 -- ✅ PRUEBA 1: Inserción válida de invitado
-EXEC administracion.P_GestionarInvitado
-    @id_socio = 1,
-    @dni = '0045678901',
+EXEC administracion.GestionarInvitado
+    @dni_socio = '0045678901',
+	@dni_invitado = '12345678',
     @operacion = 'Insertar';
 -- Resultado esperado: Invitado insertado correctamente
 GO
 
 -- ✅ PRUEBA 2: Eliminación válida de invitado
-EXEC administracion.P_GestionarInvitado
-    @id_socio = NULL,
-    @dni = '0045678901',
+EXEC administracion.GestionarInvitado
+    @dni_socio = '0045678901',
+	@dni_invitado = '12345678',
     @operacion = 'Eliminar';
 -- Resultado esperado: Invitado eliminado correctamente
 GO
 
 -- ❌ PRUEBA 3: Insertar invitado con DNI ya existente
-EXEC administracion.P_GestionarInvitado
-    @id_socio = 1,
-    @dni = '0045678901',
+EXEC administracion.GestionarInvitado
+    @dni_socio = '0045678901',
+	@dni_invitado = '12345678',
     @operacion = 'Insertar';
 -- Resultado esperado: Error por restricción UNIQUE en DNI
 GO
@@ -254,25 +254,25 @@ GO
   _____________________________________________________________________*/
 
 -- ✅ PRUEBA 1: Inserción válida de grupo familiar
-EXEC administracion.P_GestionarGrupoFamiliar
-    @id_socio = 1,
-    @id_socio_rp = 2,
+EXEC administracion.GestionarGrupoFamiliar
+    @dni_socio = 1,
+    @dni_socio_rp = 2,
     @operacion = 'Insertar';
 -- Resultado esperado: Grupo familiar insertado correctamente
 GO
 
 -- ✅ PRUEBA 2: Eliminación válida de grupo familiar
-EXEC administracion.P_GestionarGrupoFamiliar
-    @id_socio = 1,
-    @id_socio_rp = 2,
+EXEC administracion.GestionarGrupoFamiliar
+    @dni_socio = 1,
+    @dni_socio_rp = 2,
     @operacion = 'Eliminar';
 -- Resultado esperado: Grupo familiar eliminado correctamente
 GO
 
 -- ❌ PRUEBA 3: Insertar grupo familiar con socio inexistente
-EXEC administracion.P_GestionarGrupoFamiliar
-    @id_socio = 100,
-    @id_socio_rp = 200,
+EXEC administracion.GestionarGrupoFamiliar
+    @dni_socio = 1,
+    @dni_socio_rp = 2,
     @operacion = 'Insertar';
 -- Resultado esperado: Error por FK en socio o socio_rp
 GO
@@ -280,3 +280,4 @@ GO
 /*_______________________________________________________________________________
   _________________________________PRUEBA MODULO ________________________________
   _______________________________________________________________________________ */
+

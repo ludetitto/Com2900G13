@@ -12,12 +12,12 @@ USE COM2900G13;
 GO
 
 DROP PROCEDURE IF EXISTS cobranzas.RegistrarCobranza
-DROP PROCEDURE IF EXISTS administracion.P_GestionarGrupoFamiliar
-DROP PROCEDURE IF EXISTS administracion.P_GestionarSocio
-DROP PROCEDURE IF EXISTS administracion.P_GestionarCategoriaSocio
-DROP PROCEDURE IF EXISTS administracion.P_GestionarInvitado
-DROP PROCEDURE IF EXISTS administracion.P_GestionarProfesor
-DROP PROCEDURE IF EXISTS administracion.P_GestionarPersona
+DROP PROCEDURE IF EXISTS administracion.GestionarGrupoFamiliar
+DROP PROCEDURE IF EXISTS administracion.GestionarSocio
+DROP PROCEDURE IF EXISTS administracion.GestionarCategoriaSocio
+DROP PROCEDURE IF EXISTS administracion.GestionarInvitado
+DROP PROCEDURE IF EXISTS administracion.GestionarProfesor
+DROP PROCEDURE IF EXISTS administracion.GestionarPersona
 
 /* ============================
    BORRADO DE OBJETOS DE LA BD
@@ -314,7 +314,8 @@ CREATE TABLE facturacion.Factura (
 	leyenda CHAR(50) NOT NULL,
 	monto_total DECIMAL(10,2),
     fecha_emision DATE,
-    fecha_vencimiento DATE,
+    fecha_vencimiento1 DATE,
+	fecha_vencimiento2 DATE,
 	estado CHAR(10),
     anulada BIT,
 	CONSTRAINT FK_factura_emisor_id FOREIGN KEY (id_emisor) REFERENCES facturacion.Emisorfactura (id_emisor),

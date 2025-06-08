@@ -312,3 +312,26 @@ BEGIN
     END CATCH
 END;
 GO
+
+/*____________________________________________________________________
+  _______________________ ActualizarFacturaAPaga _____________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('cobranzas.ActualizarFacturaAPaga', 'TR') IS NOT NULL
+    DROP TRIGGER cobranzas.ActualizarFacturaAPaga;
+GO
+
+CREATE TRIGGER cobranzas.ActualizarFacturaAPaga
+ON cobranzas.Pago
+AFTER INSERT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    /* Se actualiza la factura cuyo id_factura está en la tabla inserted (puede ser más de uno)*/
+    UPDATE F
+    SET F.estado = 'Pagada'
+    FROM facturacion.Factura f
+    INNER JOIN inserted i ON f.id_factura = i.id_factura;
+END;
+GO
