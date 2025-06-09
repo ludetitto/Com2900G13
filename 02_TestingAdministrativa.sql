@@ -1,8 +1,12 @@
-﻿-- =========================================================================
--- Trabajo Práctico Integrador - Bases de Datos Aplicadas
--- Testing para módulo de Gestión de Cobranzas
--- Grupo N°: 13 | Comisión: 2900 | Fecha de Entrega: 17/06/2025
--- =========================================================================
+﻿/* =========================================================================
+   Trabajo Práctico Integrador - Bases de Datos Aplicadas
+   Grupo N°: 13
+   Comisión: 2900
+   Fecha de Entrega: 17/06/2025
+   Materia: Bases de Datos Aplicadas
+   Alumnos: Vignardel Francisco 45778667
+            De Titto Lucia 46501934
+ ========================================================================= */
 
 USE COM2900G13;
 GO
@@ -37,13 +41,15 @@ EXEC administracion.GestionarPersona
     @operacion = 'Modificar';
 -- Resultado esperado: Persona modificada sin errores
 GO
+SELECT * FROM administracion.Persona
+
 
 -- ✅ PRUEBA 3: Eliminación válida de persona
 -- Esperado: Se elimina el registro con DNI dado
 EXEC administracion.GestionarPersona
     @nombre = NULL,
     @apellido = NULL,
-    @dni = '12345678',
+    @dni = '0012345678',
     @email = NULL,
     @fecha_nacimiento = NULL,
     @tel_contacto = NULL,
@@ -92,6 +98,8 @@ EXEC administracion.GestionarCategoriaSocio
     @operacion = 'Insertar';
 -- Resultado esperado: Categoría insertada correctamente
 GO
+SELECT TOP 10 * FROM administracion.CategoriaSocio
+
 
 -- ✅ PRUEBA 2: Eliminación válida de categoría
 EXEC administracion.GestionarCategoriaSocio
@@ -142,22 +150,12 @@ SELECT * FROM administracion.Persona
 
 -- ✅ PRUEBA 2: Eliminación válida de socio
 EXEC administracion.GestionarSocio
-    @nombre = NULL,
-    @apellido = NULL,
     @dni = '0034567890',
-    @email = NULL,
-    @fecha_nacimiento = NULL,
-    @tel_contacto = NULL,
-    @tel_emergencia = NULL,
-    @id_categoria = NULL,
-    @nro_socio = NULL,
-    @obra_social = NULL,
-    @nro_obra_social = NULL,
-    @saldo = NULL,
-    @activo = NULL,
     @operacion = 'Eliminar';
--- Resultado esperado: Socio eliminado, persona no borrada
-GO
+
+SELECT * FROM administracion.Socio;
+SELECT * FROM administracion.Persona;
+
 
 -- ❌ PRUEBA 3: Eliminar socio inexistente
 EXEC administracion.GestionarSocio

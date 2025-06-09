@@ -6,12 +6,14 @@
    Materia: Bases de Datos Aplicadas
    Alumnos: Vignardel Francisco 45778667
             De Titto Lucia 46501934
-            Benvenuto Franco 44760004
    ========================================================================= */
 
 -- Descripción: Creación de la base de datos Com3900G13 con configuración ajustada y portable
 -- Se utiliza un mecanismo de SQL dinámico para poder insertar la ruta adecuada.
+
+--Eliminar La Base De Datos
 --USE MASTER
+--ALTER DATABASE COM2900G13 SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
 --DROP DATABASE COM2900G13
 
 DECLARE @dbName VARCHAR(128) = 'COM2900G13';

@@ -6,7 +6,6 @@
    Materia: Bases de Datos Aplicadas
    Alumnos: Vignardel Francisco 45778667
             De Titto Lucia 46501934
-            Benvenuto Franco 44760004
  ========================================================================= */
 USE COM2900G13;
 GO
@@ -37,6 +36,7 @@ EXEC actividades.GestionarActividad
     @operacion = 'Modificar';
 -- Resultado esperado: Actividad modificada sin errores
 GO
+SELECT * FROM actividades.Actividad
 
 -- ✅ PRUEBA 3: Eliminación válida de actividad
 -- Esperado: Se elimina el registro de la actividad
@@ -48,6 +48,8 @@ EXEC actividades.GestionarActividad
     @operacion = 'Eliminar';
 -- Resultado esperado: Actividad eliminada sin errores
 GO
+SELECT * FROM actividades.Actividad
+
 
 -- ❌ PRUEBA 4: Modificar actividad inexistente
 EXEC actividades.GestionarActividad
@@ -58,6 +60,7 @@ EXEC actividades.GestionarActividad
     @operacion = 'Modificar';
 -- Resultado esperado: Error lanzado por RAISERROR
 GO
+SELECT * FROM actividades.Actividad
 
 -- ❌ PRUEBA 5: Operación inválida
 EXEC actividades.GestionarActividad
@@ -68,6 +71,7 @@ EXEC actividades.GestionarActividad
     @operacion = 'Actualizar';
 -- Resultado esperado: Error lanzado por RAISERROR de operación inválida
 GO
+SELECT * FROM actividades.Actividad
 
 /*_____________________________________________________________________
   _________________________ P_GestionarClase __________________________
@@ -93,6 +97,7 @@ EXEC actividades.GestionarClase
     @operacion = 'Modificar';
 -- Resultado esperado: Clase modificada sin errores
 GO
+SELECT * FROM actividades.Clase
 
 -- ✅ PRUEBA 3: Eliminación válida de clase
 -- Esperado: Se elimina la clase correspondiente
@@ -103,6 +108,7 @@ EXEC actividades.GestionarClase
     @operacion = 'Eliminar';
 -- Resultado esperado: Clase eliminada sin errores
 GO
+SELECT * FROM actividades.Clase
 
 -- ❌ PRUEBA 4: Modificar clase inexistente
 EXEC actividades.GestionarClase
@@ -112,6 +118,7 @@ EXEC actividades.GestionarClase
     @operacion = 'Modificar';
 -- Resultado esperado: Error lanzado por RAISERROR
 GO
+SELECT * FROM actividades.Clase
 
 -- ❌ PRUEBA 5: Operación inválida
 EXEC actividades.GestionarClase
@@ -240,6 +247,8 @@ EXEC actividades.GestionarActividadExtra
 @operacion = 'Insertar';
 -- Resultado esperado: Actividad insertada sin errores
 GO
+SELECT * FROM actividades.actividadExtra;
+
 
 -- ✅ PRUEBA 2: Modificación válida
 EXEC actividades.GestionarActividadExtra
@@ -251,6 +260,7 @@ EXEC actividades.GestionarActividadExtra
 @operacion = 'Modificar';
 -- Resultado esperado: Actividad modificada correctamente
 GO
+SELECT * FROM actividades.actividadExtra;
 
 -- ✅ PRUEBA 3: Eliminación válida
 EXEC actividades.GestionarActividadExtra
@@ -262,6 +272,7 @@ EXEC actividades.GestionarActividadExtra
 @operacion = 'Eliminar';
 -- Resultado esperado: Actividad eliminada sin errores
 GO
+SELECT * FROM actividades.actividadExtra;
 
 -- ❌ PRUEBA 4: Modificación de actividad inexistente
 EXEC actividades.GestionarActividadExtra

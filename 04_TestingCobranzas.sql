@@ -1,8 +1,12 @@
-﻿-- =========================================================================
--- Trabajo Práctico Integrador - Bases de Datos Aplicadas
--- Testing para módulo de Gestión de Cobranzas
--- Grupo N°: 13 | Comisión: 2900 | Fecha de Entrega: 17/06/2025
--- =========================================================================
+﻿/* =========================================================================
+   Trabajo Práctico Integrador - Bases de Datos Aplicadas
+   Grupo N°: 13
+   Comisión: 2900
+   Fecha de Entrega: 17/06/2025
+   Materia: Bases de Datos Aplicadas
+   Alumnos: Vignardel Francisco 45778667
+            De Titto Lucia 46501934
+ ========================================================================= */
 USE COM2900G13;
 GO
 
@@ -418,94 +422,7 @@ BEGIN CATCH
 END CATCH;
 
 
-/*____________________________________________________________________
-  ______________________ CASO DE PRUEBA RE SENCILLO __________________
-  ____________________________________________________________________*/
-  /*A modo de testeo interno, despues cambiamos esto*/
- 
--- Inserta un nuevo emisor para poder usar en facturación
-EXEC administracion.GestionarCategoriaSocio
-    @nombre = 'Adulto',
-	@años = 18,
-    @costo_membresia = 1000.00,
-    @vigencia = '2025-12-31',
-    @operacion = 'Insertar';
-GO
 
-EXEC administracion.GestionarSocio
-    @nombre = 'Lucas',
-    @apellido = 'Martínez',
-    @dni = '0034567890',
-    @email = 'lucas.martinez@email.com',
-    @fecha_nacimiento = '1992-03-10',
-    @tel_contacto = '1231231234',
-    @tel_emergencia = '4324324321',
-    @categoria = 'Adulto',
-    @nro_socio = 'SOC1001',
-    @obra_social = 'OSDE',
-    @nro_obra_social = '123456',
-    @operacion = 'Insertar';
-GO
 
-EXEC administracion.GestionarInvitado
-    @dni_socio = '0034567890',
-	@dni_invitado = '0012345678',
-    @operacion = 'Insertar';
-GO
 
-EXEC actividades.GestionarActividadExtra
-	@nombre = 'Yoga',
-	@costo = 2000.00,
-	@periodo = '2025-02',
-	@es_invitado = 'N',
-	@vigencia = '2025-06-01',
-	@operacion = 'Insertar';
-GO
 
-EXEC actividades.GestionarInscriptoActividadExtra
-@dni_socio = '0012345678',
-@nombre_actividad_extra = 'Yoga',
-@fecha_inscripcion = '2025-02-11',
-@operacion = 'Insertar';
-GO
-
-EXEC actividades.GestionarPresentismoActividadExtra
-@nombre_actividad_extra = 'Yoga',
-@periodo = '2025-06',
-@es_invitado = 'N',
-@dni_socio = '0012345678',
-@fecha = '2025-06-08',
-@condicion = 'P',
-@operacion = 'Insertar';
-GO
-
-EXEC facturacion.GestionarEmisorFactura
-    @razon_social = 'Club Deportivo Central',
-    @cuil = '30-12345678-9',
-    @direccion = 'Av. Siempre Viva 742',
-    @pais = 'Argentina',
-    @localidad = 'Rosario',
-    @codigo_postal = '2000',
-    @operacion = 'Insertar';
-GO
-
-EXEC facturacion.GenerarFacturaSocioMensual 
-    @dni_socio = '0034567890',
-    @cuil_emisor = '30-12345678-9';
-GO
-
-EXEC facturacion.GenerarFacturaInvitado
-    @dni_invitado = '0012345678',
-    @cuil_emisor = '30-12345678-9',
-    @descripcion = 'Yoga';
-GO
-
-EXEC cobranzas.GenerarReintegroPorLluvia
-	@mes = '02',
-	@año = '2025',
-	@path = 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\open-meteo-buenosaires_2025.csv'
-GO
-
-SELECT * FROM cobranzas.PagoACuenta
-SELECT * FROM facturacion.Factura
-SELECT * FROM administracion.Socio

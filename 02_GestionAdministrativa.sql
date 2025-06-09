@@ -6,7 +6,6 @@
    Materia: Bases de Datos Aplicadas
    Alumnos: Vignardel Francisco 45778667
             De Titto Lucia 46501934
-            Benvenuto Franco 44760004
  ========================================================================= */
 USE COM2900G13;
 GO
@@ -27,22 +26,21 @@ CREATE PROCEDURE administracion.GestionarPersona
     @fecha_nacimiento DATE,
     @tel_contacto CHAR(15),
     @tel_emergencia CHAR(15),
-	@operacion CHAR(10)
+    @operacion CHAR(10)
 AS
 BEGIN
     SET NOCOUNT ON;
 	
-	/*Verificación de operaciones válidas*/
-	IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
-	BEGIN
-		RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
-        RETURN;
-	END
-    
-	/*CASO 1: Eliminar persona. En este caso, se aplica un borrado lógico*/
-	IF @operacion = 'Eliminar'
+    -- Verificación de operaciones válidas
+    IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
     BEGIN
-		/*Verificaçión de existencia de persona a borrar.*/
+        RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
+        RETURN;
+    END
+
+    -- CASO 1: Eliminar persona (borrado lógico)
+    IF @operacion = 'Eliminar'
+    BEGIN
         IF NOT EXISTS (SELECT 1 FROM administracion.Persona WHERE dni = @dni)
         BEGIN
             RAISERROR('No existe el DNI para eliminar.', 16, 1);
@@ -50,19 +48,19 @@ BEGIN
         END
 
         UPDATE administracion.Persona
-		SET borrado = 1
+        SET borrado = 1
         WHERE dni = @dni;
     END
-	/*CASO 2: Modificar datos de persona. Menos el ID y DNI, cualquier otro campo*/
+
+    -- CASO 2: Modificar datos
     ELSE IF @operacion = 'Modificar'
     BEGIN
-		/*Verificaçión de existencia de persona a modificar*/
         IF NOT EXISTS (SELECT 1 FROM administracion.Persona WHERE dni = @dni)
         BEGIN
             RAISERROR('No existe el DNI para modificar.', 16, 1);
             RETURN;
         END
-		/*Se utiliza COALESCE para asegurar dato válido en caso de que algún usuario ingrese NULL en algún campo*/
+
         UPDATE administracion.Persona
         SET nombre = COALESCE(@nombre, nombre),
             apellido = COALESCE(@apellido, apellido),
@@ -72,36 +70,57 @@ BEGIN
             tel_emergencia = COALESCE(@tel_emergencia, tel_emergencia)
         WHERE dni = @dni;
     END
-	/*CASO 3: Insertar persona*/
+
+    -- CASO 3: Insertar persona o reactivar si ya existía borrada
     ELSE IF @operacion = 'Insertar'
     BEGIN
-		/*Verificación de datos no nulos necesarios para insertar persona*/
         IF @nombre IS NULL OR LTRIM(RTRIM(@nombre)) = ''
-		BEGIN
+        BEGIN
             RAISERROR('El nombre es obligatorio.', 16, 1);
-			RETURN;
-		END
+            RETURN;
+        END
 
         IF @apellido IS NULL OR LTRIM(RTRIM(@apellido)) = ''
-		BEGIN
+        BEGIN
             RAISERROR('El apellido es obligatorio.', 16, 1);
-			RETURN;
-		END
+            RETURN;
+        END
 
         IF @dni IS NULL OR LEN(LTRIM(RTRIM(@dni))) > 10
-		BEGIN
-            RAISERROR('El DNI debe hasta 10 caracteres.', 16, 1);
-			RETURN;
-		END
+        BEGIN
+            RAISERROR('El DNI debe tener hasta 10 caracteres.', 16, 1);
+            RETURN;
+        END
 
         IF @fecha_nacimiento IS NULL OR @fecha_nacimiento > GETDATE()
-		BEGIN
+        BEGIN
             RAISERROR('La fecha de nacimiento es inválida.', 16, 1);
-			RETURN;
-		END
+            RETURN;
+        END
 
-        INSERT INTO administracion.Persona (nombre, apellido, dni, email, fecha_nacimiento, tel_contacto, tel_emergencia, borrado)
-        VALUES (@nombre, @apellido, @dni, @email, @fecha_nacimiento, @tel_contacto, @tel_emergencia, 0);
+        -- Si ya existe y está borrada, se reactiva
+        IF EXISTS (SELECT 1 FROM administracion.Persona WHERE dni = @dni AND borrado = 1)
+        BEGIN
+            UPDATE administracion.Persona
+            SET nombre = @nombre,
+                apellido = @apellido,
+                email = @email,
+                fecha_nacimiento = @fecha_nacimiento,
+                tel_contacto = @tel_contacto,
+                tel_emergencia = @tel_emergencia,
+                borrado = 0
+            WHERE dni = @dni;
+
+            RETURN;
+        END
+
+        -- Inserción normal si no existía
+        INSERT INTO administracion.Persona (
+            nombre, apellido, dni, email, fecha_nacimiento, tel_contacto, tel_emergencia, borrado
+        )
+        VALUES (
+            @nombre, @apellido, @dni, @email, @fecha_nacimiento, @tel_contacto, @tel_emergencia, 0
+        );
     END
 END;
 GO
@@ -242,88 +261,103 @@ GO
 /*____________________________________________________________________
   _________________________ GestionarSocios _________________________
   ____________________________________________________________________*/
-
 IF OBJECT_ID('administracion.GestionarSocio', 'P') IS NOT NULL
     DROP PROCEDURE administracion.GestionarSocio;
 GO
 
 CREATE PROCEDURE administracion.GestionarSocio
-    @nombre VARCHAR(50),
-    @apellido CHAR(50),
+    @nombre VARCHAR(50) = NULL,
+    @apellido CHAR(50) = NULL,
     @dni CHAR(10),
-    @email VARCHAR(70),
-    @fecha_nacimiento DATE,
-    @tel_contacto CHAR(15),
-    @tel_emergencia CHAR(15),
-    @categoria VARCHAR(50),
-    @nro_socio CHAR(20),
-    @obra_social VARCHAR(100),
-    @nro_obra_social VARCHAR(100),
+    @email VARCHAR(70) = NULL,
+    @fecha_nacimiento DATE = NULL,
+    @tel_contacto CHAR(15) = NULL,
+    @tel_emergencia CHAR(15) = NULL,
+    @categoria VARCHAR(50) = NULL,
+    @nro_socio CHAR(20) = NULL,
+    @obra_social VARCHAR(100) = NULL,
+    @nro_obra_social VARCHAR(100) = NULL,
+    @saldo DECIMAL(10,2) = NULL,
     @operacion CHAR(10)
 AS
 BEGIN
     SET NOCOUNT ON;
-	/*Verificación de operaciones válidas*/
+
+    -- Verificación de operaciones válidas
     IF @operacion NOT IN ('Insertar', 'Eliminar')
     BEGIN
         RAISERROR('Operación inválida. Usar Insertar o Eliminar.', 16, 1);
         RETURN;
     END
-	/*Creación de variables auxiliares id_persona y activo*/
+
     DECLARE @id_persona INT;
-	DECLARE @activo BIT;
-	/*CASO 1: Insertar socio*/
+    DECLARE @id_socio INT;
+    DECLARE @activo BIT;
+
     IF @operacion = 'Insertar'
     BEGIN
-        /*Verificación de existencia de persona*/
-        SET @id_persona = (SELECT 1 id_persona FROM administracion.Persona WHERE dni = @dni)
+        -- Verificar si ya existe la persona
+        SELECT @id_persona = id_persona FROM administracion.Persona WHERE dni = @dni;
 
-        /*Si no existe, se crea*/
+        -- Si no existe, crearla
         IF @id_persona IS NULL
         BEGIN
             EXEC administracion.GestionarPersona
-					@nombre, 
-					@apellido, 
-					@dni, 
-					@email, 
-					@fecha_nacimiento, 
-					@tel_contacto, 
-					@tel_emergencia, 
-					'Insertar'
+                @nombre,
+                @apellido,
+                @dni,
+                @email,
+                @fecha_nacimiento,
+                @tel_contacto,
+                @tel_emergencia,
+                'Insertar';
+
+            -- Obtener ID de persona recién creada
+            SELECT @id_persona = id_persona FROM administracion.Persona WHERE dni = @dni;
         END
 
-		/*Se asigna estado activo por default*/
-		SET @activo = 1;
+        -- Activar socio
+        SET @activo = 1;
 
-        INSERT INTO administracion.Socio (id_persona, id_categoria, nro_socio, obra_social, nro_obra_social, saldo, activo)
+        -- Insertar socio
+        INSERT INTO administracion.Socio (
+            id_persona, id_categoria, nro_socio, obra_social, nro_obra_social, saldo, activo
+        )
         VALUES (
-            @id_persona, 
-			(SELECT 1 id_categoria FROM administracion.CategoriaSocio WHERE nombre = @categoria), 
-			@nro_socio, 
-			@obra_social, 
-			@nro_obra_social, 
-			0, 
-			@activo
+            @id_persona,
+            (SELECT id_categoria FROM administracion.CategoriaSocio WHERE nombre = @categoria),
+            @nro_socio,
+            @obra_social,
+            @nro_obra_social,
+            ISNULL(@saldo, 0),
+            @activo
         );
     END
-	/*CASO 2: Eliminación de socio*/
+
     ELSE IF @operacion = 'Eliminar'
     BEGIN
-        /*Verificación de existencia de persona*/
-        SET @id_persona = (SELECT 1 id_persona FROM administracion.Persona WHERE dni = @dni)
+        -- Obtener IDs relacionados
+        SELECT 
+            @id_persona = p.id_persona,
+            @id_socio = s.id_socio
+        FROM administracion.Persona p
+        INNER JOIN administracion.Socio s ON p.id_persona = s.id_persona
+        WHERE p.dni = @dni;
 
-        IF @id_persona IS NULL
+        IF @id_persona IS NULL OR @id_socio IS NULL
         BEGIN
-            RAISERROR('No se encontró una persona con el DNI especificado.', 16, 1);
+            RAISERROR('No se encontró una persona y socio con ese DNI.', 16, 1);
             RETURN;
         END
-		/*Se borra de la tabla Persona*/
-        UPDATE administracion.Persona 
-		SET borrado = 1
-		WHERE id_persona = @id_persona;
-		/*Se borra de la tabla Socio*/
-		DELETE FROM administracion.Socio
-		WHERE id_persona = @id_persona
+
+        -- Marcar persona como borrada
+        UPDATE administracion.Persona
+        SET borrado = 1
+        WHERE id_persona = @id_persona;
+
+        -- Eliminar socio
+        DELETE FROM administracion.Socio
+        WHERE id_socio = @id_socio;
     END
 END;
 GO

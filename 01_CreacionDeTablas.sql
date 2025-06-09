@@ -6,7 +6,6 @@
    Materia: Bases de Datos Aplicadas
    Alumnos: Vignardel Francisco 45778667
             De Titto Lucia 46501934
-            Benvenuto Franco 44760004
  ========================================================================= */
 USE COM2900G13;
 GO
@@ -288,7 +287,7 @@ GO
    TABLAS DEL MÓDULO FACTURACION
    ============================= */
 
-IF OBJECT_ID('facturacion.EmisorFactura', 'U') IS NOT NULL
+IF OBJECT_ID('pagos.EmisorFactura', 'U') IS NOT NULL
     DROP TABLE facturacion.EmisorFactura;
 GO
 
@@ -303,14 +302,14 @@ CREATE TABLE facturacion.EmisorFactura (
 );
 GO
 
-IF OBJECT_ID('facturacion.Factura', 'U') IS NOT NULL
+IF OBJECT_ID('pagos.Factura', 'U') IS NOT NULL
     DROP TABLE facturacion.Factura;
 GO
 
 CREATE TABLE facturacion.Factura (
     id_factura INT IDENTITY(1,1) PRIMARY KEY,
 	id_emisor INT NOT NULL,
-    id_socio INT,
+    id_socio INT NOT NULL,
 	leyenda CHAR(50) NOT NULL,
 	monto_total DECIMAL(10,2),
     fecha_emision DATE,
@@ -323,7 +322,7 @@ CREATE TABLE facturacion.Factura (
 );
 GO
 
-IF OBJECT_ID('facturacion.DetalleFactura', 'U') IS NOT NULL
+IF OBJECT_ID('pagos.DetalleFactura', 'U') IS NOT NULL
     DROP TABLE facturacion.DetalleFactura;
 GO
 
@@ -359,7 +358,7 @@ CREATE TABLE cobranzas.MedioDePago (
 );
 GO
 
-IF OBJECT_ID('cobranzas.Pago', 'U') IS NOT NULL
+IF OBJECT_ID('pagos.Pago', 'U') IS NOT NULL
     DROP TABLE cobranzas.Pago;
 GO
 
