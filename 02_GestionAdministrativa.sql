@@ -440,7 +440,7 @@ BEGIN
     IF @operacion = 'Insertar'
     BEGIN
 		/*Verificación de dni válido*/
-        IF @dni_invitado IS NULL OR LEN(LTRIM(RTRIM(@dni_invitado))) <> 10 OR @dni_invitado NOT LIKE '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
+        IF @dni_invitado IS NULL OR LEN(LTRIM(RTRIM(@dni_invitado))) > 8 OR @dni_invitado NOT LIKE '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
         BEGIN
 			RAISERROR('DNI inválido.', 16, 1);
 			RETURN;
@@ -465,5 +465,81 @@ BEGIN
         DELETE FROM administracion.Invitado
 		WHERE dni = @dni_invitado;
     END
+END;
+GO
+
+/*____________________________________________________________________
+  ____________________ VerCuotasPagasGrupoFamiliar ___________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('administracion.VerCuotasPagasGrupoFamiliar', 'P') IS NOT NULL
+    DROP PROCEDURE administracion.VerCuotasPagasGrupoFamiliar;
+GO
+
+CREATE PROCEDURE administracion.VerCuotasPagasGrupoFamiliar
+    @dni_socio CHAR(10)
+AS
+BEGIN
+    SET NOCOUNT ON;
+	
+	WITH CuotasPagas AS
+	(
+		SELECT
+			MONTH(F.fecha_emision) AS [Mes],
+			P.nombre AS Nombre,
+			P.apellido AS Apellido,
+			C.nombre AS Categoria,
+			F.monto_total AS Total
+		FROM facturacion.Factura F
+		INNER JOIN administracion.Socio S ON S.id_socio = F.id_socio
+		INNER JOIN administracion.CategoriaSocio C ON C.id_categoria = S.id_categoria
+		INNER JOIN administracion.Persona P ON P.id_persona = S.id_persona
+		WHERE F.estado = 'Pagada' AND P.dni = @dni_socio AND F.anulada = 0
+
+		UNION
+
+		SELECT
+			MONTH(F.fecha_emision) AS [Mes],
+			P.nombre AS Nombre,
+			P.apellido AS Apellido,
+			C.nombre AS Categoria,
+			F.monto_total AS Total
+		FROM facturacion.Factura F
+		INNER JOIN administracion.GrupoFamiliar G ON  F.id_socio = G.id_socio
+		INNER JOIN administracion.Socio S ON G.id_socio = S.id_socio
+		INNER JOIN administracion.CategoriaSocio C ON C.id_categoria = S.id_categoria
+		INNER JOIN administracion.Persona P ON P.id_persona = S.id_persona
+		WHERE G.id_socio_rp = (SELECT S.id_socio
+							   FROM administracion.Persona P 
+							   INNER JOIN administracion.Socio S ON S.id_persona = P.id_persona
+							   WHERE P.dni = '12345678') AND F.estado = 'Pagada' AND F.anulada = 0
+	)
+	SELECT TOP 10 *
+	FROM CuotasPagas
+
+END;
+GO
+
+/*____________________________________________________________________
+  ______________________ AnularFacturaSocioDeBaja ____________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('administracion.AnularFacturaSocioDeBaja', 'TR') IS NOT NULL
+    DROP TRIGGER administracion.AnularFacturaSocioDeBaja;
+GO
+
+CREATE TRIGGER administracion.AnularFacturaSocioDeBaja
+ON administracion.Socio
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE F
+    SET F.anulada = 1
+    FROM facturacion.Factura f
+	INNER JOIN administracion.Socio S ON S.id_socio = F.id_socio
+    INNER JOIN inserted I ON I.id_socio = S.id_socio
+	WHERE I.activo = 0
 END;
 GO

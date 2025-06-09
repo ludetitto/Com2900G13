@@ -80,8 +80,8 @@ SELECT * FROM actividades.Actividad
 -- ✅ PRUEBA 1: Inserción válida de clase
 -- Esperado: Se inserta el registro correctamente
 EXEC actividades.GestionarClase
-    @nombre_actividad = 'Yoga',
-    @dni_profesor = '12345678',
+    @nombre_actividad = 'Yoga Avanzado',
+    @dni_profesor = '23456789',
     @horario = 'Miércoles 17:00',
     @operacion = 'Insertar';
 -- Resultado esperado: Clase insertada sin errores
@@ -136,10 +136,10 @@ GO
 -- ✅ PRUEBA 1: Inserción válida de inscripción
 -- Esperado: Se inserta la inscripción correctamente si el socio y la clase existen
 EXEC actividades.GestionarInscripcion
-    @dni_socio = '0012345678',
-    @nombre_actividad = 'Yoga',
-    @horario = 'Lunes 10:00',
-    @fecha_inscripcion = '2025-06-08',
+    @dni_socio = '12345678',
+    @nombre_actividad = 'Yoga Avanzado',
+    @horario = 'Miércoles 17:00',
+    @fecha_inscripcion = '2025-02-06',
     @operacion = 'Insertar';
 GO
 SELECT * FROM actividades.InscriptoClase;
@@ -187,10 +187,10 @@ GO
 -- ✅ PRUEBA 1: Inserción válida de presentismo
 -- Esperado: Se registra correctamente el presentismo
 EXEC actividades.GestionarPresentismoClase
-    @nombre_actividad = 'Yoga',
-    @dni_socio = '0012345678',
-    @horario = 'Lunes 10:00',
-    @fecha = '2025-06-08',
+    @nombre_actividad = 'Yoga Avanzado',
+    @dni_socio = '12345678',
+    @horario = 'Miércoles 17:00',
+    @fecha = '2025-02-06',
     @condicion = 'P',
     @operacion = 'Insertar';
 GO
@@ -366,7 +366,7 @@ GO
 
 -- ✅ PRUEBA 1: Inserción válida
 EXEC actividades.GestionarInscriptoActividadExtra
-@dni_socio = '0012345678',
+@dni_socio = '12345678',
 @nombre_actividad_extra = 'Yoga',
 @fecha_inscripcion = '2025-06-01',
 @operacion = 'Insertar';
@@ -415,10 +415,26 @@ GO
 
 -- ✅ PRUEBA 1: Generación válida de factura
 EXEC facturacion.GenerarFacturaSocioMensual
-@dni_socio = '0012345678',
-@cuil_emisor = '20-12345678-3';
+@dni_socio = '23456789',
+@cuil_emisor = '30-12345678-9';
 -- Resultado esperado: Factura generada sin errores
 GO
+
+EXEC administracion.VerCuotasPagasGrupoFamiliar
+	@dni_socio = '12345678'
+GO
+
+SELECT * FROM administracion.GrupoFamiliar
+SELECT * FROM administracion.Persona
+SELECT * FROM facturacion.Factura
+
+UPDATE administracion.Socio
+SET activo = 1
+WHERE id_socio = 1
+
+UPDATE facturacion.Factura
+SET estado = 'Pagada', anulada = 0
+WHERE id_socio = 1
 
 -- ❌ PRUEBA 2: Socio no existe
 EXEC facturacion.GenerarFacturaSocioMensual

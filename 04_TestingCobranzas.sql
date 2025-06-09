@@ -51,7 +51,8 @@ IF NOT EXISTS (SELECT 1 FROM cobranzas.MedioDePago WHERE nombre = 'Tarjeta')
 IF NOT EXISTS (SELECT 1 FROM cobranzas.MedioDePago WHERE nombre = 'Transferencia')
     INSERT INTO cobranzas.MedioDePago (nombre, debito_automatico) VALUES ('Transferencia', 1);
 
-IF NOT EXISTS (SELECT 1 FROM facturacion.EmisorFactura WHERE razon_social = 'Club Sol Norte')
+IF NOT EXISTS (SELECT 1 FROM facturacion.
+Factura WHERE razon_social = 'Club Sol Norte')
 BEGIN
     INSERT INTO facturacion.EmisorFactura (razon_social, cuil, direccion, pais, localidad, codigo_postal)
     VALUES ('Club Sol Norte', '30-12345678-9', 'Calle Falsa 123', 'Argentina', 'San Justo', '1754');
@@ -421,8 +422,75 @@ BEGIN CATCH
     SELECT 'TEST 5 - ERROR ESPERADO' AS Resultado, ERROR_MESSAGE() AS ErrorMsg;
 END CATCH;
 
+-- TESTING RegistrarReintegroPorLluvia
 
+/*____________________________________________________________________
+  ______________________ CASO DE PRUEBA RE SENCILLO __________________
+  ____________________________________________________________________*/
+  /*A modo de testeo interno, despues cambiamos esto*/
+ 
+-- Inserta un nuevo emisor para poder usar en facturación
+EXEC administracion.GestionarCategoriaSocio
+    @nombre = 'Adulto',
+	@años = 18,
+    @costo_membresia = 1000.00,
+    @vigencia = '2025-12-31',
+    @operacion = 'Insertar';
+GO
 
+EXEC administracion.GestionarSocio
+    @nombre = 'Lucas',
+    @apellido = 'Martínez',
+    @dni = '12345678',
+    @email = 'lucas.martinez@email.com',
+    @fecha_nacimiento = '1992-03-10',
+    @tel_contacto = '1231231234',
+    @tel_emergencia = '4324324321',
+    @categoria = 'Adulto',
+    @nro_socio = 'SOC1001',
+    @obra_social = 'OSDE',
+    @nro_obra_social = '123456',
+    @operacion = 'Insertar';
+GO
 
+EXEC administracion.GestionarInvitado
+    @dni_socio = '0034567890',
+	@dni_invitado = '0012345678',
+    @operacion = 'Insertar';
+GO
 
+EXEC actividades.GestionarActividadExtra
+	@nombre = 'Yoga',
+	@costo = 2000.00,
+	@periodo = '2025-02',
+	@es_invitado = 'N',
+	@vigencia = '2025-06-01',
+	@operacion = 'Insertar';
+GO
 
+EXEC actividades.GestionarInscriptoActividadExtra
+@dni_socio = '0012345678',
+@nombre_actividad_extra = 'Yoga',
+@fecha_inscripcion = '2025-02-11',
+@operacion = 'Insertar';
+GO
+
+EXEC actividades.GestionarPresentismoActividadExtra
+@nombre_actividad_extra = 'Yoga',
+@periodo = '2025-06',
+@es_invitado = 'N',
+@dni_socio = '0012345678',
+@fecha = '2025-06-08',
+@condicion = 'P',
+@operacion = 'Insertar';
+GO
+
+EXEC facturacion.GestionarEmisorFactura
+    @razon_social = 'Club Deportivo Central',
+    @cuil = '30-12345678-9',
+    @direccion = 'Av. Siempre Viva 742',
+    @pais = 'Argentina',
+    @localidad = 'Rosario',
+    @codigo_postal = '2000',
+    @operacion = 'Insertar';
+GO

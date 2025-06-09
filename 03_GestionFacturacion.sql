@@ -656,6 +656,93 @@ END;
 GO
 
 /*____________________________________________________________________
+  ______________________ GestionarEmisorFactura ______________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('facturacion.GestionarEmisorFactura', 'P') IS NOT NULL
+    DROP PROCEDURE facturacion.GestionarEmisorFactura;
+GO
+
+CREATE PROCEDURE facturacion.GestionarEmisorFactura
+    @razon_social VARCHAR(100),
+    @cuil VARCHAR(20),
+    @direccion VARCHAR(200),
+    @pais VARCHAR(50),
+    @localidad VARCHAR(50),
+    @codigo_postal VARCHAR(50),
+    @operacion CHAR(10)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    /* Verificación de operaciones válidas */
+    IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
+    BEGIN
+        RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
+        RETURN;
+    END
+
+    /* Obtener id_emisor a partir del CUIL (clave única) */
+    DECLARE @id_emisor INT = (
+        SELECT id_emisor 
+        FROM facturacion.EmisorFactura 
+        WHERE cuil = @cuil
+    );
+
+    /* CASO 1: Eliminar */
+    IF @operacion = 'Eliminar'
+    BEGIN
+        IF @id_emisor IS NULL
+        BEGIN
+            RAISERROR('No se encontró emisor con ese CUIL para eliminar.', 16, 1);
+            RETURN;
+        END
+
+        DELETE FROM facturacion.EmisorFactura WHERE id_emisor = @id_emisor;
+    END
+
+    /* CASO 2: Modificar */
+    ELSE IF @operacion = 'Modificar'
+    BEGIN
+        IF @id_emisor IS NULL
+        BEGIN
+            RAISERROR('No se encontró emisor con ese CUIL para modificar.', 16, 1);
+            RETURN;
+        END
+
+        UPDATE facturacion.EmisorFactura
+        SET razon_social  = COALESCE(@razon_social, razon_social),
+            direccion     = COALESCE(@direccion, direccion),
+            pais          = COALESCE(@pais, pais),
+            localidad     = COALESCE(@localidad, localidad),
+            codigo_postal = COALESCE(@codigo_postal, codigo_postal)
+        WHERE id_emisor = @id_emisor;
+    END
+
+    /* CASO 3: Insertar */
+    ELSE IF @operacion = 'Insertar'
+    BEGIN
+        IF @cuil IS NULL OR @razon_social IS NULL
+        BEGIN
+            RAISERROR('CUIL y razón social son obligatorios para insertar.', 16, 1);
+            RETURN;
+        END
+
+        IF EXISTS (SELECT 1 FROM facturacion.EmisorFactura WHERE cuil = @cuil)
+        BEGIN
+            RAISERROR('Ya existe un emisor con ese CUIL.', 16, 1);
+            RETURN;
+        END
+
+        INSERT INTO facturacion.EmisorFactura 
+            (razon_social, cuil, direccion, pais, localidad, codigo_postal)
+        VALUES
+            (@razon_social, @cuil, @direccion, @pais, @localidad, @codigo_postal);
+    END
+END;
+GO
+
+/*____________________________________________________________________
   __________________________ GenerarFactura ________________________
   ____________________________________________________________________*/
 IF OBJECT_ID('facturacion.GenerarFacturaSocioMensual', 'P') IS NOT NULL
@@ -761,6 +848,93 @@ BEGIN
         SET monto_total = (SELECT SUM(monto * cantidad) FROM facturacion.DetalleFactura WHERE id_factura = @id_factura)
         WHERE id_factura = @id_factura;
 		/*Confirmar transacción*/
+        COMMIT TRANSACTION;
+
+        SELECT @id_factura AS id_factura;
+
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END;
+GO
+
+/*____________________________________________________________________
+  ______________________ GenerarFacturaInvitado ______________________
+  ____________________________________________________________________*/
+
+  IF OBJECT_ID('facturacion.GenerarFacturaInvitado', 'P') IS NOT NULL
+    DROP PROCEDURE facturacion.GenerarFacturaInvitado;
+GO
+
+CREATE PROCEDURE facturacion.GenerarFacturaInvitado
+(
+    @dni_invitado CHAR(10),
+    @cuil_emisor VARCHAR(20),
+    @descripcion VARCHAR(255)
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+	/*Se realiza mediante una transacción a fin de garantizar ACID*/
+    BEGIN TRY
+        BEGIN TRANSACTION;
+		/*Creación de variables auxiliares para id_invitado e id_emisor*/
+        DECLARE @id_invitado INT;
+        DECLARE @id_emisor INT;
+
+        /*Se obtiene el id_invitado asociado a su correspondiente DNI*/
+        SELECT @id_invitado = id_invitado
+        FROM administracion.Invitado
+        WHERE dni = @dni_invitado;
+		/*Si no existe el invitado, no se realiza la transacción.*/
+        IF @id_invitado IS NULL
+        BEGIN
+            RAISERROR('No se encontró invitado con ese DNI.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END
+
+        /*Se obtiene el id_emisor asociado a su correspondiente CUIL*/
+        SELECT @id_emisor = id_emisor
+        FROM facturacion.EmisorFactura
+        WHERE cuil = @cuil_emisor;
+		/*Si no existe el emisor, no se realiza la transacción*/
+        IF @id_emisor IS NULL
+        BEGIN
+            RAISERROR('No se encontró emisor con ese CUIL.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END
+
+        /*Generar factura con pago inmediato (fecha_vencimiento = hoy, estado = 'Pagada')*/
+        INSERT INTO facturacion.Factura
+        (id_emisor, id_socio, leyenda, monto_total, fecha_emision, fecha_vencimiento1, fecha_vencimiento2, estado, anulada)
+        VALUES(
+			@id_emisor, 
+			NULL, 
+			'Consumidor final', 
+			(SELECT TOP 1 costo FROM actividades.ActividadExtra WHERE nombre = @descripcion  AND vigencia < GETDATE() ORDER BY vigencia DESC), 
+			GETDATE(), 
+			GETDATE(), 
+			GETDATE(), 
+			'Pagada', 
+			0
+		);
+
+        DECLARE @id_factura INT = SCOPE_IDENTITY();
+
+         /*Generar detalle de factura*/
+        INSERT INTO facturacion.DetalleFactura
+        (id_factura, tipo_item, descripcion, monto, cantidad)
+        VALUES(
+			@id_factura, 
+			'Actividad extra', 
+			(SELECT TOP 1 nombre FROM actividades.ActividadExtra WHERE nombre = @descripcion AND vigencia < GETDATE() ORDER BY vigencia DESC), 
+			(SELECT TOP 1 costo FROM actividades.ActividadExtra WHERE nombre = @descripcion AND vigencia < GETDATE() ORDER BY vigencia DESC),
+			1);
+
         COMMIT TRANSACTION;
 
         SELECT @id_factura AS id_factura;

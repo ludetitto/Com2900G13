@@ -91,8 +91,8 @@ GO
 
 -- ✅ PRUEBA 1: Inserción válida de categoría
 EXEC administracion.GestionarCategoriaSocio
-    @nombre = 'Menores',
-    @años = 15,
+    @nombre = 'Adulto',
+    @años = 18,
     @costo_membresia = 1000.00,
     @vigencia = '2025-12-31',
     @operacion = 'Insertar';
@@ -130,14 +130,14 @@ SELECT TOP 10 * FROM administracion.CategoriaSocio
 
 -- ✅ PRUEBA 1: Inserción válida de socio (persona nueva)
 EXEC administracion.GestionarSocio
-    @nombre = 'Lucas',
+    @nombre = 'Franco',
     @apellido = 'Martínez',
-    @dni = '0034567890',
+    @dni = '23456789',
     @email = 'lucas.martinez@email.com',
     @fecha_nacimiento = '1992-03-10',
     @tel_contacto = '1231231234',
     @tel_emergencia = '4324324321',
-    @categoria = 'Menores',
+    @categoria = 'Adulto',
     @nro_socio = 'SOC1001',
     @obra_social = 'OSDE',
     @nro_obra_social = '123456',
@@ -145,6 +145,7 @@ EXEC administracion.GestionarSocio
     @operacion = 'Insertar';
 -- Resultado esperado: Persona y socio insertados correctamente
 GO
+DELETE FROM administracion.Socio
 SELECT * FROM administracion.Socio
 SELECT * FROM administracion.Persona
 
@@ -184,7 +185,7 @@ GO
 EXEC administracion.GestionarProfesor
     @nombre = 'Ana',
     @apellido = 'García',
-    @dni = '0023456789',
+    @dni = '23456789',
     @email = 'ana.garcia@email.com',
     @fecha_nacimiento = '1990-08-15',
     @tel_contacto = '1112223333',
@@ -225,8 +226,8 @@ GO
 
 -- ✅ PRUEBA 1: Inserción válida de invitado
 EXEC administracion.GestionarInvitado
-    @dni_socio = '0045678901',
-	@dni_invitado = '12345678',
+    @dni_socio = '12345678',
+	@dni_invitado = '34567891',
     @operacion = 'Insertar';
 -- Resultado esperado: Invitado insertado correctamente
 GO
@@ -253,11 +254,13 @@ GO
 
 -- ✅ PRUEBA 1: Inserción válida de grupo familiar
 EXEC administracion.GestionarGrupoFamiliar
-    @dni_socio = 1,
-    @dni_socio_rp = 2,
+    @dni_socio = '23456789',
+    @dni_socio_rp = '12345678',
     @operacion = 'Insertar';
 -- Resultado esperado: Grupo familiar insertado correctamente
 GO
+
+SELECT * FROM administracion.Socio
 
 -- ✅ PRUEBA 2: Eliminación válida de grupo familiar
 EXEC administracion.GestionarGrupoFamiliar

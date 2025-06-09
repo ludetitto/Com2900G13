@@ -334,3 +334,4 @@ BEGIN
     INNER JOIN inserted i ON f.id_factura = i.id_factura;
 END;
 GO
+

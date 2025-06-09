@@ -10,13 +10,34 @@
 USE COM2900G13;
 GO
 
-DROP PROCEDURE IF EXISTS cobranzas.RegistrarCobranza
-DROP PROCEDURE IF EXISTS administracion.GestionarGrupoFamiliar
-DROP PROCEDURE IF EXISTS administracion.GestionarSocio
-DROP PROCEDURE IF EXISTS administracion.GestionarCategoriaSocio
+DROP PROCEDURE IF EXISTS actividades.GestionarActividad
+DROP PROCEDURE IF EXISTS actividades.GestionarActividadExtra
+DROP PROCEDURE IF EXISTS actividades.GestionarClase
+DROP PROCEDURE IF EXISTS actividades.GestionarInscripcion
+DROP PROCEDURE IF EXISTS actividades.GestionarInscriptoActividadExtra
+DROP PROCEDURE IF EXISTS actividades.GestionarPresentismoActividadExtra
+DROP PROCEDURE IF EXISTS actividades.GestionarPresentismoClase
+
 DROP PROCEDURE IF EXISTS administracion.GestionarInvitado
+DROP PROCEDURE IF EXISTS administracion.GestionarSocio
 DROP PROCEDURE IF EXISTS administracion.GestionarProfesor
 DROP PROCEDURE IF EXISTS administracion.GestionarPersona
+DROP PROCEDURE IF EXISTS administracion.GestionarCategoriaSocio
+DROP PROCEDURE IF EXISTS administracion.GestionarGrupoFamiliar
+
+DROP PROCEDURE IF EXISTS cobranzas.RegistrarCobranza
+DROP PROCEDURE IF EXISTS cobranzas.RegistrarReintegroPorLluvia
+DROP PROCEDURE IF EXISTS cobranzas.RegistrarPagoACuenta
+DROP PROCEDURE IF EXISTS cobranzas.RegistrarNotaDeCredito
+DROP PROCEDURE IF EXISTS cobranzas.HabilitarDebitoAutomatico
+DROP PROCEDURE IF EXISTS cobranzas.GenerarReintegroPorLluvia
+DROP PROCEDURE IF EXISTS cobranzas.GenerarReembolso
+DROP PROCEDURE IF EXISTS cobranzas.DeshabilitarDebitoAutomatico
+
+DROP PROCEDURE IF EXISTS facturacion.AnularFactura
+DROP PROCEDURE IF EXISTS facturacion.GenerarFacturaSocioMensual
+DROP PROCEDURE IF EXISTS facturacion.GenerarFacturaInvitado
+DROP PROCEDURE IF EXISTS facturacion.GestionarEmisorFactura
 
 /* ============================
    BORRADO DE OBJETOS DE LA BD
@@ -100,7 +121,7 @@ CREATE TABLE administracion.Persona (
     tel_emergencia CHAR(15),
 	borrado BIT,
 	CONSTRAINT CHK_persona_dni CHECK (
-        LEN(LTRIM(RTRIM(dni))) = 10 AND dni LIKE '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
+        LEN(LTRIM(RTRIM(dni))) < 10 AND dni LIKE '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
     ),
     CONSTRAINT CHK_persona_email CHECK (
         email LIKE '%_@__%.__%'
@@ -189,7 +210,7 @@ CREATE TABLE administracion.Invitado (
 	dni VARCHAR(10) UNIQUE NOT NULL,
 	CONSTRAINT FK_invitado_socio_id FOREIGN KEY (id_socio) REFERENCES administracion.Socio(id_socio),
 	CONSTRAINT CHK_invitado_dni CHECK (
-        LEN(LTRIM(RTRIM(dni))) = 10 AND dni LIKE '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
+        LEN(LTRIM(RTRIM(dni))) < 10 AND dni LIKE '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
     ),
 );
 GO
