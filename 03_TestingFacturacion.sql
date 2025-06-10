@@ -17,7 +17,7 @@ GO
 -- ✅ PRUEBA 1: Inserción válida de actividad
 -- Esperado: Se inserta el registro correctamente
 EXEC actividades.GestionarActividad
-    @nombre = 'Yoga Avanzado',
+    @nombre = 'Ajedrez',
     @costo = 3500.00,
     @horario = 'Lunes 18:00',
     @vigencia = '2025-07-01',
@@ -29,7 +29,7 @@ SELECT * FROM actividades.Actividad
 -- ✅ PRUEBA 2: Modificación válida de actividad existente
 -- Esperado: Se actualizan los datos correctamente
 EXEC actividades.GestionarActividad
-    @nombre = 'Yoga Avanzado',
+    @nombre = 'Ajedrez',
     @costo = 4000.00,
     @horario = NULL,
     @vigencia = NULL,
@@ -41,7 +41,7 @@ SELECT * FROM actividades.Actividad
 -- ✅ PRUEBA 3: Eliminación válida de actividad
 -- Esperado: Se elimina el registro de la actividad
 EXEC actividades.GestionarActividad
-    @nombre = 'Yoga Avanzado',
+    @nombre = 'Ajedrez',
     @costo = NULL,
     @horario = NULL,
     @vigencia = NULL,
@@ -82,7 +82,7 @@ select * from administracion.Persona
 -- ✅ PRUEBA 1: Inserción válida de clase
 -- Esperado: Se inserta el registro correctamente
 EXEC actividades.GestionarClase
-    @nombre_actividad = 'Yoga Avanzado',
+    @nombre_actividad = 'Ajedrez',
     @dni_profesor = '23456789',
     @horario = 'Miércoles 17:00',
     @operacion = 'Insertar';
@@ -139,7 +139,7 @@ GO
 -- Esperado: Se inserta la inscripción correctamente si el socio y la clase existen
 EXEC actividades.GestionarInscripcion
     @dni_socio = '12345678',
-    @nombre_actividad = 'Yoga Avanzado',
+    @nombre_actividad = 'Ajedrez',
     @horario = 'Miércoles 17:00',
     @fecha_inscripcion = '2025-02-06',
     @operacion = 'Insertar';
@@ -189,7 +189,7 @@ GO
 -- ✅ PRUEBA 1: Inserción válida de presentismo
 -- Esperado: Se registra correctamente el presentismo
 EXEC actividades.GestionarPresentismoClase
-    @nombre_actividad = 'Yoga Avanzado',
+    @nombre_actividad = 'Ajedrez',
     @dni_socio = '12345678',
     @horario = 'Miércoles 17:00',
     @fecha = '2025-02-06',

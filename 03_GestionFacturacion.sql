@@ -9,7 +9,6 @@
  ========================================================================= */
 USE COM2900G13;
 GO
-
 /*____________________________________________________________________
   _______________________ GestionarActividad ________________________
   ____________________________________________________________________*/
@@ -19,10 +18,10 @@ IF OBJECT_ID('actividades.GestionarActividad', 'P') IS NOT NULL
 GO
 
 CREATE PROCEDURE actividades.GestionarActividad
-    @nombre   VARCHAR(100),
-    @costo    DECIMAL(10,2),
-    @horario  VARCHAR(50),
-    @vigencia DATE,
+    @nombre    VARCHAR(100),
+    @costo     DECIMAL(10,2),
+    @horario   VARCHAR(50),
+    @vigencia  DATE,
     @operacion CHAR(10)
 AS
 BEGIN
@@ -35,21 +34,58 @@ BEGIN
         RETURN;
     END
 
-    -- 2) Eliminar
+    -- 2) ELIMINAR
     IF @operacion = 'Eliminar'
     BEGIN
+        -- Verificar existencia de la actividad
         IF NOT EXISTS (SELECT 1 FROM actividades.Actividad WHERE nombre = @nombre)
         BEGIN
             RAISERROR('No existe la actividad para eliminar.',16,1);
             RETURN;
         END
 
-        DELETE FROM actividades.Actividad
+        DECLARE @id_actividad INT;
+        SELECT @id_actividad = id_actividad
+        FROM actividades.Actividad
         WHERE nombre = @nombre;
+
+        BEGIN TRY
+            BEGIN TRANSACTION;
+
+            -- Primero borrar presentismos de las clases vinculadas
+            DELETE pc
+            FROM actividades.presentismoClase AS pc
+            INNER JOIN actividades.Clase AS c
+                ON pc.id_clase = c.id_clase
+            WHERE c.id_actividad = @id_actividad;
+
+            -- Luego borrar inscripciones a las clases vinculadas
+            DELETE ic
+            FROM actividades.InscriptoClase AS ic
+            INNER JOIN actividades.Clase AS c
+                ON ic.id_clase = c.id_clase
+            WHERE c.id_actividad = @id_actividad;
+
+            -- Luego borrar las clases de esa actividad
+            DELETE FROM actividades.Clase
+            WHERE id_actividad = @id_actividad;
+
+            -- Finalmente borrar la actividad
+            DELETE FROM actividades.Actividad
+            WHERE id_actividad = @id_actividad;
+
+            COMMIT TRANSACTION;
+        END TRY
+        BEGIN CATCH
+            IF XACT_STATE() <> 0
+                ROLLBACK TRANSACTION;
+            THROW;
+        END CATCH
+
         RETURN;
     END
 
-    -- 3) Modificar
+    -- 3) MODIFICAR
     ELSE IF @operacion = 'Modificar'
     BEGIN
         IF NOT EXISTS (SELECT 1 FROM actividades.Actividad WHERE nombre = @nombre)
@@ -67,8 +103,8 @@ BEGIN
         RETURN;
     END
 
-    -- 4) Insertar + validación de duplicados
-    ELSE IF @operacion = 'Insertar'
+    -- 4) INSERTAR + validación de duplicados
+    ELSE /* @operacion = 'Insertar' */
     BEGIN
         -- Nombre obligatorio
         IF @nombre IS NULL OR LTRIM(RTRIM(@nombre)) = ''
@@ -94,6 +130,7 @@ BEGIN
     END
 END;
 GO
+
 
 /*____________________________________________________________________
   _________________________ GestionarClase ___________________________
