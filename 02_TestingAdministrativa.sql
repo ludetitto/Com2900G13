@@ -19,7 +19,7 @@ GO
 EXEC administracion.GestionarPersona
     @nombre = 'Juan',
     @apellido = 'Pérez',
-    @dni = '0012345678',
+    @dni = '12345678',
     @email = 'juan.perez@email.com',
     @fecha_nacimiento = '2024-10-25',
     @tel_contacto = '1234567890',
@@ -33,7 +33,7 @@ SELECT * FROM administracion.Persona
 EXEC administracion.GestionarPersona
     @nombre = NULL,
     @apellido = NULL,
-    @dni = '0012345678',
+    @dni = '12345678',
     @email = NULL,
     @fecha_nacimiento = '1985-12-25',
     @tel_contacto = NULL,
@@ -49,7 +49,7 @@ SELECT * FROM administracion.Persona
 EXEC administracion.GestionarPersona
     @nombre = NULL,
     @apellido = NULL,
-    @dni = '0012345678',
+    @dni = '12345678',
     @email = NULL,
     @fecha_nacimiento = NULL,
     @tel_contacto = NULL,
@@ -151,7 +151,7 @@ SELECT * FROM administracion.Persona
 
 -- ✅ PRUEBA 2: Eliminación válida de socio
 EXEC administracion.GestionarSocio
-    @dni = '0034567890',
+    @dni = '34567890',
     @operacion = 'Eliminar';
 
 SELECT * FROM administracion.Socio;
@@ -198,7 +198,7 @@ GO
 EXEC administracion.GestionarProfesor
     @nombre = NULL,
     @apellido = NULL,
-    @dni = '0023456789',
+    @dni = '23456789',
     @email = NULL,
     @fecha_nacimiento = NULL,
     @tel_contacto = NULL,
@@ -234,7 +234,7 @@ GO
 
 -- ✅ PRUEBA 2: Eliminación válida de invitado
 EXEC administracion.GestionarInvitado
-    @dni_socio = '0045678901',
+    @dni_socio = '45678901',
 	@dni_invitado = '12345678',
     @operacion = 'Eliminar';
 -- Resultado esperado: Invitado eliminado correctamente
@@ -242,7 +242,7 @@ GO
 
 -- ❌ PRUEBA 3: Insertar invitado con DNI ya existente
 EXEC administracion.GestionarInvitado
-    @dni_socio = '0045678901',
+    @dni_socio = '45678901',
 	@dni_invitado = '12345678',
     @operacion = 'Insertar';
 -- Resultado esperado: Error por restricción UNIQUE en DNI
