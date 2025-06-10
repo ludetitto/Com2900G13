@@ -81,6 +81,7 @@ select * from administracion.Persona
 
 -- ✅ PRUEBA 1: Inserción válida de clase
 -- Esperado: Se inserta el registro correctamente
+
 EXEC actividades.GestionarClase
     @nombre_actividad = 'Ajedrez',
     @dni_profesor = '23456789',
@@ -95,7 +96,7 @@ SELECT * FROM actividades.Clase
 EXEC actividades.GestionarClase
     @nombre_actividad = 'Ajedrez',
     @dni_profesor = '23456789',
-    @horario = 'Miércoles 14:00',
+    @horario = 'Miércoles 15:00',
     @operacion = 'Modificar';
 -- Resultado esperado: Clase modificada sin errores
 GO
@@ -106,7 +107,7 @@ SELECT * FROM actividades.Clase
 EXEC actividades.GestionarClase
     @nombre_actividad = 'Ajedrez',
     @dni_profesor = '23456789',
-    @horario = 'Miércoles 17:00',
+    @horario = 'Miércoles 14:00',
     @operacion = 'Eliminar';
 -- Resultado esperado: Clase eliminada sin errores
 GO

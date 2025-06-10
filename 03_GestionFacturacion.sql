@@ -131,96 +131,179 @@ BEGIN
 END;
 GO
 
-
-/*____________________________________________________________________
-  _________________________ GestionarClase ___________________________
-  ____________________________________________________________________*/
-
 IF OBJECT_ID('actividades.GestionarClase', 'P') IS NOT NULL
     DROP PROCEDURE actividades.GestionarClase;
 GO
 
 CREATE PROCEDURE actividades.GestionarClase
     @nombre_actividad VARCHAR(100),
-    @dni_profesor VARCHAR(10),
-    @horario VARCHAR(20),
-    @operacion CHAR(10)
+    @dni_profesor      VARCHAR(10),
+    @horario           VARCHAR(20),
+    @operacion         CHAR(10)
 AS
 BEGIN
     SET NOCOUNT ON;
-	/*Verificación de operaciones válidas*/
-    IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
+
+    /* 1) Verificar operación válida */
+    IF @operacion NOT IN ('Insertar','Modificar','Eliminar')
     BEGIN
         RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
         RETURN;
     END
-	/*Se obtiene el id_clase en caso de eliminar o modificar una clase*/
-	DECLARE @id_clase INT = (SELECT C.id_clase
-							 FROM actividades.Clase C
-							 INNER JOIN actividades.Actividad A ON A.id_actividad = C.id_actividad
-							 WHERE A.nombre = @nombre_actividad AND C.horario = @horario)
-	/*CASO 1: Eliminar clase*/
-    IF @operacion = 'Eliminar'
-    BEGIN
-		/*Verificaçión de existencia de clase a borrar.*/
-        IF @id_clase = NULL
-        BEGIN
-            RAISERROR('No existe la clase para eliminar.', 16, 1);
-            RETURN;
-        END
 
-        DELETE FROM actividades.Clase WHERE id_clase = @id_clase;
-    END
-	/*CASO 2: Modificar clase*/
-    ELSE IF @operacion = 'Modificar'
+    DECLARE @actividad_id INT;
+    DECLARE @profesor_id   INT;
+    DECLARE @id_clase       INT;
+
+    /* === CASO: INSERTAR === */
+    IF @operacion = 'Insertar'
     BEGIN
-		/*Verificaçión de existencia de clase a modificar.*/
-        IF @id_clase = NULL
-        BEGIN
-            RAISERROR('No existe la clase para modificar.', 16, 1);
-            RETURN;
-        END
-		/*Se utiliza COALESCE para asegurar dato válido en caso de que algún usuario ingrese NULL en algún campo*/
-        UPDATE actividades.Clase
-        SET id_actividad = COALESCE((SELECT id_actividad
-									 FROM actividades.Actividad
-									 WHERE nombre = @nombre_actividad), id_actividad),
-            id_profesor = COALESCE((SELECT Pr.id_profesor
-									FROM administracion.Profesor Pr
-									INNER JOIN administracion.Persona Pe ON Pr.id_persona = Pe.id_persona
-									WHERE Pe.dni = @dni_profesor), id_profesor),
-            horario = COALESCE(@horario, horario)
-        WHERE id_clase = @id_clase;
-    END
-	/*CASO 2: Insertar clase*/
-    ELSE IF @operacion = 'Insertar'
-    BEGIN
-		/*Verificación de datos no nulos necesarios para insertar clase*/
-        IF @nombre_actividad IS NULL
+        /* Validar datos obligatorios */
+        IF @nombre_actividad IS NULL OR LEN(@nombre_actividad)=0
         BEGIN
             RAISERROR('El nombre de la actividad es obligatorio.', 16, 1);
             RETURN;
         END
-
-        IF @dni_profesor IS NULL
+        IF @dni_profesor IS NULL OR LEN(@dni_profesor)=0
         BEGIN
-            RAISERROR('El dni del profesor es obligatorio.', 16, 1);
+            RAISERROR('El DNI del profesor es obligatorio.', 16, 1);
             RETURN;
         END
 
+        /* Obtener IDs */
+        SET @actividad_id = (
+            SELECT id_actividad
+            FROM actividades.Actividad
+            WHERE nombre = @nombre_actividad
+        );
+        SET @profesor_id = (
+            SELECT Pr.id_profesor
+            FROM administracion.Profesor Pr
+            JOIN administracion.Persona Pe ON Pr.id_persona = Pe.id_persona
+            WHERE Pe.dni = @dni_profesor
+        );
+
+        /* Validar existencia de actividad y profesor */
+        IF @actividad_id IS NULL
+        BEGIN
+            RAISERROR('No existe la actividad "%s".', 16, 1, @nombre_actividad);
+            RETURN;
+        END
+        IF @profesor_id IS NULL
+        BEGIN
+            RAISERROR('No existe el profesor con DNI %s.', 16, 1, @dni_profesor);
+            RETURN;
+        END
+
+        /* Insertar */
         INSERT INTO actividades.Clase (id_actividad, id_profesor, horario)
-        VALUES (
-			(SELECT id_actividad
-			 FROM actividades.Actividad
-			 WHERE nombre = @nombre_actividad),
-			(SELECT Pr.id_profesor
-			 FROM administracion.Profesor Pr
-			 INNER JOIN administracion.Persona Pe ON Pr.id_persona = Pe.id_persona
-			 WHERE Pe.dni = @dni_profesor),
-			@horario);
+        VALUES (@actividad_id, @profesor_id, @horario);
+        RETURN;
+    END
+
+    /* === CASO: MODIFICAR === */
+    IF @operacion = 'Modificar'
+    BEGIN
+        /* Validar que el profesor exista */
+        IF @dni_profesor IS NULL OR LEN(@dni_profesor)=0
+        BEGIN
+            RAISERROR('El DNI del profesor es obligatorio para modificar.', 16, 1);
+            RETURN;
+        END
+
+        SET @profesor_id = (
+            SELECT Pr.id_profesor
+            FROM administracion.Profesor Pr
+            JOIN administracion.Persona Pe ON Pr.id_persona = Pe.id_persona
+            WHERE Pe.dni = @dni_profesor
+        );
+        IF @profesor_id IS NULL
+        BEGIN
+            RAISERROR('No existe el profesor con DNI %s.', 16, 1, @dni_profesor);
+            RETURN;
+        END
+
+        /* Ubicar la clase por actividad + profesor */
+        SET @id_clase = (
+            SELECT C.id_clase
+            FROM actividades.Clase C
+            JOIN actividades.Actividad A ON C.id_actividad = A.id_actividad
+            WHERE A.nombre = @nombre_actividad
+              AND C.id_profesor = @profesor_id
+        );
+        IF @id_clase IS NULL
+        BEGIN
+            RAISERROR('No existe la clase a modificar para esa actividad y profesor.', 16, 1);
+            RETURN;
+        END
+
+        /* Obtener posible nueva actividad (si cambia nombre) */
+        SET @actividad_id = (
+            SELECT id_actividad
+            FROM actividades.Actividad
+            WHERE nombre = @nombre_actividad
+        );
+
+        /* Realizar UPDATE: permite sólo cambiar horario (o actividad/profesor si se ajusta el SP) */
+        UPDATE actividades.Clase
+        SET 
+            id_actividad = COALESCE(@actividad_id, id_actividad),
+            id_profesor  = @profesor_id,
+            horario      = COALESCE(@horario, horario)
+        WHERE id_clase = @id_clase;
+        RETURN;
+    END
+
+    /* === CASO: ELIMINAR === */
+    IF @operacion = 'Eliminar'
+    BEGIN
+        /* Validar datos obligatorios */
+        IF @nombre_actividad IS NULL OR LEN(@nombre_actividad)=0
+           OR @dni_profesor IS NULL OR LEN(@dni_profesor)=0
+           OR @horario IS NULL OR LEN(@horario)=0
+        BEGIN
+            RAISERROR('Nombre de actividad, DNI de profesor y horario son requeridos para eliminar.', 16, 1);
+            RETURN;
+        END
+
+        /* Verificar profesor */
+        SET @profesor_id = (
+            SELECT Pr.id_profesor
+            FROM administracion.Profesor Pr
+            JOIN administracion.Persona Pe ON Pr.id_persona = Pe.id_persona
+            WHERE Pe.dni = @dni_profesor
+        );
+        IF @profesor_id IS NULL
+        BEGIN
+            RAISERROR('No existe el profesor con DNI %s.', 16, 1, @dni_profesor);
+            RETURN;
+        END
+
+        /* Ubicar registro exacto por actividad+profesor+horario */
+        SET @id_clase = (
+            SELECT id_clase
+            FROM actividades.Clase
+            WHERE id_actividad = (
+                SELECT id_actividad
+                FROM actividades.Actividad
+                WHERE nombre = @nombre_actividad
+            )
+              AND id_profesor = @profesor_id
+              AND horario = @horario
+        );
+        IF @id_clase IS NULL
+        BEGIN
+            RAISERROR('No existe la clase a eliminar con esos datos.', 16, 1);
+            RETURN;
+        END
+
+        DELETE FROM actividades.Clase
+        WHERE id_clase = @id_clase;
+        RETURN;
     END
 END;
 GO
+
 
 /*____________________________________________________________________
   _______________________ GestionarInscripcion _______________________
