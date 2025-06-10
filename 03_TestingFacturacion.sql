@@ -64,7 +64,7 @@ SELECT * FROM actividades.Actividad
 
 -- ❌ PRUEBA 5: Operación inválida
 EXEC actividades.GestionarActividad
-    @nombre = 'Yoga',
+    @nombre = 'Ajedez',
     @costo = 1000.00,
     @horario = 'Lunes 10:00',
     @vigencia = '2025-09-01',
@@ -93,9 +93,9 @@ SELECT * FROM actividades.Clase
 -- ✅ PRUEBA 2: Modificación válida de clase
 -- Esperado: Se actualizan los datos correctamente
 EXEC actividades.GestionarClase
-    @nombre_actividad = 'Yoga',
-    @dni_profesor = '12345678',
-    @horario = 'Miércoles 17:00',
+    @nombre_actividad = 'Ajedrez',
+    @dni_profesor = '23456789',
+    @horario = 'Miércoles 14:00',
     @operacion = 'Modificar';
 -- Resultado esperado: Clase modificada sin errores
 GO
@@ -104,8 +104,8 @@ SELECT * FROM actividades.Clase
 -- ✅ PRUEBA 3: Eliminación válida de clase
 -- Esperado: Se elimina la clase correspondiente
 EXEC actividades.GestionarClase
-    @nombre_actividad = 'Yoga',
-    @dni_profesor = '12345678',
+    @nombre_actividad = 'Ajedrez',
+    @dni_profesor = '23456789',
     @horario = 'Miércoles 17:00',
     @operacion = 'Eliminar';
 -- Resultado esperado: Clase eliminada sin errores
@@ -124,7 +124,7 @@ SELECT * FROM actividades.Clase
 
 -- ❌ PRUEBA 5: Operación inválida
 EXEC actividades.GestionarClase
-    @nombre_actividad = 'Yoga',
+    @nombre_actividad = 'Ajedrez',
     @dni_profesor = '12345678',
     @horario = 'Miércoles 17:00',
     @operacion = 'Actualizar';
