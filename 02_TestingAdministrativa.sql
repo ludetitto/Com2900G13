@@ -145,7 +145,6 @@ EXEC administracion.GestionarSocio
     @operacion = 'Insertar';
 -- Resultado esperado: Persona y socio insertados correctamente
 GO
-DELETE FROM administracion.Socio
 SELECT * FROM administracion.Socio
 SELECT * FROM administracion.Persona
 
@@ -193,6 +192,8 @@ EXEC administracion.GestionarProfesor
     @operacion = 'Insertar';
 -- Resultado esperado: Persona y profesor insertados correctamente
 GO
+SELECT * FROM administracion.Profesor
+
 
 -- ✅ PRUEBA 2: Eliminación válida de profesor
 EXEC administracion.GestionarProfesor
@@ -206,6 +207,8 @@ EXEC administracion.GestionarProfesor
     @operacion = 'Eliminar';
 -- Resultado esperado: Profesor eliminado, persona no borrada
 GO
+SELECT * FROM administracion.Profesor
+
 
 -- ❌ PRUEBA 3: Eliminación de profesor inexistente
 EXEC administracion.GestionarProfesor
@@ -224,21 +227,49 @@ GO
   ________________________ P_GestionarInvitado ________________________
   _____________________________________________________________________*/
 
+--insertar Socio
+EXEC administracion.GestionarSocio
+    @nombre = 'Francisco',
+    @apellido = 'Vignardel',
+    @dni = '45778667',
+    @email = 'francisco.vignardel@email.com',
+    @fecha_nacimiento = '2004-04-10',
+    @tel_contacto = '1231233234',
+    @tel_emergencia = '6624324321',
+    @categoria = 'Adulto',
+    @nro_socio = 'SOC1002',
+    @obra_social = 'OSPOCE',
+    @nro_obra_social = '654321',
+    @saldo = 0,
+    @operacion = 'Insertar';
+-- Resultado esperado: Persona y socio insertados correctamente
+GO
+SELECT * FROM administracion.Socio
+SELECT * FROM administracion.Persona
+
 -- ✅ PRUEBA 1: Inserción válida de invitado
 EXEC administracion.GestionarInvitado
-    @dni_socio = '12345678',
+    @dni_socio = '45778667',
 	@dni_invitado = '34567891',
     @operacion = 'Insertar';
 -- Resultado esperado: Invitado insertado correctamente
 GO
 
+select * from administracion.Persona
+select * from administracion.Socio
+select * from administracion.Invitado
+
 -- ✅ PRUEBA 2: Eliminación válida de invitado
 EXEC administracion.GestionarInvitado
-    @dni_socio = '45678901',
-	@dni_invitado = '12345678',
+    @dni_socio = '45778667',
+	@dni_invitado = '34567891',
     @operacion = 'Eliminar';
 -- Resultado esperado: Invitado eliminado correctamente
 GO
+
+select * from administracion.Persona
+select * from administracion.Socio
+select * from administracion.Invitado
 
 -- ❌ PRUEBA 3: Insertar invitado con DNI ya existente
 EXEC administracion.GestionarInvitado
@@ -255,20 +286,24 @@ GO
 -- ✅ PRUEBA 1: Inserción válida de grupo familiar
 EXEC administracion.GestionarGrupoFamiliar
     @dni_socio = '23456789',
-    @dni_socio_rp = '12345678',
+    @dni_socio_rp = '45778667',
     @operacion = 'Insertar';
 -- Resultado esperado: Grupo familiar insertado correctamente
 GO
 
 SELECT * FROM administracion.Socio
+SELECT * FROM administracion.GrupoFamiliar
 
 -- ✅ PRUEBA 2: Eliminación válida de grupo familiar
 EXEC administracion.GestionarGrupoFamiliar
-    @dni_socio = 1,
-    @dni_socio_rp = 2,
+    @dni_socio = '23456789',
+    @dni_socio_rp = '45778667',
     @operacion = 'Eliminar';
 -- Resultado esperado: Grupo familiar eliminado correctamente
 GO
+SELECT * FROM administracion.Socio
+SELECT * FROM administracion.GrupoFamiliar
+
 
 -- ❌ PRUEBA 3: Insertar grupo familiar con socio inexistente
 EXEC administracion.GestionarGrupoFamiliar
