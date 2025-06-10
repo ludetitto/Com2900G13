@@ -124,7 +124,6 @@ BEGIN
     END
 END;
 GO
-
 /*____________________________________________________________________
   _______________________ GestionarProfesor ________________________
   ____________________________________________________________________*/
@@ -145,65 +144,83 @@ CREATE PROCEDURE administracion.GestionarProfesor
 AS
 BEGIN
     SET NOCOUNT ON;
-	/*Verificación de operaciones válidas*/
+
+    -- Verificación de operación válida
     IF @operacion NOT IN ('Insertar', 'Eliminar')
     BEGIN
         RAISERROR('Operación inválida. Usar Insertar o Eliminar.', 16, 1);
         RETURN;
     END
 
-	/*Se declara variable auxiliar para la gestión de id_persona*/
     DECLARE @id_persona INT;
-	/*CASO 1: Insertar profesor nuevo.*/
+
+    -- CASO 1: INSERTAR
     IF @operacion = 'Insertar'
     BEGIN
-        /*Verificación de existencia de la persona*/
+        -- Buscar si la persona ya existe
         SELECT @id_persona = id_persona
         FROM administracion.Persona
         WHERE dni = @dni;
 
-        /*Si no existe, se crea*/
+        -- Si no existe, se inserta la persona
         IF @id_persona IS NULL
         BEGIN
             EXEC administracion.GestionarPersona
-					@nombre, 
-					@apellido, 
-					@dni, 
-					@email, 
-					@fecha_nacimiento, 
-					@tel_contacto, 
-					@tel_emergencia, 
-					'Insertar'
-				
-			SET @id_persona = (SELECT 1 FROM administracion.Persona WHERE dni = @dni)
+                @nombre, 
+                @apellido, 
+                @dni, 
+                @email, 
+                @fecha_nacimiento, 
+                @tel_contacto, 
+                @tel_emergencia, 
+                'Insertar';
+
+            SELECT @id_persona = id_persona
+            FROM administracion.Persona
+            WHERE dni = @dni;
         END
 
+        -- Validar si ya es profesor
+        IF EXISTS (
+            SELECT 1 
+            FROM administracion.Profesor 
+            WHERE id_persona = @id_persona
+        )
+        BEGIN
+            RAISERROR('La persona ya está registrada como profesor.', 16, 1);
+            RETURN;
+        END
+
+        -- Insertar nuevo profesor
         INSERT INTO administracion.Profesor (id_persona)
         VALUES (@id_persona);
     END
-	/*CASO 2: Eliminar un profesor. En este caso, se borra la persona y luego el profesor en sí como rol*/
+
+    -- CASO 2: ELIMINAR
     ELSE IF @operacion = 'Eliminar'
     BEGIN
-        /*Se obtiene el id_persona correspondiente al profesor*/
         SELECT @id_persona = id_persona
         FROM administracion.Persona
         WHERE dni = @dni;
-		/*Verificación de existencia de la persona*/
+
         IF @id_persona IS NULL
         BEGIN
             RAISERROR('No se encontró una persona con el DNI especificado.', 16, 1);
             RETURN;
         END
-		/*Se borra de la tabla Persona*/
+
+        -- Eliminar profesor
+        DELETE FROM administracion.Profesor
+        WHERE id_persona = @id_persona;
+
+        -- Marcar persona como borrada
         UPDATE administracion.Persona 
-		SET borrado = 1
-		WHERE id_persona = @id_persona;
-		/*Se borra de la tabla Profesor*/
-		DELETE FROM administracion.Profesor
-		WHERE id_persona = @id_persona;
+        SET borrado = 1
+        WHERE id_persona = @id_persona;
     END
 END;
 GO
+
 /*____________________________________________________________________
   ____________________ GestionarCategoriaSocio _____________________
   ____________________________________________________________________*/

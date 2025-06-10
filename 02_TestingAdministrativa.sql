@@ -103,11 +103,10 @@ SELECT TOP 10 * FROM administracion.CategoriaSocio
 
 -- ✅ PRUEBA 2: Eliminación válida de categoría
 EXEC administracion.GestionarCategoriaSocio
-    @nombre = NULL,
+    @nombre = 'Adulto',
     @años = NULL,
     @costo_membresia = NULL,
     @vigencia = NULL,
-    @id_categoria = 1,
     @operacion = 'Eliminar';
 -- Resultado esperado: Categoría eliminada correctamente
 GO
@@ -244,8 +243,6 @@ EXEC administracion.GestionarSocio
     @operacion = 'Insertar';
 -- Resultado esperado: Persona y socio insertados correctamente
 GO
-SELECT * FROM administracion.Socio
-SELECT * FROM administracion.Persona
 
 EXEC administracion.GestionarSocio
     @nombre = 'Juan',
@@ -301,7 +298,7 @@ GO
 /*_____________________________________________________________________
   _____________________ P_GestionarGrupoFamiliar ______________________
   _____________________________________________________________________*/
-delete from administracion.GrupoFamiliar
+
 
 -- ✅ PRUEBA 1: Inserción válida de grupo familiar
 EXEC administracion.GestionarGrupoFamiliar
@@ -327,20 +324,21 @@ SELECT * FROM administracion.GrupoFamiliar
 
 -- ❌ PRUEBA 3: Insertar grupo familiar con socio inexistente
 EXEC administracion.GestionarGrupoFamiliar
-    @dni_socio = 1,
-    @dni_socio_rp = 2,
+    @dni_socio = '99999999',
+    @dni_socio_rp = '88888888',
     @operacion = 'Insertar';
 -- Resultado esperado: Error por FK en socio o socio_rp
 GO
 
 -- ✅ PRUEBA 4: insertar a un socio a el mismo
 EXEC administracion.GestionarGrupoFamiliar
-    @dni_socio = '23456789',
-    @dni_socio_rp = '23456789',
+    @dni_socio = '33444555',
+    @dni_socio_rp = '33444555',
     @operacion = 'Insertar';
 -- Resultado esperado: Grupo familiar insertado correctamente
 GO
 SELECT * FROM administracion.Socio
+SELECT * FROM administracion.Persona
 SELECT * FROM administracion.GrupoFamiliar
 /*_______________________________________________________________________________
   _________________________________PRUEBA MODULO ________________________________
