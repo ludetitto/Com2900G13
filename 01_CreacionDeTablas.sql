@@ -308,7 +308,7 @@ GO
    TABLAS DEL MÓDULO FACTURACION
    ============================= */
 
-IF OBJECT_ID('pagos.EmisorFactura', 'U') IS NOT NULL
+IF OBJECT_ID('facturacion.EmisorFactura', 'U') IS NOT NULL
     DROP TABLE facturacion.EmisorFactura;
 GO
 
@@ -323,7 +323,7 @@ CREATE TABLE facturacion.EmisorFactura (
 );
 GO
 
-IF OBJECT_ID('pagos.Factura', 'U') IS NOT NULL
+IF OBJECT_ID('facturacion.Factura', 'U') IS NOT NULL
     DROP TABLE facturacion.Factura;
 GO
 
@@ -343,7 +343,7 @@ CREATE TABLE facturacion.Factura (
 );
 GO
 
-IF OBJECT_ID('pagos.DetalleFactura', 'U') IS NOT NULL
+IF OBJECT_ID('facturacion.DetalleFactura', 'U') IS NOT NULL
     DROP TABLE facturacion.DetalleFactura;
 GO
 
@@ -364,6 +364,17 @@ CREATE TABLE facturacion.DetalleFactura (
 );
 GO
 
+IF OBJECT_ID('facturacion.Recargo', 'U') IS NOT NULL
+    DROP TABLE facturacion.Recargo;
+GO
+
+CREATE TABLE facturacion.Recargo (
+	id_recargo INT IDENTITY(1,1) PRIMARY KEY,
+	porcentaje DECIMAL(5,2),
+	descripcion VARCHAR(50),
+	vigencia DATE
+)
+
 /* ===========================
    TABLAS DEL MÓDULO COBRANZAS
    =========================== */
@@ -379,7 +390,7 @@ CREATE TABLE cobranzas.MedioDePago (
 );
 GO
 
-IF OBJECT_ID('pagos.Pago', 'U') IS NOT NULL
+IF OBJECT_ID('cobranzas.Pago', 'U') IS NOT NULL
     DROP TABLE cobranzas.Pago;
 GO
 
@@ -433,10 +444,11 @@ GO
 
 CREATE TABLE cobranzas.Morosidad (
     id_morosidad INT IDENTITY(1,1) PRIMARY KEY,
-    id_factura INT,
-    recargo DECIMAL(5,2),
-	fecha_bloqueo DATE,
-	CONSTRAINT FK_morosidad_factura_id FOREIGN KEY (id_factura) REFERENCES facturacion.Factura (id_factura)
+    id_socio INT,
+	id_factura INT,
+	monto DECIMAL(10,2),
+	CONSTRAINT FK_morosidad_factura_id FOREIGN KEY (id_factura) REFERENCES facturacion.Factura (id_factura),
+	CONSTRAINT FK_morosidad_socio_id FOREIGN KEY (id_socio) REFERENCES administracion.Socio (id_socio)
 );
 GO
 
