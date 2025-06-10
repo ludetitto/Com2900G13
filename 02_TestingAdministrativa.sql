@@ -192,6 +192,7 @@ EXEC administracion.GestionarProfesor
 -- Resultado esperado: Persona y profesor insertados correctamente
 GO
 SELECT * FROM administracion.Profesor
+SELECT * FROM administracion.Persona
 
 
 -- ✅ PRUEBA 2: Eliminación válida de profesor

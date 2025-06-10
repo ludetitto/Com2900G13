@@ -10,7 +10,6 @@
 USE COM2900G13;
 GO
 
-
 /*____________________________________________________________________
   _______________________ GestionarActividad ________________________
   ____________________________________________________________________*/
@@ -20,61 +19,73 @@ IF OBJECT_ID('actividades.GestionarActividad', 'P') IS NOT NULL
 GO
 
 CREATE PROCEDURE actividades.GestionarActividad
-    @nombre VARCHAR(100),
-    @costo DECIMAL(10,2),
-    @horario VARCHAR(50),
+    @nombre   VARCHAR(100),
+    @costo    DECIMAL(10,2),
+    @horario  VARCHAR(50),
     @vigencia DATE,
     @operacion CHAR(10)
 AS
 BEGIN
     SET NOCOUNT ON;
-	/*Verificación de operaciones válidas*/
-    IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
+
+    -- 1) Validar operación
+    IF @operacion NOT IN ('Insertar','Modificar','Eliminar')
     BEGIN
-        RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
+        RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.',16,1);
         RETURN;
     END
-	/*CASO 1: Eliminar actividad*/
+
+    -- 2) Eliminar
     IF @operacion = 'Eliminar'
     BEGIN
-		/*Verificaçión de existencia de actividad a borrar.*/
         IF NOT EXISTS (SELECT 1 FROM actividades.Actividad WHERE nombre = @nombre)
         BEGIN
-            RAISERROR('No existe la actividad para eliminar.', 16, 1);
+            RAISERROR('No existe la actividad para eliminar.',16,1);
             RETURN;
         END
 
-        DELETE FROM actividades.Actividad WHERE nombre = @nombre;
+        DELETE FROM actividades.Actividad
+        WHERE nombre = @nombre;
+        RETURN;
     END
-	/*CASO 2: Modificar datos de actividad. Menos el ID, cualquier otro campo*/
+
+    -- 3) Modificar
     ELSE IF @operacion = 'Modificar'
     BEGIN
-		/*Verificaçión de existencia de actividad a modificar.*/
         IF NOT EXISTS (SELECT 1 FROM actividades.Actividad WHERE nombre = @nombre)
         BEGIN
-            RAISERROR('No existe la actividad para modificar.', 16, 1);
+            RAISERROR('No existe la actividad para modificar.',16,1);
             RETURN;
         END
-		/*Se utiliza COALESCE para asegurar dato válido en caso de que algún usuario ingrese NULL en algún campo*/
+
         UPDATE actividades.Actividad
         SET 
-			costo = COALESCE(@costo, costo),
-            horario = COALESCE(@horario, horario),
+            costo    = COALESCE(@costo,    costo),
+            horario  = COALESCE(@horario,  horario),
             vigencia = COALESCE(@vigencia, vigencia)
         WHERE nombre = @nombre;
+        RETURN;
     END
-	/*CASO 3: Insertar actividad*/
+
+    -- 4) Insertar + validación de duplicados
     ELSE IF @operacion = 'Insertar'
     BEGIN
-		/*Verificación de datos no nulos necesarios para insertar actividad*/
+        -- Nombre obligatorio
         IF @nombre IS NULL OR LTRIM(RTRIM(@nombre)) = ''
         BEGIN
-            RAISERROR('El nombre es obligatorio.', 16, 1);
+            RAISERROR('El nombre es obligatorio.',16,1);
             RETURN;
         END
+        -- Costo válido
         IF @costo IS NULL OR @costo < 0
         BEGIN
-            RAISERROR('El costo debe ser un número positivo.', 16, 1);
+            RAISERROR('El costo debe ser un número positivo.',16,1);
+            RETURN;
+        END
+        -- No permitir duplicados de nombre
+        IF EXISTS (SELECT 1 FROM actividades.Actividad WHERE nombre = @nombre)
+        BEGIN
+            RAISERROR('Ya existe una actividad con ese nombre.',16,1);
             RETURN;
         END
 
@@ -364,82 +375,117 @@ BEGIN
 END;
 GO
 
-/*____________________________________________________________________
-  ______________________ GestionarActividadExtra _____________________
-  ____________________________________________________________________*/
-
-IF OBJECT_ID('actividades.GestionarActividadExtra', 'P') IS NOT NULL
+/*_________________________________________________________________________
+  ____________________ GestionarActividadExtra ____________________________
+  _________________________________________________________________________*/
+  IF OBJECT_ID('actividades.GestionarActividadExtra', 'P') IS NOT NULL
     DROP PROCEDURE actividades.GestionarActividadExtra;
 GO
 
 CREATE PROCEDURE actividades.GestionarActividadExtra
-    @nombre VARCHAR(100),
-    @costo DECIMAL(10,2),
-    @periodo CHAR(10),
+    @nombre      VARCHAR(100),
+    @costo       DECIMAL(10,2),
+    @periodo     CHAR(10),
     @es_invitado CHAR(1),
-    @vigencia DATE,
-    @operacion CHAR(10)
+    @vigencia    DATE,
+    @operacion   CHAR(10)
 AS
 BEGIN
     SET NOCOUNT ON;
-	/*Verificación de operaciones válidas*/
-    IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
+
+    -- 1) Verificar operación válida
+    IF @operacion NOT IN ('Insertar','Modificar','Eliminar')
     BEGIN
-        RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
+        RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.',16,1);
         RETURN;
     END
-	/*Se obtiene el id_extra en caso de eliminar o modificar una actividad extra*/
-	DECLARE @id_extra INT = (SELECT id_extra
-							 FROM actividades.ActividadExtra
-							 WHERE nombre = @nombre AND periodo = @periodo AND es_invitado = @es_invitado)
-	/*CASO 1: Eliminar actividad extra*/
+
+    -- 2) Contar y preparar variable única para id_extra
+    DECLARE 
+        @count_extra INT,
+        @id_extra    INT;
+
+    SELECT @count_extra = COUNT(*)
+    FROM actividades.ActividadExtra
+    WHERE nombre      = @nombre
+      AND periodo     = @periodo
+      AND es_invitado = @es_invitado;
+
+    -- 3) Eliminar
     IF @operacion = 'Eliminar'
     BEGIN
-		/*Verificaçión de existencia de actividad extra a borrar.*/
-        IF @id_extra IS NULL
+        IF @count_extra = 0
         BEGIN
-            RAISERROR('No existe la actividad extra para eliminar.', 16, 1);
+            RAISERROR('No existe la actividad extra para eliminar.',16,1);
+            RETURN;
+        END
+        IF @count_extra > 1
+        BEGIN
+            RAISERROR('Hay más de una fila que coincide; operación ambigua.',16,1);
             RETURN;
         END
 
-        DELETE FROM actividades.ActividadExtra WHERE id_extra = @id_extra;
+        SELECT @id_extra = id_extra
+        FROM actividades.ActividadExtra
+        WHERE nombre=@nombre AND periodo=@periodo AND es_invitado=@es_invitado;
+
+        DELETE FROM actividades.ActividadExtra
+        WHERE id_extra = @id_extra;
+        RETURN;
     END
-	/*CASO 2: Modificar actividad extra*/
+
+    -- 4) Modificar
     ELSE IF @operacion = 'Modificar'
     BEGIN
-		/*Verificaçión de existencia de actividad extra a modificar.*/
-        IF @id_extra IS NULL
+        IF @count_extra = 0
         BEGIN
-            RAISERROR('No existe la actividad extra para modificar.', 16, 1);
+            RAISERROR('No existe la actividad extra para modificar.',16,1);
             RETURN;
         END
-		/*Se utiliza COALESCE para asegurar dato válido en caso de que algún usuario ingrese NULL en algún campo*/
+        IF @count_extra > 1
+        BEGIN
+            RAISERROR('Hay más de una fila que coincide; operación ambigua.',16,1);
+            RETURN;
+        END
+
+        SELECT @id_extra = id_extra
+        FROM actividades.ActividadExtra
+        WHERE nombre=@nombre AND periodo=@periodo AND es_invitado=@es_invitado;
+
         UPDATE actividades.ActividadExtra
-        SET nombre = COALESCE(@nombre, nombre),
-            costo = COALESCE(@costo, costo),
-            periodo = COALESCE(@periodo, periodo),
+        SET 
+            nombre      = COALESCE(@nombre,      nombre),
+            costo       = COALESCE(@costo,       costo),
+            periodo     = COALESCE(@periodo,     periodo),
             es_invitado = COALESCE(@es_invitado, es_invitado),
-            vigencia = COALESCE(@vigencia, vigencia)
+            vigencia    = COALESCE(@vigencia,    vigencia)
         WHERE id_extra = @id_extra;
+        RETURN;
     END
-	/*CASO 3: Insertar actividad extra*/
-    ELSE IF @operacion = 'Insertar'
+
+    -- 5) Insertar + validación de duplicados
+    ELSE /* Insertar */
     BEGIN
-		/*Verificación de datos no nulos necesarios para insertar actividad extra*/
         IF @nombre IS NULL OR LTRIM(RTRIM(@nombre)) = ''
         BEGIN
-            RAISERROR('El nombre de la actividad extra es obligatorio.', 16, 1);
+            RAISERROR('El nombre de la actividad extra es obligatorio.',16,1);
             RETURN;
         END
-
         IF @costo IS NULL OR @costo < 0
         BEGIN
-            RAISERROR('El costo debe ser un número positivo.', 16, 1);
+            RAISERROR('El costo debe ser un número positivo.',16,1);
+            RETURN;
+        END
+        IF @count_extra > 0
+        BEGIN
+            RAISERROR('Ya existe una actividad extra con esos parámetros.',16,1);
             RETURN;
         END
 
-        INSERT INTO actividades.ActividadExtra (nombre, costo, periodo, es_invitado, vigencia)
-        VALUES (@nombre, @costo, @periodo, @es_invitado, @vigencia);
+        INSERT INTO actividades.ActividadExtra
+            (nombre, costo, periodo, es_invitado, vigencia)
+        VALUES
+            (@nombre, @costo, @periodo, @es_invitado, @vigencia);
     END
 END;
 GO

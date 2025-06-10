@@ -127,52 +127,67 @@ GO
 /*____________________________________________________________________
   _______________________ GestionarProfesor ________________________
   ____________________________________________________________________*/
+/*____________________________________________________________________
+  _______________________ GestionarProfesor ________________________
+  ____________________________________________________________________*/
 
 IF OBJECT_ID('administracion.GestionarProfesor', 'P') IS NOT NULL
     DROP PROCEDURE administracion.GestionarProfesor;
 GO
 
 CREATE PROCEDURE administracion.GestionarProfesor
-    @nombre VARCHAR(50),
-    @apellido CHAR(50),
-    @dni CHAR(10),
-    @email VARCHAR(70),
+    @nombre           VARCHAR(50),
+    @apellido         CHAR(50),
+    @dni              CHAR(10),
+    @email            VARCHAR(70),
     @fecha_nacimiento DATE,
-    @tel_contacto CHAR(15),
-    @tel_emergencia CHAR(15),
-    @operacion CHAR(10)
+    @tel_contacto     CHAR(15),
+    @tel_emergencia   CHAR(15),
+    @operacion        CHAR(10)
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Verificación de operación válida
+    -- 1) Verificación de operación válida
     IF @operacion NOT IN ('Insertar', 'Eliminar')
     BEGIN
         RAISERROR('Operación inválida. Usar Insertar o Eliminar.', 16, 1);
         RETURN;
     END
 
-    DECLARE @id_persona INT;
+    DECLARE 
+        @id_persona INT,
+        @esta_borrada BIT;
 
     -- CASO 1: INSERTAR
     IF @operacion = 'Insertar'
     BEGIN
-        -- Buscar si la persona ya existe
-        SELECT @id_persona = id_persona
+        -- 1.1) Verifico si ya existe la persona (incluso si está borrada)
+        SELECT 
+            @id_persona = id_persona,
+            @esta_borrada = borrado
         FROM administracion.Persona
         WHERE dni = @dni;
 
-        -- Si no existe, se inserta la persona
+        -- 1.2) Si existe pero estaba borrada, la "reactivo"
+        IF @id_persona IS NOT NULL AND @esta_borrada = 1
+        BEGIN
+            UPDATE administracion.Persona
+            SET borrado = 0
+            WHERE id_persona = @id_persona;
+        END
+
+        -- 1.3) Si no existía, inserto la persona nueva
         IF @id_persona IS NULL
         BEGIN
             EXEC administracion.GestionarPersona
-                @nombre, 
-                @apellido, 
-                @dni, 
-                @email, 
-                @fecha_nacimiento, 
-                @tel_contacto, 
-                @tel_emergencia, 
+                @nombre,
+                @apellido,
+                @dni,
+                @email,
+                @fecha_nacimiento,
+                @tel_contacto,
+                @tel_emergencia,
                 'Insertar';
 
             SELECT @id_persona = id_persona
@@ -180,7 +195,7 @@ BEGIN
             WHERE dni = @dni;
         END
 
-        -- Validar si ya es profesor
+        -- 1.4) Verificar que no esté ya como profesor
         IF EXISTS (
             SELECT 1 
             FROM administracion.Profesor 
@@ -191,7 +206,7 @@ BEGIN
             RETURN;
         END
 
-        -- Insertar nuevo profesor
+        -- 1.5) Inserto el registro en Profesor
         INSERT INTO administracion.Profesor (id_persona)
         VALUES (@id_persona);
     END
@@ -199,6 +214,7 @@ BEGIN
     -- CASO 2: ELIMINAR
     ELSE IF @operacion = 'Eliminar'
     BEGIN
+        -- 2.1) Obtengo la persona
         SELECT @id_persona = id_persona
         FROM administracion.Persona
         WHERE dni = @dni;
@@ -209,11 +225,11 @@ BEGIN
             RETURN;
         END
 
-        -- Eliminar profesor
+        -- 2.2) Elimino el rol de profesor
         DELETE FROM administracion.Profesor
         WHERE id_persona = @id_persona;
 
-        -- Marcar persona como borrada
+        -- 2.3) Marco la persona como borrada
         UPDATE administracion.Persona 
         SET borrado = 1
         WHERE id_persona = @id_persona;
