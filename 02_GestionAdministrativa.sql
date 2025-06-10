@@ -543,3 +543,104 @@ BEGIN
 	WHERE I.activo = 0
 END;
 GO
+
+/*______________________________________________________________________
+  _____________________ ConsultarEstadoSocioyGrupo _____________________
+  ____________________________________________________________________*/
+  
+-- Eliminar si ya existe
+IF OBJECT_ID('socios.sp_ConsultarEstadoSocioyGrupo', 'P') IS NOT NULL
+    DROP PROCEDURE socios.sp_ConsultarEstadoSocio;
+GO
+
+CREATE PROCEDURE socios.sp_ConsultarEstadoSocio
+    @id_socio INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    --Validación: id_socio debe ser mayor a cero
+    IF @id_socio <= 0
+    BEGIN
+        RAISERROR('El ID del socio debe ser mayor a cero.', 16, 1);
+        RETURN;
+    END;
+
+    --Validación: existencia del socio
+    IF NOT EXISTS (SELECT 1 FROM socios.Socio WHERE id_socio = @id_socio)
+    BEGIN
+        RAISERROR('No existe un socio con el ID especificado.', 16, 1);
+        RETURN;
+    END;
+
+    --Validación de formato de DNI
+    DECLARE @dni CHAR(8);
+    SELECT @dni = dni FROM socios.Socio WHERE id_socio = @id_socio;
+
+    IF LEN(@dni) != 8 OR ISNUMERIC(@dni) = 0
+    BEGIN
+        RAISERROR('El DNI debe tener exactamente 8 dígitos numéricos.', 16, 1);
+        RETURN;
+    END;
+
+    --Validación básica de formato de email
+    DECLARE @email VARCHAR(100);
+    SELECT @email = email FROM socios.Socio WHERE id_socio = @id_socio;
+
+    IF CHARINDEX('@', @email) = 0 OR CHARINDEX('.', @email) = 0
+    BEGIN
+        RAISERROR('El correo electrónico del socio no tiene un formato válido.', 16, 1);
+        RETURN;
+    END;
+
+    --Información del socio titular
+    SELECT 
+        'Titular' AS TipoPersona,
+        s.id_socio,
+        s.nombre,
+        s.apellido,
+        s.dni,
+        s.email,
+        s.fecha_nacimiento,
+        s.tel_contacto,
+        s.tel_emergencia,
+        s.obra_social,
+        s.nro_obra_social,
+        s.saldo,
+        s.activo,
+        cs.nombre AS categoria,
+        cs.costo_membresia,
+        gf.id_grupo,
+        gf.descuento
+    FROM socios.Socio s
+    LEFT JOIN socios.CategoriaSocio cs ON s.id_categoria = cs.id_categoria
+    LEFT JOIN socios.GrupoFamiliar gf ON s.id_grupo = gf.id_grupo
+    WHERE s.id_socio = @id_socio;
+
+    --Familiares del mismo grupo
+    ;WITH GrupoFamiliarCTE AS (
+        SELECT 
+            'Familiar' AS TipoPersona,
+            sf.id_socio,
+            sf.nombre,
+            sf.apellido,
+            sf.dni,
+            sf.email,
+            sf.fecha_nacimiento,
+            sf.tel_contacto,
+            sf.tel_emergencia,
+            sf.obra_social,
+            sf.nro_obra_social,
+            sf.saldo,
+            sf.activo,
+            csf.nombre AS categoria,
+            csf.costo_membresia,
+            sf.id_grupo
+        FROM socios.Socio sf
+        INNER JOIN socios.Socio titular ON titular.id_socio = @id_socio
+        INNER JOIN socios.CategoriaSocio csf ON sf.id_categoria = csf.id_categoria
+        WHERE sf.id_grupo = titular.id_grupo
+          AND sf.id_socio != @id_socio
+    )
+    SELECT * FROM GrupoFamiliarCTE;
+END;

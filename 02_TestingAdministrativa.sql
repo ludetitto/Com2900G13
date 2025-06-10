@@ -277,8 +277,36 @@ EXEC administracion.GestionarGrupoFamiliar
     @operacion = 'Insertar';
 -- Resultado esperado: Error por FK en socio o socio_rp
 GO
-
 /*_______________________________________________________________________________
-  _________________________________PRUEBA MODULO ________________________________
+  _________________________________ConsultarEstadoSocioyGrupo ___________________
   _______________________________________________________________________________ */
+
+-- ✅ PRUEBA 1: Consultar estado
+EXEC socios.sp_ConsultarEstadoSocioyGrupo @id_socio = 1;
+-- Resultado esperado: Información del titular y su grupo
+
+GO
+-- ❌ PRUEBA 2: Error por DNI inválido
+UPDATE socios.Socio SET dni = '12AB5678' WHERE id_socio = 1;
+EXEC socios.sp_ConsultarEstadoSocioyGrupo @id_socio = 1;
+-- Resultado esperado: Error → 'El DNI debe tener exactamente 8 dígitos numéricos.'
+
+GO
+-- ❌ PRUEBA 3: DNI inválido (menos de 8 dígitos)
+UPDATE socios.Socio SET dni = '1234567' WHERE id_socio = 1;
+EXEC socios.sp_ConsultarEstadoSocio @id_socio = 1;
+-- Resultado esperado: Error → 'El DNI debe tener exactamente 8 dígitos numéricos.'
+
+GO
+-- ❌ PRUEBA 4: Email inválido (sin @)
+UPDATE socios.Socio SET email = 'juan.perezemail.com' WHERE id_socio = 1;
+EXEC socios.sp_ConsultarEstadoSocio @id_socio = 1;
+-- Resultado esperado: Error → 'El correo electrónico del socio no tiene un formato válido.'
+GO
+
+-- ❌ PRUEBA 5: Email inválido (sin punto)
+UPDATE socios.Socio SET email = 'juan@perezemailcom' WHERE id_socio = 1;
+EXEC socios.sp_ConsultarEstadoSocio @id_socio = 1;
+-- Resultado esperado: Error → 'El correo electrónico del socio no tiene un formato válido.'
+
 
