@@ -930,6 +930,7 @@ BEGIN
 		/*Creación de variables auxiliares para id_socio e id_emisor*/
         DECLARE @id_socio INT;
         DECLARE @id_emisor INT;
+		DECLARE @anulada INT;
 
         /*Se obtiene el id_socio asociado a su correspondiente DNI*/
         SELECT @id_socio = id_socio 
@@ -943,6 +944,31 @@ BEGIN
             ROLLBACK TRANSACTION;
             RETURN;
         END
+
+		IF EXISTS (
+		SELECT TOP 1 anulada = @anulada
+		FROM facturacion.Factura
+		WHERE id_socio = @id_socio
+		  AND MONTH(fecha_emision) = MONTH(GETDATE())
+		  AND YEAR(fecha_emision) = YEAR(GETDATE())
+		  AND anulada = 0
+		)
+		BEGIN
+			RAISERROR('Ya existe una factura para este socio en el mes actual.', 16, 1);
+			ROLLBACK TRANSACTION;
+			RETURN;
+		END
+		/*Se contemplan casos donde la factura había sido anulada*/
+		ELSE IF @anulada = 1
+		BEGIN
+			UPDATE facturacion.Factura
+			SET anulada = 0
+			WHERE id_socio = @id_socio
+			AND MONTH(fecha_emision) = MONTH(GETDATE())
+			AND YEAR(fecha_emision) = YEAR(GETDATE())
+			COMMIT TRANSACTION;
+			RETURN;
+		END
 
         /*Se obtiene el id_emisor asociado a su correspondiente CUIL*/
         SELECT @id_emisor = id_emisor
@@ -1050,11 +1076,13 @@ BEGIN
 		/*Creación de variables auxiliares para id_invitado e id_emisor*/
         DECLARE @id_invitado INT;
         DECLARE @id_emisor INT;
+		DECLARE @id_factura INT;
 
         /*Se obtiene el id_invitado asociado a su correspondiente DNI*/
         SELECT @id_invitado = id_invitado
         FROM administracion.Invitado
         WHERE dni = @dni_invitado;
+
 		/*Si no existe el invitado, no se realiza la transacción.*/
         IF @id_invitado IS NULL
         BEGIN
@@ -1062,6 +1090,35 @@ BEGIN
             ROLLBACK TRANSACTION;
             RETURN;
         END
+
+		/*Verificar si ya existe una factura emitida hoy para este invitado con esa actividad*/
+		IF EXISTS (SELECT TOP 1  id_factura = @id_factura
+					FROM facturacion.Factura F
+					INNER JOIN facturacion.DetalleFactura D ON F.id_factura = D.id_factura
+					WHERE F.id_socio IS NULL
+					AND F.fecha_emision = GETDATE()
+					AND D.descripcion = @descripcion
+					AND F.anulada = 0)
+		BEGIN
+			RAISERROR('Ya se generó una factura hoy para este invitado con esa actividad.', 16, 1);
+			ROLLBACK TRANSACTION;
+			RETURN;
+		END
+		/*Si estaba anulada, se habilita nuevamente*/
+		ELSE IF EXISTS (SELECT TOP 1 F.id_factura
+						FROM facturacion.Factura F
+						INNER JOIN facturacion.DetalleFactura D ON F.id_factura = D.id_factura
+						WHERE F.id_factura = @id_factura
+						AND F.fecha_emision = GETDATE()
+						AND D.descripcion = @descripcion
+						AND F.anulada = 1)
+		BEGIN
+			UPDATE facturacion.Factura
+			SET anulada = 0
+			WHERE id_factura = @id_factura
+			COMMIT TRANSACTION;
+			RETURN;
+		END
 
         /*Se obtiene el id_emisor asociado a su correspondiente CUIL*/
         SELECT @id_emisor = id_emisor
@@ -1090,7 +1147,7 @@ BEGIN
 			0
 		);
 
-        DECLARE @id_factura INT = SCOPE_IDENTITY();
+        SET @id_factura = SCOPE_IDENTITY();
 
          /*Generar detalle de factura*/
         INSERT INTO facturacion.DetalleFactura
@@ -1102,9 +1159,27 @@ BEGIN
 			(SELECT TOP 1 costo FROM actividades.ActividadExtra WHERE nombre = @descripcion AND vigencia < GETDATE() ORDER BY vigencia DESC),
 			1);
 
-        COMMIT TRANSACTION;
+		/*Se genera un tiempo de espera para confirmar el pago*/
+		WAITFOR DELAY '00:05';
 
-        SELECT @id_factura AS id_factura;
+		IF NOT EXISTS (SELECT TOP 1 id_pago
+					   FROM cobranzas.Pago
+					   WHERE id_factura = @id_factura)
+		/*Si no se genera el pago, se anula la factura*/
+		BEGIN
+			UPDATE facturacion.Factura
+			SET anulada = 1
+			WHERE id_factura = @id_factura
+		END
+		/*Si se genera el pago, pasa a estado pagada*/
+		ELSE
+		BEGIN
+			UPDATE facturacion.Factura
+			SET estado = 'Pagada'
+			WHERE id_factura = @id_factura
+		END
+
+        COMMIT TRANSACTION;
 
     END TRY
     BEGIN CATCH
