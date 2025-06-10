@@ -402,54 +402,101 @@ GO
   _____________________ GestionarGrupoFamiliar _____________________
   ____________________________________________________________________*/
 
-IF OBJECT_ID('administracion.GestionarGrupoFamiliar', 'P') IS NOT NULL
+/*____________________________________________________________________
+  _____________________ GestionarGrupoFamiliar _____________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('administracion.GestionarGrupoFamiliar','P') IS NOT NULL
     DROP PROCEDURE administracion.GestionarGrupoFamiliar;
 GO
 
 CREATE PROCEDURE administracion.GestionarGrupoFamiliar
-    @dni_socio CHAR(10),
-    @dni_socio_rp CHAR(10),
-    @operacion CHAR(10)
+    @dni_socio     CHAR(10),
+    @dni_socio_rp  CHAR(10),
+    @operacion     CHAR(10)
 AS
 BEGIN
     SET NOCOUNT ON;
-	/*Verificación de operaciones válidas*/
-    IF @operacion NOT IN ('Insertar', 'Eliminar')
+
+    -- 1) Verificar operación válida
+    IF @operacion NOT IN ('Insertar','Eliminar')
     BEGIN
-        RAISERROR('Operación inválida.', 16, 1);
+        RAISERROR('Operación inválida. Use Insertar o Eliminar.',16,1);
         RETURN;
     END
-	/*CASO 1: Insertar grupo familiar*/
+
+    DECLARE 
+        @id_socio     INT,
+        @id_socio_rp  INT;
+
+    -- ======== INSERTAR ========
     IF @operacion = 'Insertar'
     BEGIN
-        INSERT INTO administracion.GrupoFamiliar (id_socio, id_socio_rp)
-        VALUES (
-				/*Se obtiene el id_socio del socio con DNI correspondiente*/
-				(SELECT S.id_socio
-					FROM administracion.Socio S
-					INNER JOIN Administracion.Persona P ON P.id_persona = S.id_persona
-					WHERE P.dni = @dni_socio),
-				/*Se obtiene el id_socio del socio con DNI correspondiente*/
-				(SELECT S.id_socio
-					FROM administracion.Socio S
-					INNER JOIN Administracion.Persona P ON P.id_persona = S.id_persona
-					WHERE P.dni = @dni_socio_rp));
+        -- obtener id_socio
+        SELECT @id_socio = S.id_socio
+          FROM administracion.Socio S
+          JOIN administracion.Persona P 
+            ON S.id_persona = P.id_persona
+         WHERE P.dni = @dni_socio;
+
+        -- obtener id_socio_rp
+        SELECT @id_socio_rp = S.id_socio
+          FROM administracion.Socio S
+          JOIN administracion.Persona P 
+            ON S.id_persona = P.id_persona
+         WHERE P.dni = @dni_socio_rp;
+
+        -- validar existencia de ambos
+        IF @id_socio IS NULL
+        BEGIN
+            RAISERROR('No se encontró el socio con DNI %s.',16,1,@dni_socio);
+            RETURN;
+        END
+        IF @id_socio_rp IS NULL
+        BEGIN
+            RAISERROR('No se encontró el responsable con DNI %s.',16,1,@dni_socio_rp);
+            RETURN;
+        END
+
+        -- validar duplicado: un socio sólo puede tener un registro en GrupoFamiliar
+        IF EXISTS (
+            SELECT 1 
+              FROM administracion.GrupoFamiliar
+             WHERE id_socio = @id_socio
+        )
+        BEGIN
+            RAISERROR('El socio con DNI %s ya tiene grupo familiar asignado.',16,1,@dni_socio);
+            RETURN;
+        END
+
+        -- insertar
+        INSERT INTO administracion.GrupoFamiliar (id_socio,id_socio_rp)
+        VALUES (@id_socio,@id_socio_rp);
     END
-	/*CASO 2: Eliminar grupo familiar*/
+
+    -- ======== ELIMINAR ========
     ELSE IF @operacion = 'Eliminar'
     BEGIN
-		/*Se obtiene el id_grupo correspondiente a los DNIs de socios involucrados*/
+        -- obtener id_socio
+        SELECT @id_socio = S.id_socio
+          FROM administracion.Socio S
+          JOIN administracion.Persona P 
+            ON S.id_persona = P.id_persona
+         WHERE P.dni = @dni_socio;
+
+        IF @id_socio IS NULL
+        BEGIN
+            RAISERROR('No se encontró el socio con DNI %s.',16,1,@dni_socio);
+            RETURN;
+        END
+
+        -- eliminar todas las filas de GrupoFamiliar para ese socio
         DELETE FROM administracion.GrupoFamiliar
-		WHERE id_grupo IN (SELECT id_grupo 
-						   FROM administracion.GrupoFamiliar 
-						   WHERE id_socio = (SELECT S.id_socio
-						   					 FROM administracion.Socio S
-											 INNER JOIN Administracion.Persona P ON P.id_persona = S.id_persona
-											 WHERE P.dni = @dni_socio)
-						  );
+         WHERE id_socio = @id_socio;
     END
 END;
 GO
+
 /*____________________________________________________________________
   _______________________ GestionarInvitado _______________________
   ____________________________________________________________________*/

@@ -227,7 +227,7 @@ GO
   ________________________ P_GestionarInvitado ________________________
   _____________________________________________________________________*/
 
---insertar Socio
+--insertar Socios
 EXEC administracion.GestionarSocio
     @nombre = 'Francisco',
     @apellido = 'Vignardel',
@@ -240,6 +240,25 @@ EXEC administracion.GestionarSocio
     @nro_socio = 'SOC1002',
     @obra_social = 'OSPOCE',
     @nro_obra_social = '654321',
+    @saldo = 0,
+    @operacion = 'Insertar';
+-- Resultado esperado: Persona y socio insertados correctamente
+GO
+SELECT * FROM administracion.Socio
+SELECT * FROM administracion.Persona
+
+EXEC administracion.GestionarSocio
+    @nombre = 'Juan',
+    @apellido = 'Perez',
+    @dni = '33444555',
+    @email = 'juan.perez@email.com',
+    @fecha_nacimiento = '2004-04-10',
+    @tel_contacto = '3331233234',
+    @tel_emergencia = '6624324388',
+    @categoria = 'Adulto',
+    @nro_socio = 'SOC1003',
+    @obra_social = 'VITA',
+    @nro_obra_social = '654331',
     @saldo = 0,
     @operacion = 'Insertar';
 -- Resultado esperado: Persona y socio insertados correctamente
@@ -282,6 +301,7 @@ GO
 /*_____________________________________________________________________
   _____________________ P_GestionarGrupoFamiliar ______________________
   _____________________________________________________________________*/
+delete from administracion.GrupoFamiliar
 
 -- ✅ PRUEBA 1: Inserción válida de grupo familiar
 EXEC administracion.GestionarGrupoFamiliar
@@ -313,6 +333,15 @@ EXEC administracion.GestionarGrupoFamiliar
 -- Resultado esperado: Error por FK en socio o socio_rp
 GO
 
+-- ✅ PRUEBA 4: insertar a un socio a el mismo
+EXEC administracion.GestionarGrupoFamiliar
+    @dni_socio = '23456789',
+    @dni_socio_rp = '23456789',
+    @operacion = 'Insertar';
+-- Resultado esperado: Grupo familiar insertado correctamente
+GO
+SELECT * FROM administracion.Socio
+SELECT * FROM administracion.GrupoFamiliar
 /*_______________________________________________________________________________
   _________________________________PRUEBA MODULO ________________________________
   _______________________________________________________________________________ */
