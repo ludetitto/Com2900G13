@@ -186,7 +186,7 @@ GO
 -- ❌ PRUEBA 5: Operación inválida
 -- Esperado: Error por operación no permitida
 EXEC actividades.GestionarInscripcion
-    @dni_socio = '0012345678',
+    @dni_socio = '12345678',
     @nombre_actividad = 'Yoga',
     @horario = 'Lunes 10:00',
     @fecha_inscripcion = '2025-06-08',
@@ -201,32 +201,38 @@ GO
 -- Esperado: Se registra correctamente el presentismo
 EXEC actividades.GestionarPresentismoClase
     @nombre_actividad = 'Ajedrez',
-    @dni_socio = '12345678',
-    @horario = 'Miércoles 17:00',
+    @dni_socio = '23456789',
+    @horario = 'Miércoles 15:00',
     @fecha = '2025-02-06',
     @condicion = 'P',
     @operacion = 'Insertar';
 GO
 SELECT * FROM actividades.presentismoClase;
+
 -- ✅ PRUEBA 2: Modificación válida de presentismo
 -- Esperado: Se actualiza correctamente el campo condicion
 EXEC actividades.GestionarPresentismoClase
-    @nombre_actividad = 'Yoga',
-    @dni_socio = '0012345678',
-    @horario = 'Lunes 10:00',
-    @fecha = '2025-06-08',
+    @nombre_actividad = 'Ajedrez',
+    @dni_socio = '23456789',
+    @horario = 'Miércoles 15:00',
+    @fecha = '2025-02-06',
     @condicion = 'A',
     @operacion = 'Modificar';
 GO
+SELECT * FROM actividades.presentismoClase;
+
 -- ✅ PRUEBA 3: Eliminación válida de presentismo
 -- Esperado: Se elimina el registro correctamente
 EXEC actividades.GestionarPresentismoClase
-    @nombre_actividad = 'Yoga',
-    @dni_socio = '0012345678',
-    @horario = 'Lunes 10:00',
-    @fecha = '2025-06-08',
+    @nombre_actividad = 'Ajedrez',
+    @dni_socio = '23456789',
+    @horario = 'Miércoles 15:00',
+    @fecha = '2025-02-06',
     @operacion = 'Eliminar';
 GO
+SELECT * FROM actividades.presentismoClase;
+
+
 -- ❌ PRUEBA 4: Eliminar presentismo inexistente
 -- Esperado: Error lanzado por RAISERROR
 EXEC actividades.GestionarPresentismoClase
