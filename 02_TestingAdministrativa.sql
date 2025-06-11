@@ -86,42 +86,96 @@ EXEC administracion.GestionarPersona
 GO
 
 /*_____________________________________________________________________
-  __________________ P_GestionarCategoriaSocio ________________________
+  __________________ Pruebas GestionarCategoriaSocio __________________
   _____________________________________________________________________*/
 
--- ✅ PRUEBA 1: Inserción válida de categoría
+-- ✅ PRUEBA 1: Inserción válida de categoría "Menor"
 EXEC administracion.GestionarCategoriaSocio
-    @nombre = 'Adulto',
-    @años = 18,
+    @nombre = 'Menor',
+    @edad_desde = 0,
+    @edad_hasta = 12,
+    @costo_membresia = 700.00,
+    @vigencia = '2025-12-31',
+    @operacion = 'Insertar';
+-- Resultado esperado: Categoría "Menor" insertada correctamente
+GO
+SELECT * FROM administracion.CategoriaSocio;
+
+-- ✅ PRUEBA 2: Inserción válida de categoría "Cadete"
+EXEC administracion.GestionarCategoriaSocio
+    @nombre = 'Cadete',
+    @edad_desde = 13,
+    @edad_hasta = 17,
+    @costo_membresia = 800.00,
+    @vigencia = '2025-12-31',
+    @operacion = 'Insertar';
+-- Resultado esperado: Categoría "Cadete" insertada correctamente
+GO
+SELECT * FROM administracion.CategoriaSocio;
+
+-- ✅ PRUEBA 3: Inserción válida de categoría "Mayor" (sin límite superior)
+EXEC administracion.GestionarCategoriaSocio
+    @nombre = 'Mayor',
+    @edad_desde = 18,
+    @edad_hasta = 150, --la persona mas longeva verificada vivio 122 años y 164 dias
     @costo_membresia = 1000.00,
     @vigencia = '2025-12-31',
     @operacion = 'Insertar';
--- Resultado esperado: Categoría insertada correctamente
+-- Resultado esperado: Categoría "Mayor" insertada correctamente
 GO
-SELECT TOP 10 * FROM administracion.CategoriaSocio
+SELECT * FROM administracion.CategoriaSocio;
 
-
--- ✅ PRUEBA 2: Eliminación válida de categoría
+-- ❌ PRUEBA 4: Insertar categoría sin nombre
 EXEC administracion.GestionarCategoriaSocio
-    @nombre = 'Adulto',
-    @años = NULL,
-    @costo_membresia = NULL,
-    @vigencia = NULL,
+    @nombre = '',
+    @edad_desde = 0,
+    @edad_hasta = 10,
+    @costo_membresia = 600.00,
+    @vigencia = '2025-06-01',
+    @operacion = 'Insertar';
+-- Resultado esperado: Error "El nombre de la categoría es obligatorio."
+GO
+SELECT * FROM administracion.CategoriaSocio;
+
+-- ❌ PRUEBA 5: Insertar categoría sin rango de edad
+EXEC administracion.GestionarCategoriaSocio
+    @nombre = 'Senior',
+    @edad_desde = NULL,
+    @edad_hasta = NULL,
+    @costo_membresia = 1200.00,
+    @vigencia = '2025-12-31',
+    @operacion = 'Insertar';
+-- Resultado esperado: Error por falta de rango de edad
+GO
+SELECT * FROM administracion.CategoriaSocio;
+
+-- ✅ PRUEBA 6: Modificar vigencia de la categoría "Menor"
+EXEC administracion.GestionarCategoriaSocio
+    @nombre = 'Menor',
+    @vigencia = '2026-12-31',
+    @operacion = 'Modificar';
+-- Resultado esperado: Vigencia actualizada para "Menor"
+GO
+SELECT * FROM administracion.CategoriaSocio;
+
+-- ✅ PRUEBA 7: Eliminar categoría "Cadete"
+EXEC administracion.GestionarCategoriaSocio
+    @nombre = 'Cadete',
     @operacion = 'Eliminar';
 -- Resultado esperado: Categoría eliminada correctamente
 GO
+SELECT * FROM administracion.CategoriaSocio;
 
--- ❌ PRUEBA 3: Insertar categoría sin nombre
+-- ❌ PRUEBA 8: Eliminar categoría inexistente
 EXEC administracion.GestionarCategoriaSocio
-    @nombre = '',
-    @años = 10,
-    @costo_membresia = 500.00,
-    @vigencia = '2025-06-01',
-    @operacion = 'Insertar';
--- Resultado esperado: Error por nombre obligatorio
+    @nombre = 'Inexistente',
+    @operacion = 'Eliminar';
+-- Resultado esperado: Error "No se encontró una categoría con ese nombre para eliminar."
 GO
+SELECT * FROM administracion.CategoriaSocio;
 
-SELECT TOP 10 * FROM administracion.CategoriaSocio
+
+
 
 /*_____________________________________________________________________
   ________________________ P_GestionarSocio ___________________________
@@ -136,7 +190,7 @@ EXEC administracion.GestionarSocio
     @fecha_nacimiento = '1992-03-10',
     @tel_contacto = '1231231234',
     @tel_emergencia = '4324324321',
-    @categoria = 'Adulto',
+    @categoria = 'Mayor',
     @nro_socio = 'SOC1001',
     @obra_social = 'OSDE',
     @nro_obra_social = '123456',
@@ -149,7 +203,7 @@ SELECT * FROM administracion.Persona
 
 -- ✅ PRUEBA 2: Eliminación válida de socio
 EXEC administracion.GestionarSocio
-    @dni = '34567890',
+    @dni = '23456789',
     @operacion = 'Eliminar';
 
 SELECT * FROM administracion.Socio;
@@ -183,7 +237,7 @@ GO
 EXEC administracion.GestionarProfesor
     @nombre = 'Ana',
     @apellido = 'García',
-    @dni = '23456789',
+    @dni = '34567890',
     @email = 'ana.garcia@email.com',
     @fecha_nacimiento = '1990-08-15',
     @tel_contacto = '1112223333',
@@ -194,12 +248,11 @@ GO
 SELECT * FROM administracion.Profesor
 SELECT * FROM administracion.Persona
 
-
 -- ✅ PRUEBA 2: Eliminación válida de profesor
 EXEC administracion.GestionarProfesor
     @nombre = NULL,
     @apellido = NULL,
-    @dni = '23456789',
+    @dni = '34567890',
     @email = NULL,
     @fecha_nacimiento = NULL,
     @tel_contacto = NULL,
@@ -208,6 +261,7 @@ EXEC administracion.GestionarProfesor
 -- Resultado esperado: Profesor eliminado, persona no borrada
 GO
 SELECT * FROM administracion.Profesor
+SELECT * FROM administracion.Persona
 
 
 -- ❌ PRUEBA 3: Eliminación de profesor inexistente
@@ -236,7 +290,7 @@ EXEC administracion.GestionarSocio
     @fecha_nacimiento = '2004-04-10',
     @tel_contacto = '1231233234',
     @tel_emergencia = '6624324321',
-    @categoria = 'Adulto',
+    @categoria = 'Mayor',
     @nro_socio = 'SOC1002',
     @obra_social = 'OSPOCE',
     @nro_obra_social = '654321',
@@ -253,7 +307,7 @@ EXEC administracion.GestionarSocio
     @fecha_nacimiento = '2004-04-10',
     @tel_contacto = '3331233234',
     @tel_emergencia = '6624324388',
-    @categoria = 'Adulto',
+    @categoria = 'Cadete',
     @nro_socio = 'SOC1003',
     @obra_social = 'VITA',
     @nro_obra_social = '654331',
@@ -342,36 +396,36 @@ SELECT * FROM administracion.Socio
 SELECT * FROM administracion.Persona
 SELECT * FROM administracion.GrupoFamiliar
 
+
+/*_____________________________________________________________________
+  _____________________ P_ConsultarEstadoSocioyGrupo ______________________
+  _____________________________________________________________________*/
+
+  -- 1. Socio existente sin familiares
+EXEC administracion.ConsultarEstadoSocioyGrupo @dni = '23456789';
+-- Esperado: Datos del titular, sin familiares
+
+-- 2. Socio existente con familiares (buscar un dni real con grupo)
+EXEC administracion.ConsultarEstadoSocioyGrupo @dni = '45778667';
+-- Esperado: Titular y familiares del grupo
+
+-- 3. Socio sin grupo familiar 
+EXEC administracion.ConsultarEstadoSocioyGrupo @dni = '33444555';
+-- Esperado: solo muestra al titular
+
+-- 4. DNI inválido
+EXEC administracion.ConsultarEstadoSocioyGrupo @dni = '123';
+-- Esperado: Error "El DNI debe tener exactamente 8 dígitos numéricos."
+
+-- 5. Socio con mail inválido (buscar dni real con mail mal cargado)
+EXEC administracion.ConsultarEstadoSocioyGrupo @dni = '00001111';
+-- Esperado: Error "El correo electrónico del socio no tiene un formato válido."
+
+-- 6. Socio inexistente
+EXEC administracion.ConsultarEstadoSocioyGrupo @dni = '99999999';
+-- Esperado: Error "No existe un socio activo con el DNI especificado."
+
 /*_______________________________________________________________________________
-  _________________________________ConsultarEstadoSocioyGrupo ___________________
+  _________________________________PRUEBA MODULO ________________________________
   _______________________________________________________________________________ */
-
--- ✅ PRUEBA 1: Consultar estado
-EXEC socios.sp_ConsultarEstadoSocioyGrupo @id_socio = 1;
--- Resultado esperado: Información del titular y su grupo
-
-GO
--- ❌ PRUEBA 2: Error por DNI inválido
-UPDATE socios.Socio SET dni = '12AB5678' WHERE id_socio = 1;
-EXEC socios.sp_ConsultarEstadoSocioyGrupo @id_socio = 1;
--- Resultado esperado: Error → 'El DNI debe tener exactamente 8 dígitos numéricos.'
-
-GO
--- ❌ PRUEBA 3: DNI inválido (menos de 8 dígitos)
-UPDATE socios.Socio SET dni = '1234567' WHERE id_socio = 1;
-EXEC socios.sp_ConsultarEstadoSocio @id_socio = 1;
--- Resultado esperado: Error → 'El DNI debe tener exactamente 8 dígitos numéricos.'
-
-GO
--- ❌ PRUEBA 4: Email inválido (sin @)
-UPDATE socios.Socio SET email = 'juan.perezemail.com' WHERE id_socio = 1;
-EXEC socios.sp_ConsultarEstadoSocio @id_socio = 1;
--- Resultado esperado: Error → 'El correo electrónico del socio no tiene un formato válido.'
-GO
-
--- ❌ PRUEBA 5: Email inválido (sin punto)
-UPDATE socios.Socio SET email = 'juan@perezemailcom' WHERE id_socio = 1;
-EXEC socios.sp_ConsultarEstadoSocio @id_socio = 1;
--- Resultado esperado: Error → 'El correo electrónico del socio no tiene un formato válido.'
-
 

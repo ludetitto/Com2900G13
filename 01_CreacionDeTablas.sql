@@ -151,14 +151,18 @@ GO
 CREATE TABLE administracion.CategoriaSocio (
     id_categoria INT IDENTITY(1,1) PRIMARY KEY,
     nombre VARCHAR(50),
-    años INT,
+    edad_desde INT,
+	edad_hasta INT,
     costo_membresia DECIMAL(10,2),
     vigencia DATE,
 	CONSTRAINT CHK_categoria_nombre CHECK (
         LTRIM(RTRIM(nombre)) <> ''
     ),
-    CONSTRAINT CHK_categoria_años CHECK (
-        años >= 0
+    CONSTRAINT CHK_categoria_edad_desde CHECK (
+        edad_desde >= 0
+    ),
+	CONSTRAINT CHK_categoria_edad_hasta CHECK (
+        edad_hasta >= 0
     ),
     CONSTRAINT CHK_categoria_costo CHECK (
         costo_membresia >= 0
