@@ -19,7 +19,7 @@ GO
 EXEC administracion.GestionarPersona
     @nombre = 'Juan',
     @apellido = 'Pérez',
-    @dni = '0012345678',
+    @dni = '12345678',
     @email = 'juan.perez@email.com',
     @fecha_nacimiento = '2024-10-25',
     @tel_contacto = '1234567890',
@@ -33,7 +33,7 @@ SELECT * FROM administracion.Persona
 EXEC administracion.GestionarPersona
     @nombre = NULL,
     @apellido = NULL,
-    @dni = '0012345678',
+    @dni = '12345678',
     @email = NULL,
     @fecha_nacimiento = '1985-12-25',
     @tel_contacto = NULL,
@@ -49,7 +49,7 @@ SELECT * FROM administracion.Persona
 EXEC administracion.GestionarPersona
     @nombre = NULL,
     @apellido = NULL,
-    @dni = '0012345678',
+    @dni = '12345678',
     @email = NULL,
     @fecha_nacimiento = NULL,
     @tel_contacto = NULL,
@@ -103,11 +103,10 @@ SELECT TOP 10 * FROM administracion.CategoriaSocio
 
 -- ✅ PRUEBA 2: Eliminación válida de categoría
 EXEC administracion.GestionarCategoriaSocio
-    @nombre = NULL,
+    @nombre = 'Adulto',
     @años = NULL,
     @costo_membresia = NULL,
     @vigencia = NULL,
-    @id_categoria = 1,
     @operacion = 'Eliminar';
 -- Resultado esperado: Categoría eliminada correctamente
 GO
@@ -145,13 +144,12 @@ EXEC administracion.GestionarSocio
     @operacion = 'Insertar';
 -- Resultado esperado: Persona y socio insertados correctamente
 GO
-DELETE FROM administracion.Socio
 SELECT * FROM administracion.Socio
 SELECT * FROM administracion.Persona
 
 -- ✅ PRUEBA 2: Eliminación válida de socio
 EXEC administracion.GestionarSocio
-    @dni = '0034567890',
+    @dni = '34567890',
     @operacion = 'Eliminar';
 
 SELECT * FROM administracion.Socio;
@@ -193,12 +191,15 @@ EXEC administracion.GestionarProfesor
     @operacion = 'Insertar';
 -- Resultado esperado: Persona y profesor insertados correctamente
 GO
+SELECT * FROM administracion.Profesor
+SELECT * FROM administracion.Persona
+
 
 -- ✅ PRUEBA 2: Eliminación válida de profesor
 EXEC administracion.GestionarProfesor
     @nombre = NULL,
     @apellido = NULL,
-    @dni = '0023456789',
+    @dni = '23456789',
     @email = NULL,
     @fecha_nacimiento = NULL,
     @tel_contacto = NULL,
@@ -206,6 +207,8 @@ EXEC administracion.GestionarProfesor
     @operacion = 'Eliminar';
 -- Resultado esperado: Profesor eliminado, persona no borrada
 GO
+SELECT * FROM administracion.Profesor
+
 
 -- ❌ PRUEBA 3: Eliminación de profesor inexistente
 EXEC administracion.GestionarProfesor
@@ -224,25 +227,70 @@ GO
   ________________________ P_GestionarInvitado ________________________
   _____________________________________________________________________*/
 
+--insertar Socios
+EXEC administracion.GestionarSocio
+    @nombre = 'Francisco',
+    @apellido = 'Vignardel',
+    @dni = '45778667',
+    @email = 'francisco.vignardel@email.com',
+    @fecha_nacimiento = '2004-04-10',
+    @tel_contacto = '1231233234',
+    @tel_emergencia = '6624324321',
+    @categoria = 'Adulto',
+    @nro_socio = 'SOC1002',
+    @obra_social = 'OSPOCE',
+    @nro_obra_social = '654321',
+    @saldo = 0,
+    @operacion = 'Insertar';
+-- Resultado esperado: Persona y socio insertados correctamente
+GO
+
+EXEC administracion.GestionarSocio
+    @nombre = 'Juan',
+    @apellido = 'Perez',
+    @dni = '33444555',
+    @email = 'juan.perez@email.com',
+    @fecha_nacimiento = '2004-04-10',
+    @tel_contacto = '3331233234',
+    @tel_emergencia = '6624324388',
+    @categoria = 'Adulto',
+    @nro_socio = 'SOC1003',
+    @obra_social = 'VITA',
+    @nro_obra_social = '654331',
+    @saldo = 0,
+    @operacion = 'Insertar';
+-- Resultado esperado: Persona y socio insertados correctamente
+GO
+SELECT * FROM administracion.Socio
+SELECT * FROM administracion.Persona
+
 -- ✅ PRUEBA 1: Inserción válida de invitado
 EXEC administracion.GestionarInvitado
-    @dni_socio = '12345678',
+    @dni_socio = '45778667',
 	@dni_invitado = '34567891',
     @operacion = 'Insertar';
 -- Resultado esperado: Invitado insertado correctamente
 GO
 
+select * from administracion.Persona
+select * from administracion.Socio
+select * from administracion.Invitado
+
 -- ✅ PRUEBA 2: Eliminación válida de invitado
 EXEC administracion.GestionarInvitado
-    @dni_socio = '0045678901',
-	@dni_invitado = '12345678',
+    @dni_socio = '45778667',
+	@dni_invitado = '34567891',
     @operacion = 'Eliminar';
 -- Resultado esperado: Invitado eliminado correctamente
 GO
 
+select * from administracion.Persona
+select * from administracion.Socio
+select * from administracion.Invitado
+
 -- ❌ PRUEBA 3: Insertar invitado con DNI ya existente
 EXEC administracion.GestionarInvitado
-    @dni_socio = '0045678901',
+    @dni_socio = '45678901',
 	@dni_invitado = '12345678',
     @operacion = 'Insertar';
 -- Resultado esperado: Error por restricción UNIQUE en DNI
@@ -252,31 +300,48 @@ GO
   _____________________ P_GestionarGrupoFamiliar ______________________
   _____________________________________________________________________*/
 
+
 -- ✅ PRUEBA 1: Inserción válida de grupo familiar
 EXEC administracion.GestionarGrupoFamiliar
     @dni_socio = '23456789',
-    @dni_socio_rp = '12345678',
+    @dni_socio_rp = '45778667',
     @operacion = 'Insertar';
 -- Resultado esperado: Grupo familiar insertado correctamente
 GO
 
 SELECT * FROM administracion.Socio
+SELECT * FROM administracion.GrupoFamiliar
 
 -- ✅ PRUEBA 2: Eliminación válida de grupo familiar
 EXEC administracion.GestionarGrupoFamiliar
-    @dni_socio = 1,
-    @dni_socio_rp = 2,
+    @dni_socio = '23456789',
+    @dni_socio_rp = '45778667',
     @operacion = 'Eliminar';
 -- Resultado esperado: Grupo familiar eliminado correctamente
 GO
+SELECT * FROM administracion.Socio
+SELECT * FROM administracion.GrupoFamiliar
+
 
 -- ❌ PRUEBA 3: Insertar grupo familiar con socio inexistente
 EXEC administracion.GestionarGrupoFamiliar
-    @dni_socio = 1,
-    @dni_socio_rp = 2,
+    @dni_socio = '99999999',
+    @dni_socio_rp = '88888888',
     @operacion = 'Insertar';
 -- Resultado esperado: Error por FK en socio o socio_rp
 GO
+
+-- ✅ PRUEBA 4: insertar a un socio a el mismo
+EXEC administracion.GestionarGrupoFamiliar
+    @dni_socio = '33444555',
+    @dni_socio_rp = '33444555',
+    @operacion = 'Insertar';
+-- Resultado esperado: Grupo familiar insertado correctamente
+GO
+SELECT * FROM administracion.Socio
+SELECT * FROM administracion.Persona
+SELECT * FROM administracion.GrupoFamiliar
+
 /*_______________________________________________________________________________
   _________________________________ConsultarEstadoSocioyGrupo ___________________
   _______________________________________________________________________________ */

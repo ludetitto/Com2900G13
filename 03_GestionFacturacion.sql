@@ -9,8 +9,6 @@
  ========================================================================= */
 USE COM2900G13;
 GO
-
-
 /*____________________________________________________________________
   _______________________ GestionarActividad ________________________
   ____________________________________________________________________*/
@@ -20,61 +18,110 @@ IF OBJECT_ID('actividades.GestionarActividad', 'P') IS NOT NULL
 GO
 
 CREATE PROCEDURE actividades.GestionarActividad
-    @nombre VARCHAR(100),
-    @costo DECIMAL(10,2),
-    @horario VARCHAR(50),
-    @vigencia DATE,
+    @nombre    VARCHAR(100),
+    @costo     DECIMAL(10,2),
+    @horario   VARCHAR(50),
+    @vigencia  DATE,
     @operacion CHAR(10)
 AS
 BEGIN
     SET NOCOUNT ON;
-	/*Verificación de operaciones válidas*/
-    IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
+
+    -- 1) Validar operación
+    IF @operacion NOT IN ('Insertar','Modificar','Eliminar')
     BEGIN
-        RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
+        RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.',16,1);
         RETURN;
     END
-	/*CASO 1: Eliminar actividad*/
+
+    -- 2) ELIMINAR
     IF @operacion = 'Eliminar'
     BEGIN
-		/*Verificaçión de existencia de actividad a borrar.*/
+        -- Verificar existencia de la actividad
         IF NOT EXISTS (SELECT 1 FROM actividades.Actividad WHERE nombre = @nombre)
         BEGIN
-            RAISERROR('No existe la actividad para eliminar.', 16, 1);
+            RAISERROR('No existe la actividad para eliminar.',16,1);
             RETURN;
         END
 
-        DELETE FROM actividades.Actividad WHERE nombre = @nombre;
+        DECLARE @id_actividad INT;
+        SELECT @id_actividad = id_actividad
+        FROM actividades.Actividad
+        WHERE nombre = @nombre;
+
+        BEGIN TRY
+            BEGIN TRANSACTION;
+
+            -- Primero borrar presentismos de las clases vinculadas
+            DELETE pc
+            FROM actividades.presentismoClase AS pc
+            INNER JOIN actividades.Clase AS c
+                ON pc.id_clase = c.id_clase
+            WHERE c.id_actividad = @id_actividad;
+
+            -- Luego borrar inscripciones a las clases vinculadas
+            DELETE ic
+            FROM actividades.InscriptoClase AS ic
+            INNER JOIN actividades.Clase AS c
+                ON ic.id_clase = c.id_clase
+            WHERE c.id_actividad = @id_actividad;
+
+            -- Luego borrar las clases de esa actividad
+            DELETE FROM actividades.Clase
+            WHERE id_actividad = @id_actividad;
+
+            -- Finalmente borrar la actividad
+            DELETE FROM actividades.Actividad
+            WHERE id_actividad = @id_actividad;
+
+            COMMIT TRANSACTION;
+        END TRY
+        BEGIN CATCH
+            IF XACT_STATE() <> 0
+                ROLLBACK TRANSACTION;
+            THROW;
+        END CATCH
+
+        RETURN;
     END
-	/*CASO 2: Modificar datos de actividad. Menos el ID, cualquier otro campo*/
+
+    -- 3) MODIFICAR
     ELSE IF @operacion = 'Modificar'
     BEGIN
-		/*Verificaçión de existencia de actividad a modificar.*/
         IF NOT EXISTS (SELECT 1 FROM actividades.Actividad WHERE nombre = @nombre)
         BEGIN
-            RAISERROR('No existe la actividad para modificar.', 16, 1);
+            RAISERROR('No existe la actividad para modificar.',16,1);
             RETURN;
         END
-		/*Se utiliza COALESCE para asegurar dato válido en caso de que algún usuario ingrese NULL en algún campo*/
+
         UPDATE actividades.Actividad
         SET 
-			costo = COALESCE(@costo, costo),
-            horario = COALESCE(@horario, horario),
+            costo    = COALESCE(@costo,    costo),
+            horario  = COALESCE(@horario,  horario),
             vigencia = COALESCE(@vigencia, vigencia)
         WHERE nombre = @nombre;
+        RETURN;
     END
-	/*CASO 3: Insertar actividad*/
-    ELSE IF @operacion = 'Insertar'
+
+    -- 4) INSERTAR + validación de duplicados
+    ELSE /* @operacion = 'Insertar' */
     BEGIN
-		/*Verificación de datos no nulos necesarios para insertar actividad*/
+        -- Nombre obligatorio
         IF @nombre IS NULL OR LTRIM(RTRIM(@nombre)) = ''
         BEGIN
-            RAISERROR('El nombre es obligatorio.', 16, 1);
+            RAISERROR('El nombre es obligatorio.',16,1);
             RETURN;
         END
+        -- Costo válido
         IF @costo IS NULL OR @costo < 0
         BEGIN
-            RAISERROR('El costo debe ser un número positivo.', 16, 1);
+            RAISERROR('El costo debe ser un número positivo.',16,1);
+            RETURN;
+        END
+        -- No permitir duplicados de nombre
+        IF EXISTS (SELECT 1 FROM actividades.Actividad WHERE nombre = @nombre)
+        BEGIN
+            RAISERROR('Ya existe una actividad con ese nombre.',16,1);
             RETURN;
         END
 
@@ -84,95 +131,179 @@ BEGIN
 END;
 GO
 
-/*____________________________________________________________________
-  _________________________ GestionarClase ___________________________
-  ____________________________________________________________________*/
-
 IF OBJECT_ID('actividades.GestionarClase', 'P') IS NOT NULL
     DROP PROCEDURE actividades.GestionarClase;
 GO
 
 CREATE PROCEDURE actividades.GestionarClase
     @nombre_actividad VARCHAR(100),
-    @dni_profesor VARCHAR(10),
-    @horario VARCHAR(20),
-    @operacion CHAR(10)
+    @dni_profesor      VARCHAR(10),
+    @horario           VARCHAR(20),
+    @operacion         CHAR(10)
 AS
 BEGIN
     SET NOCOUNT ON;
-	/*Verificación de operaciones válidas*/
-    IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
+
+    /* 1) Verificar operación válida */
+    IF @operacion NOT IN ('Insertar','Modificar','Eliminar')
     BEGIN
         RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
         RETURN;
     END
-	/*Se obtiene el id_clase en caso de eliminar o modificar una clase*/
-	DECLARE @id_clase INT = (SELECT C.id_clase
-							 FROM actividades.Clase C
-							 INNER JOIN actividades.Actividad A ON A.id_actividad = C.id_actividad
-							 WHERE A.nombre = @nombre_actividad AND C.horario = @horario)
-	/*CASO 1: Eliminar clase*/
-    IF @operacion = 'Eliminar'
-    BEGIN
-		/*Verificaçión de existencia de clase a borrar.*/
-        IF @id_clase = NULL
-        BEGIN
-            RAISERROR('No existe la clase para eliminar.', 16, 1);
-            RETURN;
-        END
 
-        DELETE FROM actividades.Clase WHERE id_clase = @id_clase;
-    END
-	/*CASO 2: Modificar clase*/
-    ELSE IF @operacion = 'Modificar'
+    DECLARE @actividad_id INT;
+    DECLARE @profesor_id   INT;
+    DECLARE @id_clase       INT;
+
+    /* === CASO: INSERTAR === */
+    IF @operacion = 'Insertar'
     BEGIN
-		/*Verificaçión de existencia de clase a modificar.*/
-        IF @id_clase = NULL
-        BEGIN
-            RAISERROR('No existe la clase para modificar.', 16, 1);
-            RETURN;
-        END
-		/*Se utiliza COALESCE para asegurar dato válido en caso de que algún usuario ingrese NULL en algún campo*/
-        UPDATE actividades.Clase
-        SET id_actividad = COALESCE((SELECT id_actividad
-									 FROM actividades.Actividad
-									 WHERE nombre = @nombre_actividad), id_actividad),
-            id_profesor = COALESCE((SELECT Pr.id_profesor
-									FROM administracion.Profesor Pr
-									INNER JOIN administracion.Persona Pe ON Pr.id_persona = Pe.id_persona
-									WHERE Pe.dni = @dni_profesor), id_profesor),
-            horario = COALESCE(@horario, horario)
-        WHERE id_clase = @id_clase;
-    END
-	/*CASO 2: Insertar clase*/
-    ELSE IF @operacion = 'Insertar'
-    BEGIN
-		/*Verificación de datos no nulos necesarios para insertar clase*/
-        IF @nombre_actividad IS NULL
+        /* Validar datos obligatorios */
+        IF @nombre_actividad IS NULL OR LEN(@nombre_actividad)=0
         BEGIN
             RAISERROR('El nombre de la actividad es obligatorio.', 16, 1);
             RETURN;
         END
-
-        IF @dni_profesor IS NULL
+        IF @dni_profesor IS NULL OR LEN(@dni_profesor)=0
         BEGIN
-            RAISERROR('El dni del profesor es obligatorio.', 16, 1);
+            RAISERROR('El DNI del profesor es obligatorio.', 16, 1);
             RETURN;
         END
 
+        /* Obtener IDs */
+        SET @actividad_id = (
+            SELECT id_actividad
+            FROM actividades.Actividad
+            WHERE nombre = @nombre_actividad
+        );
+        SET @profesor_id = (
+            SELECT Pr.id_profesor
+            FROM administracion.Profesor Pr
+            JOIN administracion.Persona Pe ON Pr.id_persona = Pe.id_persona
+            WHERE Pe.dni = @dni_profesor
+        );
+
+        /* Validar existencia de actividad y profesor */
+        IF @actividad_id IS NULL
+        BEGIN
+            RAISERROR('No existe la actividad "%s".', 16, 1, @nombre_actividad);
+            RETURN;
+        END
+        IF @profesor_id IS NULL
+        BEGIN
+            RAISERROR('No existe el profesor con DNI %s.', 16, 1, @dni_profesor);
+            RETURN;
+        END
+
+        /* Insertar */
         INSERT INTO actividades.Clase (id_actividad, id_profesor, horario)
-        VALUES (
-			(SELECT id_actividad
-			 FROM actividades.Actividad
-			 WHERE nombre = @nombre_actividad),
-			(SELECT Pr.id_profesor
-			 FROM administracion.Profesor Pr
-			 INNER JOIN administracion.Persona Pe ON Pr.id_persona = Pe.id_persona
-			 WHERE Pe.dni = @dni_profesor),
-			@horario);
+        VALUES (@actividad_id, @profesor_id, @horario);
+        RETURN;
+    END
+
+    /* === CASO: MODIFICAR === */
+    IF @operacion = 'Modificar'
+    BEGIN
+        /* Validar que el profesor exista */
+        IF @dni_profesor IS NULL OR LEN(@dni_profesor)=0
+        BEGIN
+            RAISERROR('El DNI del profesor es obligatorio para modificar.', 16, 1);
+            RETURN;
+        END
+
+        SET @profesor_id = (
+            SELECT Pr.id_profesor
+            FROM administracion.Profesor Pr
+            JOIN administracion.Persona Pe ON Pr.id_persona = Pe.id_persona
+            WHERE Pe.dni = @dni_profesor
+        );
+        IF @profesor_id IS NULL
+        BEGIN
+            RAISERROR('No existe el profesor con DNI %s.', 16, 1, @dni_profesor);
+            RETURN;
+        END
+
+        /* Ubicar la clase por actividad + profesor */
+        SET @id_clase = (
+            SELECT C.id_clase
+            FROM actividades.Clase C
+            JOIN actividades.Actividad A ON C.id_actividad = A.id_actividad
+            WHERE A.nombre = @nombre_actividad
+              AND C.id_profesor = @profesor_id
+        );
+        IF @id_clase IS NULL
+        BEGIN
+            RAISERROR('No existe la clase a modificar para esa actividad y profesor.', 16, 1);
+            RETURN;
+        END
+
+        /* Obtener posible nueva actividad (si cambia nombre) */
+        SET @actividad_id = (
+            SELECT id_actividad
+            FROM actividades.Actividad
+            WHERE nombre = @nombre_actividad
+        );
+
+        /* Realizar UPDATE: permite sólo cambiar horario (o actividad/profesor si se ajusta el SP) */
+        UPDATE actividades.Clase
+        SET 
+            id_actividad = COALESCE(@actividad_id, id_actividad),
+            id_profesor  = @profesor_id,
+            horario      = COALESCE(@horario, horario)
+        WHERE id_clase = @id_clase;
+        RETURN;
+    END
+
+    /* === CASO: ELIMINAR === */
+    IF @operacion = 'Eliminar'
+    BEGIN
+        /* Validar datos obligatorios */
+        IF @nombre_actividad IS NULL OR LEN(@nombre_actividad)=0
+           OR @dni_profesor IS NULL OR LEN(@dni_profesor)=0
+           OR @horario IS NULL OR LEN(@horario)=0
+        BEGIN
+            RAISERROR('Nombre de actividad, DNI de profesor y horario son requeridos para eliminar.', 16, 1);
+            RETURN;
+        END
+
+        /* Verificar profesor */
+        SET @profesor_id = (
+            SELECT Pr.id_profesor
+            FROM administracion.Profesor Pr
+            JOIN administracion.Persona Pe ON Pr.id_persona = Pe.id_persona
+            WHERE Pe.dni = @dni_profesor
+        );
+        IF @profesor_id IS NULL
+        BEGIN
+            RAISERROR('No existe el profesor con DNI %s.', 16, 1, @dni_profesor);
+            RETURN;
+        END
+
+        /* Ubicar registro exacto por actividad+profesor+horario */
+        SET @id_clase = (
+            SELECT id_clase
+            FROM actividades.Clase
+            WHERE id_actividad = (
+                SELECT id_actividad
+                FROM actividades.Actividad
+                WHERE nombre = @nombre_actividad
+            )
+              AND id_profesor = @profesor_id
+              AND horario = @horario
+        );
+        IF @id_clase IS NULL
+        BEGIN
+            RAISERROR('No existe la clase a eliminar con esos datos.', 16, 1);
+            RETURN;
+        END
+
+        DELETE FROM actividades.Clase
+        WHERE id_clase = @id_clase;
+        RETURN;
     END
 END;
 GO
+
 
 /*____________________________________________________________________
   _______________________ GestionarInscripcion _______________________
@@ -364,82 +495,117 @@ BEGIN
 END;
 GO
 
-/*____________________________________________________________________
-  ______________________ GestionarActividadExtra _____________________
-  ____________________________________________________________________*/
-
-IF OBJECT_ID('actividades.GestionarActividadExtra', 'P') IS NOT NULL
+/*_________________________________________________________________________
+  ____________________ GestionarActividadExtra ____________________________
+  _________________________________________________________________________*/
+  IF OBJECT_ID('actividades.GestionarActividadExtra', 'P') IS NOT NULL
     DROP PROCEDURE actividades.GestionarActividadExtra;
 GO
 
 CREATE PROCEDURE actividades.GestionarActividadExtra
-    @nombre VARCHAR(100),
-    @costo DECIMAL(10,2),
-    @periodo CHAR(10),
+    @nombre      VARCHAR(100),
+    @costo       DECIMAL(10,2),
+    @periodo     CHAR(10),
     @es_invitado CHAR(1),
-    @vigencia DATE,
-    @operacion CHAR(10)
+    @vigencia    DATE,
+    @operacion   CHAR(10)
 AS
 BEGIN
     SET NOCOUNT ON;
-	/*Verificación de operaciones válidas*/
-    IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
+
+    -- 1) Verificar operación válida
+    IF @operacion NOT IN ('Insertar','Modificar','Eliminar')
     BEGIN
-        RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
+        RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.',16,1);
         RETURN;
     END
-	/*Se obtiene el id_extra en caso de eliminar o modificar una actividad extra*/
-	DECLARE @id_extra INT = (SELECT id_extra
-							 FROM actividades.ActividadExtra
-							 WHERE nombre = @nombre AND periodo = @periodo AND es_invitado = @es_invitado)
-	/*CASO 1: Eliminar actividad extra*/
+
+    -- 2) Contar y preparar variable única para id_extra
+    DECLARE 
+        @count_extra INT,
+        @id_extra    INT;
+
+    SELECT @count_extra = COUNT(*)
+    FROM actividades.ActividadExtra
+    WHERE nombre      = @nombre
+      AND periodo     = @periodo
+      AND es_invitado = @es_invitado;
+
+    -- 3) Eliminar
     IF @operacion = 'Eliminar'
     BEGIN
-		/*Verificaçión de existencia de actividad extra a borrar.*/
-        IF @id_extra IS NULL
+        IF @count_extra = 0
         BEGIN
-            RAISERROR('No existe la actividad extra para eliminar.', 16, 1);
+            RAISERROR('No existe la actividad extra para eliminar.',16,1);
+            RETURN;
+        END
+        IF @count_extra > 1
+        BEGIN
+            RAISERROR('Hay más de una fila que coincide; operación ambigua.',16,1);
             RETURN;
         END
 
-        DELETE FROM actividades.ActividadExtra WHERE id_extra = @id_extra;
+        SELECT @id_extra = id_extra
+        FROM actividades.ActividadExtra
+        WHERE nombre=@nombre AND periodo=@periodo AND es_invitado=@es_invitado;
+
+        DELETE FROM actividades.ActividadExtra
+        WHERE id_extra = @id_extra;
+        RETURN;
     END
-	/*CASO 2: Modificar actividad extra*/
+
+    -- 4) Modificar
     ELSE IF @operacion = 'Modificar'
     BEGIN
-		/*Verificaçión de existencia de actividad extra a modificar.*/
-        IF @id_extra IS NULL
+        IF @count_extra = 0
         BEGIN
-            RAISERROR('No existe la actividad extra para modificar.', 16, 1);
+            RAISERROR('No existe la actividad extra para modificar.',16,1);
             RETURN;
         END
-		/*Se utiliza COALESCE para asegurar dato válido en caso de que algún usuario ingrese NULL en algún campo*/
+        IF @count_extra > 1
+        BEGIN
+            RAISERROR('Hay más de una fila que coincide; operación ambigua.',16,1);
+            RETURN;
+        END
+
+        SELECT @id_extra = id_extra
+        FROM actividades.ActividadExtra
+        WHERE nombre=@nombre AND periodo=@periodo AND es_invitado=@es_invitado;
+
         UPDATE actividades.ActividadExtra
-        SET nombre = COALESCE(@nombre, nombre),
-            costo = COALESCE(@costo, costo),
-            periodo = COALESCE(@periodo, periodo),
+        SET 
+            nombre      = COALESCE(@nombre,      nombre),
+            costo       = COALESCE(@costo,       costo),
+            periodo     = COALESCE(@periodo,     periodo),
             es_invitado = COALESCE(@es_invitado, es_invitado),
-            vigencia = COALESCE(@vigencia, vigencia)
+            vigencia    = COALESCE(@vigencia,    vigencia)
         WHERE id_extra = @id_extra;
+        RETURN;
     END
-	/*CASO 3: Insertar actividad extra*/
-    ELSE IF @operacion = 'Insertar'
+
+    -- 5) Insertar + validación de duplicados
+    ELSE /* Insertar */
     BEGIN
-		/*Verificación de datos no nulos necesarios para insertar actividad extra*/
         IF @nombre IS NULL OR LTRIM(RTRIM(@nombre)) = ''
         BEGIN
-            RAISERROR('El nombre de la actividad extra es obligatorio.', 16, 1);
+            RAISERROR('El nombre de la actividad extra es obligatorio.',16,1);
             RETURN;
         END
-
         IF @costo IS NULL OR @costo < 0
         BEGIN
-            RAISERROR('El costo debe ser un número positivo.', 16, 1);
+            RAISERROR('El costo debe ser un número positivo.',16,1);
+            RETURN;
+        END
+        IF @count_extra > 0
+        BEGIN
+            RAISERROR('Ya existe una actividad extra con esos parámetros.',16,1);
             RETURN;
         END
 
-        INSERT INTO actividades.ActividadExtra (nombre, costo, periodo, es_invitado, vigencia)
-        VALUES (@nombre, @costo, @periodo, @es_invitado, @vigencia);
+        INSERT INTO actividades.ActividadExtra
+            (nombre, costo, periodo, es_invitado, vigencia)
+        VALUES
+            (@nombre, @costo, @periodo, @es_invitado, @vigencia);
     END
 END;
 GO
@@ -764,6 +930,7 @@ BEGIN
 		/*Creación de variables auxiliares para id_socio e id_emisor*/
         DECLARE @id_socio INT;
         DECLARE @id_emisor INT;
+		DECLARE @anulada INT;
 
         /*Se obtiene el id_socio asociado a su correspondiente DNI*/
         SELECT @id_socio = id_socio 
@@ -777,6 +944,31 @@ BEGIN
             ROLLBACK TRANSACTION;
             RETURN;
         END
+
+		IF EXISTS (
+		SELECT TOP 1 anulada = @anulada
+		FROM facturacion.Factura
+		WHERE id_socio = @id_socio
+		  AND MONTH(fecha_emision) = MONTH(GETDATE())
+		  AND YEAR(fecha_emision) = YEAR(GETDATE())
+		  AND anulada = 0
+		)
+		BEGIN
+			RAISERROR('Ya existe una factura para este socio en el mes actual.', 16, 1);
+			ROLLBACK TRANSACTION;
+			RETURN;
+		END
+		/*Se contemplan casos donde la factura había sido anulada*/
+		ELSE IF @anulada = 1
+		BEGIN
+			UPDATE facturacion.Factura
+			SET anulada = 0
+			WHERE id_socio = @id_socio
+			AND MONTH(fecha_emision) = MONTH(GETDATE())
+			AND YEAR(fecha_emision) = YEAR(GETDATE())
+			COMMIT TRANSACTION;
+			RETURN;
+		END
 
         /*Se obtiene el id_emisor asociado a su correspondiente CUIL*/
         SELECT @id_emisor = id_emisor
@@ -884,11 +1076,13 @@ BEGIN
 		/*Creación de variables auxiliares para id_invitado e id_emisor*/
         DECLARE @id_invitado INT;
         DECLARE @id_emisor INT;
+		DECLARE @id_factura INT;
 
         /*Se obtiene el id_invitado asociado a su correspondiente DNI*/
         SELECT @id_invitado = id_invitado
         FROM administracion.Invitado
         WHERE dni = @dni_invitado;
+
 		/*Si no existe el invitado, no se realiza la transacción.*/
         IF @id_invitado IS NULL
         BEGIN
@@ -896,6 +1090,35 @@ BEGIN
             ROLLBACK TRANSACTION;
             RETURN;
         END
+
+		/*Verificar si ya existe una factura emitida hoy para este invitado con esa actividad*/
+		IF EXISTS (SELECT TOP 1  id_factura = @id_factura
+					FROM facturacion.Factura F
+					INNER JOIN facturacion.DetalleFactura D ON F.id_factura = D.id_factura
+					WHERE F.id_socio IS NULL
+					AND F.fecha_emision = GETDATE()
+					AND D.descripcion = @descripcion
+					AND F.anulada = 0)
+		BEGIN
+			RAISERROR('Ya se generó una factura hoy para este invitado con esa actividad.', 16, 1);
+			ROLLBACK TRANSACTION;
+			RETURN;
+		END
+		/*Si estaba anulada, se habilita nuevamente*/
+		ELSE IF EXISTS (SELECT TOP 1 F.id_factura
+						FROM facturacion.Factura F
+						INNER JOIN facturacion.DetalleFactura D ON F.id_factura = D.id_factura
+						WHERE F.id_factura = @id_factura
+						AND F.fecha_emision = GETDATE()
+						AND D.descripcion = @descripcion
+						AND F.anulada = 1)
+		BEGIN
+			UPDATE facturacion.Factura
+			SET anulada = 0
+			WHERE id_factura = @id_factura
+			COMMIT TRANSACTION;
+			RETURN;
+		END
 
         /*Se obtiene el id_emisor asociado a su correspondiente CUIL*/
         SELECT @id_emisor = id_emisor
@@ -924,7 +1147,7 @@ BEGIN
 			0
 		);
 
-        DECLARE @id_factura INT = SCOPE_IDENTITY();
+        SET @id_factura = SCOPE_IDENTITY();
 
          /*Generar detalle de factura*/
         INSERT INTO facturacion.DetalleFactura
@@ -936,9 +1159,27 @@ BEGIN
 			(SELECT TOP 1 costo FROM actividades.ActividadExtra WHERE nombre = @descripcion AND vigencia < GETDATE() ORDER BY vigencia DESC),
 			1);
 
-        COMMIT TRANSACTION;
+		/*Se genera un tiempo de espera para confirmar el pago*/
+		WAITFOR DELAY '00:05';
 
-        SELECT @id_factura AS id_factura;
+		IF NOT EXISTS (SELECT TOP 1 id_pago
+					   FROM cobranzas.Pago
+					   WHERE id_factura = @id_factura)
+		/*Si no se genera el pago, se anula la factura*/
+		BEGIN
+			UPDATE facturacion.Factura
+			SET anulada = 1
+			WHERE id_factura = @id_factura
+		END
+		/*Si se genera el pago, pasa a estado pagada*/
+		ELSE
+		BEGIN
+			UPDATE facturacion.Factura
+			SET estado = 'Pagada'
+			WHERE id_factura = @id_factura
+		END
+
+        COMMIT TRANSACTION;
 
     END TRY
     BEGIN CATCH

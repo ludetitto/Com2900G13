@@ -8,6 +8,11 @@
             De Titto Lucia 46501934
 ========================================================================= */
 USE COM2900G13
+
+/*____________________________________________________________________
+  _________________________ RegistrarCobranza ________________________
+  ____________________________________________________________________*/
+
 IF OBJECT_ID('cobranzas.RegistrarCobranza', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.RegistrarCobranza;
 GO
@@ -121,7 +126,9 @@ BEGIN
 END;
 GO
 
---STORE PROCEDURE HABILITAR DEBITO AUTOMATICO
+/*____________________________________________________________________
+  _____________________ HabilitarDebitoAutomatico ____________________
+  ____________________________________________________________________*/
 
 IF OBJECT_ID('cobranzas.HabilitarDebitoAutomatico', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.HabilitarDebitoAutomatico;
@@ -151,7 +158,9 @@ BEGIN
 END;
 GO
 
---STORE PROCEDURE DESHABILITAR DEBITO AUTOMATICO
+/*____________________________________________________________________
+  ___________________ DeshabilitarDebitoAutomatico ___________________
+  ____________________________________________________________________*/
 
 IF OBJECT_ID('cobranzas.DeshabilitarDebitoAutomatico', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.DeshabilitarDebitoAutomatico;
@@ -181,8 +190,10 @@ BEGIN
 END;
 GO
 
+/*____________________________________________________________________
+  _________________________ GenerarReembolso _________________________
+  ____________________________________________________________________*/
 
--- SP GENERAR REEMBOLSO
 IF OBJECT_ID('cobranzas.GenerarReembolso', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.GenerarReembolso;
 GO
@@ -198,16 +209,23 @@ BEGIN
 
     BEGIN TRY
         BEGIN TRANSACTION;
-
+		
+		DECLARE @montoPago DECIMAL(10,2);
         -- Validar existencia del pago
         IF NOT EXISTS (
-            SELECT 1 FROM cobranzas.Pago WHERE id_pago = @idPago
+            SELECT monto = @montoPago FROM cobranzas.Pago WHERE id_pago = @idPago
         )
         BEGIN
             RAISERROR('No existe un pago con el ID especificado.', 16, 1);
             ROLLBACK TRANSACTION;
             RETURN;
         END;
+
+		IF @monto > @montoPago
+		BEGIN
+			RAISERROR('El monto del reembolso no puede superar el monto del pago original.', 16, 1);
+			RETURN;
+		END;
 
         DECLARE @idSocio INT = (
             SELECT f.id_socio
@@ -239,8 +257,10 @@ BEGIN
 END;
 GO
 
+/*____________________________________________________________________
+  _______________________ RegistrarPagoACuenta _______________________
+  ____________________________________________________________________*/
 
--- SP GENERAR PAGO A CUENTA
 IF OBJECT_ID('cobranzas.RegistrarPagoACuenta', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.RegistrarPagoACuenta;
 GO
@@ -335,3 +355,246 @@ BEGIN
 END;
 GO
 
+/*____________________________________________________________________
+  _______________________ RegistrarNotaDeCredito _____________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('cobranzas.RegistrarNotaDeCredito', 'P') IS NOT NULL
+    DROP PROCEDURE cobranzas.RegistrarNotaDeCredito;
+GO
+
+CREATE PROCEDURE cobranzas.RegistrarNotaDeCredito
+    @monto DECIMAL(10,2),
+    @fecha_emision DATETIME,
+    @estado CHAR(20),
+    @motivo VARCHAR(100),
+    @id_pago INT = NULL -- opcional
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    BEGIN TRY
+        INSERT INTO cobranzas.NotaDeCredito (
+            id_pago, monto, fecha_emision, estado, motivo
+        )
+        VALUES (
+            @id_pago, @monto, @fecha_emision, @estado, @motivo
+        );
+    END TRY
+    BEGIN CATCH
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        DECLARE @ErrSeverity INT = ERROR_SEVERITY();
+        RAISERROR(@ErrMsg, @ErrSeverity, 1);
+    END CATCH
+END;
+GO
+
+/*____________________________________________________________________
+  ____________________ RegistrarReintegroPorLluvia ___________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('cobranzas.RegistrarReintegroPorLluvia', 'P') IS NOT NULL
+    DROP PROCEDURE cobranzas.RegistrarReintegroPorLluvia;
+GO
+
+CREATE PROCEDURE cobranzas.RegistrarReintegroPorLluvia
+    @id_factura INT,
+	@id_socio INT,
+    @monto DECIMAL(10,2),
+    @fecha DATE,
+    @medio_pago VARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        IF @id_socio IS NOT NULL
+        BEGIN
+            EXEC cobranzas.RegistrarPagoACuenta
+                @idSocio = @id_socio,
+                @monto = @monto,
+                @fecha = @fecha,
+                @medioPago = @medio_pago,
+                @motivo = 'Reintegro por lluvia';
+        END
+        ELSE
+        BEGIN
+			DECLARE @id_pago INT = (SELECT TOP 1 id_pago 
+									FROM cobranzas.Pago 
+									WHERE id_factura = @id_Factura)
+
+            EXEC cobranzas.RegistrarNotaDeCredito
+                @monto = @monto,
+                @fecha_emision = @fecha,
+				@estado = 'A cobrar',
+                @motivo = 'Reintegro por lluvia',
+				@id_pago = @id_pago;
+        END
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END;
+GO
+
+/*____________________________________________________________________
+  ______________________ GenerarReintegroPorLluvia ___________________
+  ____________________________________________________________________*/
+IF OBJECT_ID('cobranzas.GenerarReintegroPorLluvia', 'P') IS NOT NULL
+    DROP PROCEDURE cobranzas.GenerarReintegroPorLluvia;
+GO
+
+CREATE PROCEDURE cobranzas.GenerarReintegroPorLluvia
+    @mes VARCHAR(20),
+    @año VARCHAR(20),
+    @path VARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        /* Tabla temporal para la condición climática */
+        CREATE TABLE #clima (
+            fecha VARCHAR(50),
+            temperatura DECIMAL(4,2),
+            lluvia_mm  DECIMAL(4,2),
+            altura INT,
+            velocidad_viento DECIMAL(4,2)
+        );
+
+        DECLARE @sql NVARCHAR(MAX);
+        SET @sql = N'
+            BULK INSERT #clima
+            FROM ''' + @path + '''
+            WITH (
+                FIELDTERMINATOR = '','',
+                ROWTERMINATOR = ''\n'',
+                FIRSTROW = 5,
+				CODEPAGE = ''65001''
+            );';
+        EXEC sp_executesql @sql;
+
+		SELECT * FROM #clima
+
+        /* Tabla variable para las facturas con reintegro */
+        DECLARE @Facturas TABLE (
+            id_factura INT PRIMARY KEY,
+            id_socio INT,
+            monto_reintegro DECIMAL(10,2),
+            fecha_emision DATE
+        );
+
+        /* Insertamos datos a la tabla variable */
+        INSERT INTO @Facturas (id_factura, id_socio, monto_reintegro, fecha_emision)
+        SELECT 
+            F.id_factura,
+            F.id_socio,
+            ROUND(F.monto_total * 0.6, 2) AS monto_reintegro,
+            F.fecha_emision
+        FROM facturacion.Factura F
+        INNER JOIN (
+            SELECT DISTINCT CAST(LEFT(fecha, 10) AS DATE) AS fecha
+            FROM #clima
+            WHERE lluvia_mm > 0
+        ) DiasLluviosos ON F.fecha_emision = DiasLluviosos.fecha
+        WHERE F.anulada = 0
+          AND F.fecha_emision BETWEEN CAST(@año + '-' + @mes + '-01' AS DATE)
+                                  AND EOMONTH(CAST(@año + '-' + @mes + '-01' AS DATE));
+
+        DECLARE @i INT = 1;
+        DECLARE @max INT = (SELECT COUNT(*) FROM @Facturas);
+
+        DECLARE @id_factura INT;
+        DECLARE @id_socio INT;
+        DECLARE @monto_reintegro DECIMAL(10,2);
+        DECLARE @fecha_emision DATE;
+        DECLARE @medio_pago VARCHAR(50) = 'Debito'; -- ajustar según corresponda
+
+        WHILE @i <= @max
+        BEGIN
+            SELECT 
+                @id_factura = id_factura,
+                @id_socio = id_socio,
+                @monto_reintegro = monto_reintegro,
+                @fecha_emision = fecha_emision
+            FROM (
+                SELECT ROW_NUMBER() OVER (ORDER BY id_factura) AS rn, * FROM @Facturas
+            ) AS F
+            WHERE rn = @i;
+
+            BEGIN TRY
+                EXEC cobranzas.RegistrarReintegroPorLluvia 
+                    @id_factura = @id_factura,
+                    @id_socio = @id_socio,
+                    @monto = @monto_reintegro,
+                    @fecha = @fecha_emision,
+                    @medio_pago = @medio_pago;
+            END TRY
+            BEGIN CATCH
+                -- Opcional: manejar error individual y seguir con el próximo
+                PRINT 'Error al registrar reintegro para factura ' + CAST(@id_factura AS VARCHAR);
+            END CATCH
+
+            SET @i = @i + 1;
+        END
+
+        DROP TABLE #clima;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END;
+GO
+
+/*____________________________________________________________________
+  ____________________ AplicarRecargoVencimiento _____________________
+  ____________________________________________________________________*/
+
+  IF OBJECT_ID('cobranzas.AplicarRecargoVencimiento', 'P') IS NOT NULL
+    DROP PROCEDURE cobranzas.AplicarRecargoVencimiento;
+GO
+
+CREATE PROCEDURE cobranzas.AplicarRecargoVencimiento
+	@descripcion_recargo VARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @porcentaje_recargo DECIMAL(5, 2);
+
+    -- Obtener el porcentaje del recargo
+    SELECT @porcentaje_recargo = porcentaje
+    FROM facturacion.Recargo
+    WHERE descripcion = @descripcion_recargo
+      AND vigencia > GETDATE();
+
+    -- Verificar si se encontró el recargo
+    IF @porcentaje_recargo IS NOT NULL
+    BEGIN
+        UPDATE facturacion.Factura
+        SET monto_total = monto_total * (1 + @porcentaje_recargo)
+        WHERE anulada = 0 
+        AND id_factura IN (SELECT F.id_factura
+						   FROM facturacion.Factura F
+						   INNER JOIN facturacion.DetalleFactura D ON D.id_factura = F.id_factura
+						   WHERE D.tipo_item <> 'Actividad Extra'
+						   AND F.fecha_vencimiento1 < GETDATE() 
+						   AND F.fecha_vencimiento2 > GETDATE()
+						   );
+    END
+    ELSE
+    BEGIN
+        RAISERROR('No se encontró un recargo válido con la descripción proporcionada.', 16, 1);
+    END
+END;
+GO

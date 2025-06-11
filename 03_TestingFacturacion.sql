@@ -10,7 +10,6 @@
 USE COM2900G13;
 GO
 
---test cisco
 /*_____________________________________________________________________
   ________________________ P_GestionarActividad _______________________
   _____________________________________________________________________*/
@@ -18,7 +17,7 @@ GO
 -- ✅ PRUEBA 1: Inserción válida de actividad
 -- Esperado: Se inserta el registro correctamente
 EXEC actividades.GestionarActividad
-    @nombre = 'Yoga Avanzado',
+    @nombre = 'Ajedrez',
     @costo = 3500.00,
     @horario = 'Lunes 18:00',
     @vigencia = '2025-07-01',
@@ -30,7 +29,7 @@ SELECT * FROM actividades.Actividad
 -- ✅ PRUEBA 2: Modificación válida de actividad existente
 -- Esperado: Se actualizan los datos correctamente
 EXEC actividades.GestionarActividad
-    @nombre = 'Yoga Avanzado',
+    @nombre = 'Ajedrez',
     @costo = 4000.00,
     @horario = NULL,
     @vigencia = NULL,
@@ -42,7 +41,7 @@ SELECT * FROM actividades.Actividad
 -- ✅ PRUEBA 3: Eliminación válida de actividad
 -- Esperado: Se elimina el registro de la actividad
 EXEC actividades.GestionarActividad
-    @nombre = 'Yoga Avanzado',
+    @nombre = 'Ajedrez',
     @costo = NULL,
     @horario = NULL,
     @vigencia = NULL,
@@ -65,7 +64,7 @@ SELECT * FROM actividades.Actividad
 
 -- ❌ PRUEBA 5: Operación inválida
 EXEC actividades.GestionarActividad
-    @nombre = 'Yoga',
+    @nombre = 'Ajedez',
     @costo = 1000.00,
     @horario = 'Lunes 10:00',
     @vigencia = '2025-09-01',
@@ -77,11 +76,14 @@ SELECT * FROM actividades.Actividad
 /*_____________________________________________________________________
   _________________________ P_GestionarClase __________________________
   _____________________________________________________________________*/
+select * from administracion.Profesor
+select * from administracion.Persona
 
 -- ✅ PRUEBA 1: Inserción válida de clase
 -- Esperado: Se inserta el registro correctamente
+
 EXEC actividades.GestionarClase
-    @nombre_actividad = 'Yoga Avanzado',
+    @nombre_actividad = 'Ajedrez',
     @dni_profesor = '23456789',
     @horario = 'Miércoles 17:00',
     @operacion = 'Insertar';
@@ -92,9 +94,9 @@ SELECT * FROM actividades.Clase
 -- ✅ PRUEBA 2: Modificación válida de clase
 -- Esperado: Se actualizan los datos correctamente
 EXEC actividades.GestionarClase
-    @nombre_actividad = 'Yoga',
-    @dni_profesor = '12345678',
-    @horario = 'Miércoles 17:00',
+    @nombre_actividad = 'Ajedrez',
+    @dni_profesor = '23456789',
+    @horario = 'Miércoles 15:00',
     @operacion = 'Modificar';
 -- Resultado esperado: Clase modificada sin errores
 GO
@@ -103,9 +105,9 @@ SELECT * FROM actividades.Clase
 -- ✅ PRUEBA 3: Eliminación válida de clase
 -- Esperado: Se elimina la clase correspondiente
 EXEC actividades.GestionarClase
-    @nombre_actividad = 'Yoga',
-    @dni_profesor = '12345678',
-    @horario = 'Miércoles 17:00',
+    @nombre_actividad = 'Ajedrez',
+    @dni_profesor = '23456789',
+    @horario = 'Miércoles 14:00',
     @operacion = 'Eliminar';
 -- Resultado esperado: Clase eliminada sin errores
 GO
@@ -123,7 +125,7 @@ SELECT * FROM actividades.Clase
 
 -- ❌ PRUEBA 5: Operación inválida
 EXEC actividades.GestionarClase
-    @nombre_actividad = 'Yoga',
+    @nombre_actividad = 'Ajedrez',
     @dni_profesor = '12345678',
     @horario = 'Miércoles 17:00',
     @operacion = 'Actualizar';
@@ -138,7 +140,7 @@ GO
 -- Esperado: Se inserta la inscripción correctamente si el socio y la clase existen
 EXEC actividades.GestionarInscripcion
     @dni_socio = '12345678',
-    @nombre_actividad = 'Yoga Avanzado',
+    @nombre_actividad = 'Ajedrez',
     @horario = 'Miércoles 17:00',
     @fecha_inscripcion = '2025-02-06',
     @operacion = 'Insertar';
@@ -188,7 +190,7 @@ GO
 -- ✅ PRUEBA 1: Inserción válida de presentismo
 -- Esperado: Se registra correctamente el presentismo
 EXEC actividades.GestionarPresentismoClase
-    @nombre_actividad = 'Yoga Avanzado',
+    @nombre_actividad = 'Ajedrez',
     @dni_socio = '12345678',
     @horario = 'Miércoles 17:00',
     @fecha = '2025-02-06',
@@ -240,7 +242,7 @@ GO
 
 -- ✅ PRUEBA 1: Inserción válida
 EXEC actividades.GestionarActividadExtra
-@nombre = 'Yoga',
+@nombre = 'Pileta',
 @costo = 2000.00,
 @periodo = '2025-06',
 @es_invitado = 'N',
@@ -253,7 +255,7 @@ SELECT * FROM actividades.actividadExtra;
 
 -- ✅ PRUEBA 2: Modificación válida
 EXEC actividades.GestionarActividadExtra
-@nombre = 'Yoga',
+@nombre = 'Pileta',
 @costo = 2500.00,
 @periodo = '2025-06',
 @es_invitado = 'N',
@@ -265,7 +267,7 @@ SELECT * FROM actividades.actividadExtra;
 
 -- ✅ PRUEBA 3: Eliminación válida
 EXEC actividades.GestionarActividadExtra
-@nombre = 'Yoga',
+@nombre = 'Pileta',
 @costo = NULL,
 @periodo = '2025-06',
 @es_invitado = 'N',
@@ -288,7 +290,7 @@ GO
 
 -- ❌ PRUEBA 5: Operación inválida
 EXEC actividades.GestionarActividadExtra
-@nombre = 'Yoga',
+@nombre = 'Pileta',
 @costo = 1000,
 @periodo = '2025-06',
 @es_invitado = 'N',
@@ -303,7 +305,7 @@ GO
 
 -- ✅ PRUEBA 1: Inserción válida
 EXEC actividades.GestionarPresentismoActividadExtra
-@nombre_actividad_extra = 'Yoga',
+@nombre_actividad_extra = 'Pileta',
 @periodo = '2025-06',
 @es_invitado = 'N',
 @dni_socio = '0012345678',
@@ -315,7 +317,7 @@ GO
 
 -- ✅ PRUEBA 2: Modificación válida
 EXEC actividades.GestionarPresentismoActividadExtra
-@nombre_actividad_extra = 'Yoga',
+@nombre_actividad_extra = 'Pileta',
 @periodo = '2025-06',
 @es_invitado = 'N',
 @dni_socio = '0012345678',
@@ -327,7 +329,7 @@ GO
 
 -- ✅ PRUEBA 3: Eliminación válida
 EXEC actividades.GestionarPresentismoActividadExtra
-@nombre_actividad_extra = 'Yoga',
+@nombre_actividad_extra = 'Pileta',
 @periodo = '2025-06',
 @es_invitado = 'N',
 @dni_socio = '0012345678',
@@ -351,7 +353,7 @@ GO
 
 -- ❌ PRUEBA 5: Operación inválida
 EXEC actividades.GestionarPresentismoActividadExtra
-@nombre_actividad_extra = 'Yoga',
+@nombre_actividad_extra = 'Pileta',
 @periodo = '2025-06',
 @es_invitado = 'N',
 @dni_socio = '0012345678',
@@ -368,7 +370,7 @@ GO
 -- ✅ PRUEBA 1: Inserción válida
 EXEC actividades.GestionarInscriptoActividadExtra
 @dni_socio = '12345678',
-@nombre_actividad_extra = 'Yoga',
+@nombre_actividad_extra = 'Pileta',
 @fecha_inscripcion = '2025-06-01',
 @operacion = 'Insertar';
 -- Resultado esperado: Inscripción creada correctamente
@@ -377,7 +379,7 @@ GO
 -- ✅ PRUEBA 2: Modificación válida
 EXEC actividades.GestionarInscriptoActividadExtra
 @dni_socio = '0012345678',
-@nombre_actividad_extra = 'Yoga',
+@nombre_actividad_extra = 'Pileta',
 @fecha_inscripcion = '2025-06-02',
 @operacion = 'Modificar';
 -- Resultado esperado: Inscripción modificada
@@ -386,7 +388,7 @@ GO
 -- ✅ PRUEBA 3: Eliminación válida
 EXEC actividades.GestionarInscriptoActividadExtra
 @dni_socio = '0012345678',
-@nombre_actividad_extra = 'Yoga',
+@nombre_actividad_extra = 'Pileta',
 @fecha_inscripcion = NULL,
 @operacion = 'Eliminar';
 -- Resultado esperado: Inscripción eliminada
@@ -395,7 +397,7 @@ GO
 -- ❌ PRUEBA 4: Insertar sin DNI
 EXEC actividades.GestionarInscriptoActividadExtra
 @dni_socio = NULL,
-@nombre_actividad_extra = 'Yoga',
+@nombre_actividad_extra = 'Pileta',
 @fecha_inscripcion = NULL,
 @operacion = 'Insertar';
 -- Resultado esperado: Error por DNI obligatorio
@@ -404,7 +406,7 @@ GO
 -- ❌ PRUEBA 5: Operación inválida
 EXEC actividades.GestionarInscriptoActividadExtra
 @dni_socio = '0012345678',
-@nombre_actividad_extra = 'Yoga',
+@nombre_actividad_extra = 'Pileta',
 @fecha_inscripcion = NULL,
 @operacion = 'Alta';
 -- Resultado esperado: Error por operación inválida
