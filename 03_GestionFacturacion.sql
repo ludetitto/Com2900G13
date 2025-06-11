@@ -630,8 +630,7 @@ GO
 /*____________________________________________________________________
   _______________ GestionarPresentismoActividadExtra _________________
   ____________________________________________________________________*/
-
-IF OBJECT_ID('actividades.GestionarPresentismoActividadExtra', 'P') IS NOT NULL
+  IF OBJECT_ID('actividades.GestionarPresentismoActividadExtra', 'P') IS NOT NULL
     DROP PROCEDURE actividades.GestionarPresentismoActividadExtra;
 GO
 
@@ -639,86 +638,71 @@ CREATE PROCEDURE actividades.GestionarPresentismoActividadExtra
     @nombre_actividad_extra VARCHAR(100),
     @periodo CHAR(10),
     @es_invitado CHAR(1),
-    @dni_socio VARCHAR(10),
+    @dni_socio VARCHAR(10) = NULL,
     @fecha DATE = NULL,
     @condicion CHAR(1) = NULL,
     @operacion CHAR(10)
 AS
 BEGIN
     SET NOCOUNT ON;
-	/*Verificación de operaciones válidas*/
+
+    -- Validación de operación
     IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
     BEGIN
         RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
         RETURN;
     END
-	/*Se obtiene el id_presentismo en caso de eliminar o modificar un presentismo*/
-	DECLARE @id_presentismo INT = (
-		SELECT P.id_presentismo_extra
-		FROM actividades.presentismoActividadExtra P
-		INNER JOIN actividades.ActividadExtra AE ON P.id_extra = AE.id_extra
-		INNER JOIN administracion.Socio S ON P.id_socio = S.id_socio
-		INNER JOIN administracion.Persona Pe ON S.id_persona = Pe.id_persona
-		WHERE AE.nombre = @nombre_actividad_extra
-		  AND AE.periodo = @periodo
-		  AND AE.es_invitado = @es_invitado
-		  AND Pe.dni = @dni_socio
-		  AND P.fecha = ISNULL(@fecha, CAST(GETDATE() AS DATE))
-	)
-	/*CASO 1: Eliminar presentismo*/
-    IF @operacion = 'Eliminar'
-    BEGIN
-		/*Verificaçión de existencia de presentismo a borrar.*/
-        IF @id_presentismo IS NULL
-        BEGIN
-            RAISERROR('No existe el presentismo para eliminar.', 16, 1);
-            RETURN;
-        END
 
-        DELETE FROM actividades.presentismoActividadExtra WHERE id_presentismo_extra = @id_presentismo;
-    END
-	/*CASO 2: Modificar presentismo*/
-    ELSE IF @operacion = 'Modificar'
+    -- Normalizar es_invitado
+    SET @es_invitado = UPPER(@es_invitado);
+
+    -- Validación según tipo de participante e INSERT
+    IF @operacion = 'Insertar'
     BEGIN
-		/*Verificaçión de existencia de presentismo a modificar.*/
-        IF @id_presentismo IS NULL
-        BEGIN
-            RAISERROR('No existe el presentismo para modificar.', 16, 1);
-            RETURN;
-        END
-		/*Se utiliza COALESCE para asegurar dato válido en caso de que algún usuario ingrese NULL en algún campo*/
-        UPDATE actividades.presentismoActividadExtra
-        SET id_extra = COALESCE((
-									SELECT id_extra
-									FROM actividades.ActividadExtra
-									WHERE nombre = @nombre_actividad_extra
-									  AND periodo = @periodo
-									  AND es_invitado = @es_invitado
-								), id_extra),
-            id_socio = COALESCE((
-									SELECT S.id_socio
-									FROM socios.Socio S
-									INNER JOIN administracion.Persona Pe ON S.id_persona = Pe.id_persona
-									WHERE Pe.dni = @dni_socio
-								), id_socio),
-            fecha = COALESCE(@fecha, fecha),
-            condicion = COALESCE(@condicion, condicion)
-        WHERE id_presentismo_extra = @id_presentismo;
-    END
-	/*CASO 3: Insertar presentismo*/
-    ELSE IF @operacion = 'Insertar'
-    BEGIN
-		/*Verificación de datos no nulos necesarios para insertar presentismo*/
         IF @nombre_actividad_extra IS NULL
         BEGIN
             RAISERROR('El nombre de la actividad extra es obligatorio.', 16, 1);
             RETURN;
         END
 
-        IF @dni_socio IS NULL
+        IF @es_invitado NOT IN ('N', 'S')
         BEGIN
-            RAISERROR('El dni del socio es obligatorio.', 16, 1);
+            RAISERROR('El campo es_invitado solo puede ser N o S.', 16, 1);
             RETURN;
+        END
+
+        IF @es_invitado = 'N'
+        BEGIN
+            -- Socio: el dni es obligatorio y debe existir
+            IF @dni_socio IS NULL OR LEN(LTRIM(RTRIM(@dni_socio))) = 0
+            BEGIN
+                RAISERROR('El dni del socio es obligatorio para participantes socios.', 16, 1);
+                RETURN;
+            END
+            IF NOT EXISTS (
+                SELECT 1
+                FROM administracion.Persona Pe
+                INNER JOIN administracion.Socio S ON Pe.id_persona = S.id_persona
+                WHERE Pe.dni = @dni_socio AND S.activo = 1
+            )
+            BEGIN
+                RAISERROR('No existe un socio activo con ese DNI.', 16, 1);
+                RETURN;
+            END
+        END
+        ELSE IF @es_invitado = 'S'
+        BEGIN
+            -- Invitado: puede ser con o sin socio
+            IF @dni_socio IS NOT NULL AND NOT EXISTS (
+                SELECT 1
+                FROM administracion.Persona Pe
+                INNER JOIN administracion.Socio S ON Pe.id_persona = S.id_persona
+                WHERE Pe.dni = @dni_socio AND S.activo = 1
+            )
+            BEGIN
+                RAISERROR('No existe un socio activo con ese DNI.', 16, 1);
+                RETURN;
+            END
         END
 
         IF @fecha IS NULL
@@ -729,17 +713,77 @@ BEGIN
 
         INSERT INTO actividades.presentismoActividadExtra (id_extra, id_socio, fecha, condicion)
         VALUES (
-			(SELECT id_extra
-			 FROM actividades.ActividadExtra
-			 WHERE nombre = @nombre_actividad_extra
-			   AND periodo = @periodo
-			   AND es_invitado = @es_invitado),
-			(SELECT S.id_socio
-			 FROM administracion.Socio S
-			 INNER JOIN administracion.Persona Pe ON S.id_persona = Pe.id_persona
-			 WHERE Pe.dni = @dni_socio),
-			@fecha,
-			@condicion);
+            (SELECT id_extra
+                FROM actividades.ActividadExtra
+                WHERE nombre = @nombre_actividad_extra
+                    AND periodo = @periodo
+                    AND es_invitado = @es_invitado
+            ),
+            (SELECT S.id_socio
+                FROM administracion.Socio S
+                INNER JOIN administracion.Persona Pe ON S.id_persona = Pe.id_persona
+                WHERE Pe.dni = @dni_socio),
+            @fecha,
+            @condicion
+        );
+        RETURN;
+    END
+
+    -- Buscar id_presentismo
+    DECLARE @id_presentismo INT = (
+        SELECT TOP 1 P.id_presentismo_extra
+        FROM actividades.presentismoActividadExtra P
+        INNER JOIN actividades.ActividadExtra AE ON P.id_extra = AE.id_extra
+        LEFT JOIN administracion.Socio S ON P.id_socio = S.id_socio
+        LEFT JOIN administracion.Persona Pe ON S.id_persona = Pe.id_persona
+        WHERE AE.nombre = @nombre_actividad_extra
+            AND AE.periodo = @periodo
+            AND AE.es_invitado = @es_invitado
+            AND (@dni_socio IS NULL OR Pe.dni = @dni_socio)
+            AND P.fecha = ISNULL(@fecha, CAST(GETDATE() AS DATE))
+    );
+
+    -- CASO ELIMINAR
+    IF @operacion = 'Eliminar'
+    BEGIN
+        IF @id_presentismo IS NULL
+        BEGIN
+            RAISERROR('No existe el presentismo para eliminar.', 16, 1);
+            RETURN;
+        END
+
+        DELETE FROM actividades.presentismoActividadExtra WHERE id_presentismo_extra = @id_presentismo;
+        RETURN;
+    END
+
+    -- CASO MODIFICAR
+    IF @operacion = 'Modificar'
+    BEGIN
+        IF @id_presentismo IS NULL
+        BEGIN
+            RAISERROR('No existe el presentismo para modificar.', 16, 1);
+            RETURN;
+        END
+
+        UPDATE actividades.presentismoActividadExtra
+        SET
+            id_extra = COALESCE((
+                SELECT id_extra
+                FROM actividades.ActividadExtra
+                WHERE nombre = @nombre_actividad_extra
+                    AND periodo = @periodo
+                    AND es_invitado = @es_invitado
+            ), id_extra),
+            id_socio = COALESCE((
+                SELECT S.id_socio
+                FROM administracion.Socio S
+                INNER JOIN administracion.Persona Pe ON S.id_persona = Pe.id_persona
+                WHERE Pe.dni = @dni_socio
+            ), id_socio),
+            fecha = COALESCE(@fecha, fecha),
+            condicion = COALESCE(@condicion, condicion)
+        WHERE id_presentismo_extra = @id_presentismo;
+        RETURN;
     END
 END;
 GO
