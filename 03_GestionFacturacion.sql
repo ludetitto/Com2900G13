@@ -308,8 +308,7 @@ GO
 /*____________________________________________________________________
   _______________________ GestionarInscripcion _______________________
   ____________________________________________________________________*/
-
-IF OBJECT_ID('actividades.GestionarInscripcion', 'P') IS NOT NULL
+  IF OBJECT_ID('actividades.GestionarInscripcion', 'P') IS NOT NULL
     DROP PROCEDURE actividades.GestionarInscripcion;
 GO
 
@@ -322,24 +321,43 @@ CREATE PROCEDURE actividades.GestionarInscripcion
 AS
 BEGIN
     SET NOCOUNT ON;
-	/*Verificación de operaciones válidas*/
+
+    -- Validación de operación
     IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
     BEGIN
         RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
         RETURN;
     END
-	/*Se obtiene el id_inscripto si corresponde*/
-    DECLARE @id_inscripto INT = (SELECT IC.id_inscripto
-									FROM actividades.InscriptoClase IC
-									INNER JOIN actividades.Clase C ON IC.id_clase = C.id_clase
-									INNER JOIN actividades.Actividad A ON C.id_actividad = A.id_actividad
-									INNER JOIN administracion.Socio S ON IC.id_socio = S.id_socio
-									INNER JOIN administracion.Persona P ON S.id_persona = P.id_persona
-									WHERE A.nombre = @nombre_actividad AND C.horario = @horario AND P.dni = @dni_socio)
-	/*CASO 1: Eliminar inscripción*/
+
+    -- Normalizar DNI (elimina ceros a la izquierda)
+    DECLARE @dni_normalizado VARCHAR(10) = RIGHT('00000000' + LTRIM(STR(CAST(@dni_socio AS INT))), 8);
+
+    -- Buscar id_socio
+    DECLARE @id_socio INT = (
+        SELECT TOP 1 S.id_socio
+        FROM administracion.Socio S
+        INNER JOIN administracion.Persona P ON S.id_persona = P.id_persona
+        WHERE REPLACE(P.dni, ' ', '') = @dni_normalizado AND S.activo = 1
+    );
+
+    -- Buscar id_clase
+    DECLARE @id_clase INT = (
+        SELECT TOP 1 C.id_clase
+        FROM actividades.Clase C
+        INNER JOIN actividades.Actividad A ON C.id_actividad = A.id_actividad
+        WHERE A.nombre = @nombre_actividad AND C.horario = @horario
+    );
+
+    -- Buscar id_inscripto
+    DECLARE @id_inscripto INT = (
+        SELECT TOP 1 IC.id_inscripto
+        FROM actividades.InscriptoClase IC
+        WHERE IC.id_socio = @id_socio AND IC.id_clase = @id_clase
+    );
+
+    /*CASO 1: Eliminar inscripción*/
     IF @operacion = 'Eliminar'
     BEGIN
-		/*Verificación de existencia de inscripción a eliminar*/
         IF @id_inscripto IS NULL
         BEGIN
             RAISERROR('No existe la inscripción para eliminar.', 16, 1);
@@ -347,11 +365,12 @@ BEGIN
         END
 
         DELETE FROM actividades.InscriptoClase WHERE id_inscripto = @id_inscripto;
+        RETURN;
     END
-	/*CASO 2: Modificar inscripción*/
+
+    /*CASO 2: Modificar inscripción*/
     ELSE IF @operacion = 'Modificar'
     BEGIN
-		/*Verificación de existencia de inscripción a modificar*/
         IF @id_inscripto IS NULL
         BEGIN
             RAISERROR('No existe la inscripción para modificar.', 16, 1);
@@ -361,25 +380,15 @@ BEGIN
         UPDATE actividades.InscriptoClase
         SET fecha_inscripcion = COALESCE(@fecha_inscripcion, fecha_inscripcion)
         WHERE id_inscripto = @id_inscripto;
+        RETURN;
     END
-	/*CASO 3: Insertar inscripción*/
+
+    /*CASO 3: Insertar inscripción*/
     ELSE IF @operacion = 'Insertar'
     BEGIN
-		/*Obtención de claves necesarias*/
-        DECLARE @id_socio INT = (SELECT S.id_socio
-								 FROM administracion.Socio S
-								 INNER JOIN administracion.Persona P ON S.id_persona = P.id_persona
-								 WHERE P.dni = @dni_socio);
-
-        DECLARE @id_clase INT = (SELECT C.id_clase
-								 FROM actividades.Clase C
-								 INNER JOIN actividades.Actividad A ON C.id_actividad = A.id_actividad
-								 WHERE A.nombre = @nombre_actividad AND C.horario = @horario);
-
-		/*Verificación de existencia de socio y clase*/
         IF @id_socio IS NULL
         BEGIN
-            RAISERROR('El socio no existe.', 16, 1);
+            RAISERROR('El socio no existe o no está activo.', 16, 1);
             RETURN;
         END
 
@@ -389,14 +398,22 @@ BEGIN
             RETURN;
         END
 
+        IF EXISTS (SELECT 1 FROM actividades.InscriptoClase WHERE id_socio = @id_socio AND id_clase = @id_clase)
+        BEGIN
+            RAISERROR('El socio ya está inscripto en la clase.', 16, 1);
+            RETURN;
+        END
+
         IF @fecha_inscripcion IS NULL
             SET @fecha_inscripcion = GETDATE();
 
         INSERT INTO actividades.InscriptoClase (id_socio, id_clase, fecha_inscripcion)
         VALUES (@id_socio, @id_clase, @fecha_inscripcion);
+        RETURN;
     END
 END;
 GO
+
 
 /*____________________________________________________________________
   _____________________ GestionarPresentismoClase ____________________

@@ -10,6 +10,10 @@
 USE COM2900G13;
 GO
 
+
+/* =============================
+   1. ELIMINAR PROCEDIMIENTOS
+   ============================= */
 DROP PROCEDURE IF EXISTS actividades.GestionarActividad
 DROP PROCEDURE IF EXISTS actividades.GestionarActividadExtra
 DROP PROCEDURE IF EXISTS actividades.GestionarClase

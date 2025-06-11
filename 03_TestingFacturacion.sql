@@ -84,7 +84,7 @@ select * from administracion.Persona
 
 EXEC actividades.GestionarClase
     @nombre_actividad = 'Ajedrez',
-    @dni_profesor = '23456789',
+    @dni_profesor = '34567890',
     @horario = 'Miércoles 17:00',
     @operacion = 'Insertar';
 -- Resultado esperado: Clase insertada sin errores
@@ -95,7 +95,7 @@ SELECT * FROM actividades.Clase
 -- Esperado: Se actualizan los datos correctamente
 EXEC actividades.GestionarClase
     @nombre_actividad = 'Ajedrez',
-    @dni_profesor = '23456789',
+    @dni_profesor = '34567890',
     @horario = 'Miércoles 15:00',
     @operacion = 'Modificar';
 -- Resultado esperado: Clase modificada sin errores
@@ -136,34 +136,44 @@ GO
   _______________________ GestionarInscripcion ________________________
   _____________________________________________________________________*/
 
+
+select * from administracion.Socio
+select * from administracion.Persona
+
 -- ✅ PRUEBA 1: Inserción válida de inscripción
 -- Esperado: Se inserta la inscripción correctamente si el socio y la clase existen
 EXEC actividades.GestionarInscripcion
-    @dni_socio = '12345678',
+    @dni_socio = '23456789',
     @nombre_actividad = 'Ajedrez',
-    @horario = 'Miércoles 17:00',
+    @horario = 'Miércoles 15:00',
     @fecha_inscripcion = '2025-02-06',
     @operacion = 'Insertar';
-GO
 SELECT * FROM actividades.InscriptoClase;
+
 -- ✅ PRUEBA 2: Modificación válida de inscripción existente
 -- Esperado: Se actualiza la fecha de inscripción
 EXEC actividades.GestionarInscripcion
-    @dni_socio = '0012345678',
-    @nombre_actividad = 'Yoga',
-    @horario = 'Lunes 10:00',
+    @dni_socio = '23456789',
+    @nombre_actividad = 'Ajedrez',
+    @horario = 'Miércoles 15:00',
     @fecha_inscripcion = '2024-11-01',
     @operacion = 'Modificar';
 GO
+SELECT * FROM actividades.InscriptoClase;
+
+
 -- ✅ PRUEBA 3: Eliminación válida de inscripción existente
 -- Esperado: Se elimina la inscripción correctamente
 EXEC actividades.GestionarInscripcion
-    @dni_socio = '0012345678',
-    @nombre_actividad = 'Yoga',
-    @horario = 'Lunes 10:00',
+    @dni_socio = '23456789',
+    @nombre_actividad = 'Ajedrez',
+    @horario = 'Miércoles 15:00',
     @fecha_inscripcion = NULL,
     @operacion = 'Eliminar';
 GO
+SELECT * FROM actividades.InscriptoClase;
+
+
 -- ❌ PRUEBA 4: Modificar inscripción inexistente
 -- Esperado: Error lanzado por RAISERROR
 EXEC actividades.GestionarInscripcion
