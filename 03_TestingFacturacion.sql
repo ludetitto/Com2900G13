@@ -145,7 +145,7 @@ select * from administracion.Persona
 EXEC actividades.GestionarInscripcion
     @dni_socio = '23456789',
     @nombre_actividad = 'Ajedrez',
-    @horario = 'Miércoles 15:00',
+    @horario = 'Miércoles 17:00',
     @fecha_inscripcion = '2025-02-06',
     @operacion = 'Insertar';
 SELECT * FROM actividades.InscriptoClase;
@@ -186,7 +186,7 @@ GO
 -- ❌ PRUEBA 5: Operación inválida
 -- Esperado: Error por operación no permitida
 EXEC actividades.GestionarInscripcion
-    @dni_socio = '0012345678',
+    @dni_socio = '12345678',
     @nombre_actividad = 'Yoga',
     @horario = 'Lunes 10:00',
     @fecha_inscripcion = '2025-06-08',
@@ -201,32 +201,38 @@ GO
 -- Esperado: Se registra correctamente el presentismo
 EXEC actividades.GestionarPresentismoClase
     @nombre_actividad = 'Ajedrez',
-    @dni_socio = '12345678',
+    @dni_socio = '23456789',
     @horario = 'Miércoles 17:00',
     @fecha = '2025-02-06',
     @condicion = 'P',
     @operacion = 'Insertar';
 GO
 SELECT * FROM actividades.presentismoClase;
+
 -- ✅ PRUEBA 2: Modificación válida de presentismo
 -- Esperado: Se actualiza correctamente el campo condicion
 EXEC actividades.GestionarPresentismoClase
-    @nombre_actividad = 'Yoga',
-    @dni_socio = '0012345678',
-    @horario = 'Lunes 10:00',
-    @fecha = '2025-06-08',
+    @nombre_actividad = 'Ajedrez',
+    @dni_socio = '23456789',
+    @horario = 'Miércoles 15:00',
+    @fecha = '2025-02-06',
     @condicion = 'A',
     @operacion = 'Modificar';
 GO
+SELECT * FROM actividades.presentismoClase;
+
 -- ✅ PRUEBA 3: Eliminación válida de presentismo
 -- Esperado: Se elimina el registro correctamente
 EXEC actividades.GestionarPresentismoClase
-    @nombre_actividad = 'Yoga',
-    @dni_socio = '0012345678',
-    @horario = 'Lunes 10:00',
-    @fecha = '2025-06-08',
+    @nombre_actividad = 'Ajedrez',
+    @dni_socio = '23456789',
+    @horario = 'Miércoles 15:00',
+    @fecha = '2025-02-06',
     @operacion = 'Eliminar';
 GO
+SELECT * FROM actividades.presentismoClase;
+
+
 -- ❌ PRUEBA 4: Eliminar presentismo inexistente
 -- Esperado: Error lanzado por RAISERROR
 EXEC actividades.GestionarPresentismoClase
@@ -240,7 +246,7 @@ GO
 -- Esperado: Error lanzado por RAISERROR de operación inválida
 EXEC actividades.GestionarPresentismoClase
     @nombre_actividad = 'Yoga',
-    @dni_socio = '0012345678',
+    @dni_socio = '12345678',
     @horario = 'Lunes 10:00',
     @fecha = '2025-06-08',
     @operacion = 'Asistir';
@@ -309,69 +315,6 @@ EXEC actividades.GestionarActividadExtra
 -- Resultado esperado: Error de operación no válida
 GO
 
-/*_____________________________________________________________________
-  ______________ PRUEBAS GestionarPresentismoActividadExtra ___________
-  _____________________________________________________________________*/
-
--- ✅ PRUEBA 1: Inserción válida
-EXEC actividades.GestionarPresentismoActividadExtra
-@nombre_actividad_extra = 'Pileta',
-@periodo = '2025-06',
-@es_invitado = 'N',
-@dni_socio = '0012345678',
-@fecha = '2025-06-08',
-@condicion = 'P',
-@operacion = 'Insertar';
--- Resultado esperado: Presentismo insertado sin errores
-GO
-
--- ✅ PRUEBA 2: Modificación válida
-EXEC actividades.GestionarPresentismoActividadExtra
-@nombre_actividad_extra = 'Pileta',
-@periodo = '2025-06',
-@es_invitado = 'N',
-@dni_socio = '0012345678',
-@fecha = '2025-06-08',
-@condicion = 'F',
-@operacion = 'Modificar';
--- Resultado esperado: Presentismo modificado sin errores
-GO
-
--- ✅ PRUEBA 3: Eliminación válida
-EXEC actividades.GestionarPresentismoActividadExtra
-@nombre_actividad_extra = 'Pileta',
-@periodo = '2025-06',
-@es_invitado = 'N',
-@dni_socio = '0012345678',
-@fecha = '2025-06-08',
-@condicion = NULL,
-@operacion = 'Eliminar';
--- Resultado esperado: Presentismo eliminado sin errores
-GO
-
--- ❌ PRUEBA 4: Insertar sin nombre de actividad
-EXEC actividades.GestionarPresentismoActividadExtra
-@nombre_actividad_extra = NULL,
-@periodo = '2025-06',
-@es_invitado = 'N',
-@dni_socio = '0012345678',
-@fecha = NULL,
-@condicion = NULL,
-@operacion = 'Insertar';
--- Resultado esperado: Error por nombre de actividad requerido
-GO
-
--- ❌ PRUEBA 5: Operación inválida
-EXEC actividades.GestionarPresentismoActividadExtra
-@nombre_actividad_extra = 'Pileta',
-@periodo = '2025-06',
-@es_invitado = 'N',
-@dni_socio = '0012345678',
-@fecha = NULL,
-@condicion = NULL,
-@operacion = 'Registrar';
--- Resultado esperado: Error de operación inválida
-GO
 
 /*_____________________________________________________________________
   ______________ PRUEBAS GestionarInscriptoActividadExtra _____________
@@ -423,15 +366,106 @@ EXEC actividades.GestionarInscriptoActividadExtra
 GO
 
 /*_____________________________________________________________________
+  ______________ PRUEBAS GestionarPresentismoActividadExtra ___________
+  _____________________________________________________________________*/
+
+select * from administracion.Socio
+select * from administracion.Persona
+-- ✅ PRUEBA 1: Inserción válida
+EXEC actividades.GestionarPresentismoActividadExtra
+@nombre_actividad_extra = 'Pileta',
+@periodo = '2025-06',
+@es_invitado = 'N',
+@dni_socio = '45778667',
+@fecha = '2025-06-08',
+@condicion = 'P',
+@operacion = 'Insertar';
+-- Resultado esperado: Presentismo insertado sin errores
+GO
+SELECT * FROM actividades.actividadExtra;
+SELECT * FROM actividades.presentismoActividadExtra;
+
+
+-- ✅ PRUEBA 2: Modificación válida
+EXEC actividades.GestionarPresentismoActividadExtra
+@nombre_actividad_extra = 'Pileta',
+@periodo = '2025-06',
+@es_invitado = 'N',
+@dni_socio = '45778667',
+@fecha = '2025-06-08',
+@condicion = 'F',
+@operacion = 'Modificar';
+-- Resultado esperado: Presentismo modificado sin errores
+GO
+SELECT * FROM actividades.actividadExtra;
+SELECT * FROM actividades.presentismoActividadExtra;
+
+-- ✅ PRUEBA 3: Eliminación válida
+EXEC actividades.GestionarPresentismoActividadExtra
+@nombre_actividad_extra = 'Pileta',
+@periodo = '2025-06',
+@es_invitado = 'N',
+@dni_socio = '45778667',
+@fecha = '2025-06-08',
+@condicion = NULL,
+@operacion = 'Eliminar';
+-- Resultado esperado: Presentismo eliminado sin errores
+GO
+SELECT * FROM actividades.actividadExtra;
+SELECT * FROM actividades.presentismoActividadExtra;
+
+-- ❌ PRUEBA 4: Insertar sin nombre de actividad
+EXEC actividades.GestionarPresentismoActividadExtra
+@nombre_actividad_extra = NULL,
+@periodo = '2025-06',
+@es_invitado = 'N',
+@dni_socio = '0012345678',
+@fecha = NULL,
+@condicion = NULL,
+@operacion = 'Insertar';
+-- Resultado esperado: Error por nombre de actividad requerido
+GO
+
+-- ❌ PRUEBA 5: Operación inválida
+EXEC actividades.GestionarPresentismoActividadExtra
+@nombre_actividad_extra = 'Pileta',
+@periodo = '2025-06',
+@es_invitado = 'N',
+@dni_socio = '0012345678',
+@fecha = NULL,
+@condicion = NULL,
+@operacion = 'Registrar';
+-- Resultado esperado: Error de operación inválida
+GO
+
+/*_____________________________________________________________________
+  _______________________ PRUEBAS GenerarEmisorFactura ______________________
+  _____________________________________________________________________*/
+ EXEC facturacion.GestionarEmisorFactura
+    @razon_social = 'Sol del Norte S.A.',
+    @cuil = '20-12345678-4',
+    @direccion = 'Av. Presidente Perón 1234',
+    @pais = 'Argentina',
+    @localidad = 'La Matanza',
+    @codigo_postal = '1234',
+    @operacion = 'Insertar'
+
+SELECT * FROM facturacion.EmisorFactura
+/*_____________________________________________________________________
   _______________________ PRUEBAS GenerarFactura ______________________
   _____________________________________________________________________*/
 
 -- ✅ PRUEBA 1: Generación válida de factura
 EXEC facturacion.GenerarFacturaSocioMensual
 @dni_socio = '23456789',
-@cuil_emisor = '30-12345678-9';
+@cuil_emisor = '20-12345678-4';
 -- Resultado esperado: Factura generada sin errores
 GO
+
+DELETE FROM facturacion.Factura
+DELETE FROM facturacion.DetalleFactura
+SELECT * FROM facturacion.Factura
+SELECT * FROM facturacion.DetalleFactura
 
 EXEC administracion.VerCuotasPagasGrupoFamiliar
 	@dni_socio = '12345678'
