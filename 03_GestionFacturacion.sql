@@ -991,7 +991,7 @@ BEGIN
         WHERE p.dni = @dni_socio;
 
 		/*Si no existe el socio, no se realiza la transacción*/
-        IF @id_socio IS NULL OR @id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio = @id_socio)
+        IF @id_socio IS NULL OR @id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar)
         BEGIN
             RAISERROR('No se encontró socio responsable con ese DNI.', 16, 1);
             ROLLBACK TRANSACTION;
@@ -1034,17 +1034,27 @@ BEGIN
         END
 
 		/*Obtener monto total a facturar*/
-		SELECT @monto_total += costo_membresia
-		FROM administracion.Socio S
-		INNER JOIN administracion.CategoriaSocio CS ON S.id_categoria = CS.id_categoria
-		WHERE S.id_socio = @id_socio OR S.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio);
+		SELECT @monto_total += subtotal
+		FROM (
+			SELECT CS.costo_membresia * COUNT(*) AS subtotal
+			FROM administracion.Socio S
+			INNER JOIN administracion.CategoriaSocio CS ON S.id_categoria = CS.id_categoria
+			WHERE S.id_socio = @id_socio
+			   OR S.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio)
+			GROUP BY CS.costo_membresia
+		) AS subtotalMembresias;
 
-		SELECT @monto_total += costo * COUNT(A.id_actividad) OVER(PARTITION BY I.id_socio)
-		FROM actividades.Actividad A
-		INNER JOIN actividades.Clase C ON C.id_actividad = A.id_actividad
-		INNER JOIN actividades.InscriptoClase I ON I.id_clase = C.id_clase
-		INNER JOIN administracion.GrupoFamiliar G ON G.id_socio = I.id_socio
-		WHERE I.id_socio = @id_socio OR G.id_socio_rp = @id_socio;
+		SELECT @monto_total += subtotal
+		FROM (
+			SELECT A.costo * COUNT(*) AS subtotal
+			FROM actividades.Actividad A
+			INNER JOIN actividades.Clase C ON A.id_actividad = C.id_actividad
+			INNER JOIN actividades.InscriptoClase I ON I.id_clase = C.id_clase
+			INNER JOIN administracion.Socio S ON I.id_socio = S.id_socio
+			WHERE S.id_socio = @id_socio 
+			   OR S.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio)
+			GROUP BY A.costo
+		) AS subtotalActividades;
 
 		SELECT @monto_total += monto
 		FROM cobranzas.Mora
@@ -1066,12 +1076,12 @@ BEGIN
 			@monto_total, 
 			(SELECT ISNULL(SUM(saldo), 0)FROM administracion.Socio WHERE id_socio = @id_socio),
 			GETDATE(), 
-			GETDATE() + 5, 
-			GETDATE() + 10, 
+			DATEADD(DAY, 5, GETDATE()), 
+			DATEADD(DAY, 10, GETDATE()), 
 			'No pagada', 
 			0);
 
-		SET @id_factura = (SELECT TOP 1 id_factura FROM facturacion.Factura ORDER BY fecha_emision DESC)
+		SET @id_factura = SCOPE_IDENTITY();
 
 		/*Obtener todas las actividades pendientes de pago asociadas al socio*/
 
@@ -1097,16 +1107,17 @@ BEGIN
 			(id_factura, id_actividad, tipo_item, descripcion, monto, cantidad)
 		SELECT
 			@id_factura,
-			A.id_actividad,
+			C.id_actividad,
 			'Actividad',
 			A.nombre,
 			A.costo,
-			COUNT(A.id_actividad) OVER(PARTITION BY I.id_socio) AS cantidad
-		FROM actividades.Actividad A
-		INNER JOIN actividades.Clase C ON C.id_actividad = A.id_actividad
-		INNER JOIN actividades.InscriptoClase I ON I.id_clase = C.id_clase
-		INNER JOIN administracion.GrupoFamiliar G ON G.id_socio = I.id_socio
-		WHERE I.id_socio = @id_socio OR G.id_socio_rp = @id_socio;
+			COUNT(A.id_actividad) AS cantidad
+		FROM administracion.Socio S
+		INNER JOIN actividades.InscriptoClase I ON I.id_socio = S.id_socio
+		INNER JOIN actividades.Clase C ON I.id_clase = C.id_clase
+		INNER JOIN actividades.Actividad A ON C.id_actividad = A.id_actividad
+		WHERE S.id_socio = @id_socio OR S.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio)
+		GROUP BY C.id_actividad, A.nombre, A.costo;
 
 		-- MORA (asumiendo que el id_socio es el del responsable)
 		INSERT INTO facturacion.DetalleFactura
@@ -1233,7 +1244,7 @@ BEGIN
 			'No pagada', 
 			0);
 
-		SET @id_factura = (SELECT TOP 1 id_factura FROM facturacion.Factura ORDER BY fecha_emision DESC)
+		SET @id_factura = SCOPE_IDENTITY();
 
 		-- ACTIVIDADES EXTRA
 		INSERT INTO facturacion.DetalleFactura

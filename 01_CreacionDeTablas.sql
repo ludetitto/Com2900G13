@@ -42,6 +42,7 @@ DROP PROCEDURE IF EXISTS cobranzas.DeshabilitarDebitoAutomatico
 DROP PROCEDURE IF EXISTS cobranzas.AplicarRecargoVencimiento
 
 DROP PROCEDURE IF EXISTS facturacion.AnularFactura
+DROP PROCEDURE IF EXISTS facturacion.GenerarFacturaSocioActExtra
 DROP PROCEDURE IF EXISTS facturacion.GenerarFacturaSocioMensual
 DROP PROCEDURE IF EXISTS facturacion.GenerarFacturaInvitado
 DROP PROCEDURE IF EXISTS facturacion.GestionarEmisorFactura

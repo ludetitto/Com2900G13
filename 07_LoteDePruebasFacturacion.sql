@@ -1,12 +1,13 @@
 USE COM2900G13;
 GO
 
-delete from actividades.presentismoClase
-delete from actividades.InscriptoClase
-delete from actividades.Clase
-delete from actividades.Actividad
-
-
+DELETE FROM facturacion.DetalleFactura
+DELETE FROM facturacion.Factura
+DELETE FROM facturacion.EmisorFactura
+DELETE FROM actividades.presentismoClase
+DELETE FROM actividades.InscriptoClase
+DELETE FROM actividades.Clase
+DELETE FROM actividades.Actividad
 
 -- Insertar actividades base (sin horarios)
 EXEC actividades.GestionarActividad 'Futsal', 25000, '2025-05-31', 'Insertar';
@@ -88,10 +89,19 @@ EXEC actividades.GestionarPresentismoClase 'Natación', '40606060', 'Viernes 14:0
 EXEC actividades.GestionarPresentismoClase 'Vóley', '40707070', 'Martes 19:00', 'Mayor', '2025-06-12', 'P', 'Insertar';
 EXEC actividades.GestionarPresentismoClase 'Baile artístico', '40707070', 'Jueves 19:00', 'Mayor', '2025-06-13', 'P', 'Insertar';
 
+-- =================== CARGA DE EMISOR DE FACTURA ===================
+EXEC facturacion.GestionarEmisorFactura 'Sol del Norte S.A.', '20-12345678-4', 'Av. Presidente Perón 1234', 'Argentina', 'La Matanza', '1234', 'Insertar'
 
+-- =================== GENERACIÓN DE FACTURA MENSUAL ===================
+EXEC facturacion.GenerarFacturaSocioMensual '45778667', '20-12345678-4';
+EXEC facturacion.GenerarFacturaSocioMensual '33444555', '20-12345678-4';
+EXEC facturacion.GenerarFacturaSocioMensual '40707070', '20-12345678-4';
 -- =================== VERIFICAR ===================
 
 SELECT * FROM actividades.Clase;
 SELECT * FROM actividades.Actividad;
 SELECT * FROM actividades.InscriptoClase;
 SELECT * FROM actividades.presentismoClase ORDER BY fecha;
+SELECT * FROM facturacion.EmisorFactura
+SELECT * FROM facturacion.Factura
+SELECT * FROM facturacion.DetalleFactura
