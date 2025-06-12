@@ -1036,7 +1036,7 @@ BEGIN
         WHERE p.dni = @dni_socio;
 
 		/*Si no existe el socio, no se realiza la transacción*/
-        IF @id_socio IS NULL
+        IF @id_socio IS NULL OR @id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio = @id_socio)
         BEGIN
             RAISERROR('No se encontró socio responsable con ese DNI.', 16, 1);
             ROLLBACK TRANSACTION;
@@ -1080,35 +1080,20 @@ BEGIN
 
 		/*Obtener monto total a facturar*/
 		SELECT @monto_total += costo_membresia
-		FROM administracion.CategoriaSocio CS
-		INNER JOIN administracion.Socio S ON S.id_categoria = CS.id_categoria
-		WHERE S.id_socio = @id_socio;
+		FROM administracion.Socio S
+		INNER JOIN administracion.CategoriaSocio CS ON S.id_categoria = CS.id_categoria
+		WHERE S.id_socio = @id_socio OR S.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio);
 
-		SELECT @monto_total += costo
+		SELECT @monto_total += costo * COUNT(A.id_actividad) OVER(PARTITION BY I.id_socio)
 		FROM actividades.Actividad A
 		INNER JOIN actividades.Clase C ON C.id_actividad = A.id_actividad
 		INNER JOIN actividades.InscriptoClase I ON I.id_clase = C.id_clase
-		WHERE I.id_socio = @id_socio
+		INNER JOIN administracion.GrupoFamiliar G ON G.id_socio = I.id_socio
+		WHERE I.id_socio = @id_socio OR G.id_socio_rp = @id_socio;
 
 		SELECT @monto_total += monto
 		FROM cobranzas.Mora
 		WHERE id_socio = @id_socio
-
-		IF @id_socio IN (SELECT id_socio_rp FROM administracion.GrupoFamiliar)
-		BEGIN
-			SELECT @monto_total += CS.costo_membresia
-			FROM administracion.CategoriaSocio CS
-			INNER JOIN administracion.Socio S ON S.id_categoria = CS.id_categoria
-			INNER JOIN administracion.GrupoFamiliar G ON G.id_socio = S.id_socio
-			WHERE G.id_socio_rp = @id_socio;
-
-			SELECT @monto_total += A.costo
-			FROM actividades.Actividad A
-			INNER JOIN actividades.Clase C ON C.id_actividad = A.id_actividad
-			INNER JOIN actividades.InscriptoClase I ON I.id_clase = C.id_clase
-			INNER JOIN administracion.GrupoFamiliar G ON G.id_socio = I.id_socio
-			WHERE G.id_socio_rp = @id_socio;
-		END
 
 		/*Sumar montos*/
 		/* - 1000 + 500		--> -500 y saldo 0	*/
@@ -1123,7 +1108,7 @@ BEGIN
 			@id_emisor, 
 			@id_socio, 
 			'Consumidor final', 
-			-@monto_total, 
+			@monto_total, 
 			(SELECT ISNULL(SUM(saldo), 0)FROM administracion.Socio WHERE id_socio = @id_socio),
 			GETDATE(), 
 			GETDATE() + 5, 
@@ -1137,7 +1122,7 @@ BEGIN
 
         /*Generar detalles de factura*/
 
-		-- MEMBRESÍA DEL SOCIO
+		-- MEMBRESÍA DEL SOCIO Y FAMILIARES
         INSERT INTO facturacion.DetalleFactura
 			(id_factura, id_categoria, tipo_item, descripcion, monto, cantidad)
 		SELECT
@@ -1146,12 +1131,13 @@ BEGIN
 			'Membresia',
 			CS.nombre,
 			CS.costo_membresia,
-			1
-		FROM administracion.CategoriaSocio CS
-		INNER JOIN administracion.Socio S ON S.id_categoria = CS.id_categoria
-		WHERE S.id_socio = @id_socio;
+			COUNT(S.id_categoria) AS cantidad
+		FROM administracion.Socio S
+		INNER JOIN administracion.CategoriaSocio CS ON S.id_categoria = CS.id_categoria
+		WHERE S.id_socio = @id_socio OR S.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio)
+		GROUP BY CS.id_categoria, CS.nombre, CS.costo_membresia;
 
-		-- ACTIVIDADES DEL SOCIO
+		-- ACTIVIDADES DEL SOCIO Y FAMILIARES
 		INSERT INTO facturacion.DetalleFactura
 			(id_factura, id_actividad, tipo_item, descripcion, monto, cantidad)
 		SELECT
@@ -1164,41 +1150,8 @@ BEGIN
 		FROM actividades.Actividad A
 		INNER JOIN actividades.Clase C ON C.id_actividad = A.id_actividad
 		INNER JOIN actividades.InscriptoClase I ON I.id_clase = C.id_clase
-		WHERE I.id_socio = @id_socio
-
-		-- MEMBRESÍAS DE FAMILIARES
-		IF @id_socio IN (SELECT id_socio_rp FROM administracion.GrupoFamiliar)
-		BEGIN
-            INSERT INTO facturacion.DetalleFactura
-			(id_factura, id_categoria, tipo_item, descripcion, monto, cantidad)
-			SELECT
-				@id_factura,
-				CS.id_categoria,
-				'Membresia',
-				CS.nombre,
-				CS.costo_membresia,
-				1
-			FROM administracion.CategoriaSocio CS
-			INNER JOIN administracion.Socio S ON S.id_categoria = CS.id_categoria
-			INNER JOIN administracion.GrupoFamiliar G ON G.id_socio = S.id_socio
-			WHERE G.id_socio_rp = @id_socio;
-
-			-- ACTIVIDADES DE FAMILIARES
-			INSERT INTO facturacion.DetalleFactura
-				(id_factura, id_actividad, tipo_item, descripcion, monto, cantidad)
-			SELECT
-				@id_factura,
-				A.id_actividad,
-				'Actividad',
-				A.nombre,
-				A.costo,
-				COUNT(A.id_actividad) OVER(PARTITION BY I.id_socio) AS cantidad
-			FROM actividades.Actividad A
-			INNER JOIN actividades.Clase C ON C.id_actividad = A.id_actividad
-			INNER JOIN actividades.InscriptoClase I ON I.id_clase = C.id_clase
-			INNER JOIN administracion.GrupoFamiliar G ON G.id_socio = I.id_socio
-			WHERE G.id_socio_rp = @id_socio;
-        END
+		INNER JOIN administracion.GrupoFamiliar G ON G.id_socio = I.id_socio
+		WHERE I.id_socio = @id_socio OR G.id_socio_rp = @id_socio;
 
 		-- MORA (asumiendo que el id_socio es el del responsable)
 		INSERT INTO facturacion.DetalleFactura
@@ -1234,6 +1187,7 @@ GO
 CREATE PROCEDURE facturacion.GenerarFacturaSocioActExtra
 (
     @dni_socio CHAR(10),
+	@periodo VARCHAR(20),
     @cuil_emisor VARCHAR(20)
 )
 AS
@@ -1248,6 +1202,8 @@ BEGIN
 		DECLARE @monto_total DECIMAL(10, 2) = 0;
 		DECLARE @id_factura INT;
 		DECLARE @saldo DECIMAL(10, 2);
+		DECLARE @fecha_vencimiento1 DATE;
+		DECLARE @fecha_vencimiento2 DATE;
 		
 		/*Se obtiene el id_socio asociado a su correspondiente DNI*/
 		SELECT @id_socio = id_socio 
@@ -1272,7 +1228,7 @@ BEGIN
 			AND anulada = 0
 		)
 		BEGIN
-			RAISERROR('Ya fue facturada la actividad de este grupo familiar en este mes.', 16, 1);
+			RAISERROR('Ya fue facturada la actividad.', 16, 1);
 			ROLLBACK TRANSACTION;
 			RETURN;
 		END
@@ -1290,20 +1246,21 @@ BEGIN
 			RETURN;
 		END
 
+		/*Se calcula el vencimiento de las facturas en base al periodo escogido*/
+		SET @fecha_vencimiento1 = GETDATE();
+		SET @fecha_vencimiento2 = GETDATE();
+
+		IF @periodo NOT LIKE 'Dia'
+		BEGIN
+			SET @fecha_vencimiento1 = DATEADD(DAY, 5, @fecha_vencimiento1);
+			SET @fecha_vencimiento2 = DATEADD(DAY, 5, @fecha_vencimiento1);
+		END
+
 		/*Obtener monto total a facturar*/
 		SELECT @monto_total += costo
 		FROM actividades.ActividadExtra AE
 		INNER JOIN actividades.PresentismoActividadExtra PAE ON PAE.id_extra = AE.id_extra
 		WHERE PAE.id_socio = @id_socio;
-	
-		IF @id_socio IN (SELECT id_socio_rp FROM administracion.GrupoFamiliar)
-			BEGIN
-				SELECT @monto_total += AE.costo
-				FROM actividades.ActividadExtra AE
-				INNER JOIN actividades.PresentismoActividadExtra PAE ON PAE.id_extra = AE.id_extra
-				INNER JOIN administracion.GrupoFamiliar G ON G.id_socio = PAE.id_socio
-				WHERE G.id_socio_rp = @id_socio;
-			END
 
 		/*Generar factura per sé*/
 		INSERT INTO facturacion.Factura
@@ -1316,8 +1273,8 @@ BEGIN
 			@monto_total, 
 			(SELECT ISNULL(SUM(saldo), 0)FROM administracion.Socio WHERE id_socio = @id_socio),
 			GETDATE(), 
-			GETDATE() + 5, 
-			GETDATE() + 10, 
+			@fecha_vencimiento1,
+			@fecha_vencimiento2,
 			'No pagada', 
 			0);
 
@@ -1333,27 +1290,11 @@ BEGIN
 			AE.nombre,
 			AE.costo,
 			COUNT(PAE.id_extra) OVER(PARTITION BY PAE.id_socio) AS cantidad
-		FROM actividades.ActividadExtra AE
-		INNER JOIN actividades.PresentismoActividadExtra PAE ON PAE.id_extra = AE.id_extra
-		WHERE PAE.id_socio = @id_socio;
+		FROM administracion.Socio S
+		INNER JOIN actividades.PresentismoActividadExtra PAE ON PAE.id_socio = S.id_socio
+		INNER JOIN actividades.ActividadExtra AE ON PAE.id_extra = AE.id_extra
+		WHERE PAE.id_socio = @id_socio
 
-		IF @id_socio IN (SELECT id_socio_rp FROM administracion.GrupoFamiliar)
-		BEGIN
-			-- ACTIVIDADES EXTRA DE FAMILIARES
-			INSERT INTO facturacion.DetalleFactura
-				(id_factura, id_extra, tipo_item, descripcion, monto, cantidad)
-			SELECT
-				@id_factura,
-				AE.id_extra,
-				'Actividad extra',
-				AE.nombre,
-				AE.costo,
-				COUNT(PAE.id_extra) OVER(PARTITION BY PAE.id_socio) AS cantidad
-			FROM actividades.ActividadExtra AE
-			INNER JOIN actividades.PresentismoActividadExtra PAE ON PAE.id_extra = AE.id_extra
-			INNER JOIN administracion.GrupoFamiliar G ON G.id_socio = PAE.id_socio
-			WHERE G.id_socio_rp = @id_socio;
-		END
 		/*Confirmar transacción*/
         COMMIT TRANSACTION;
 
