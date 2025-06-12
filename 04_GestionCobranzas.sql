@@ -10,6 +10,7 @@
 USE COM2900G13
 GO
 
+
 /*____________________________________________________________________
   _________________________ RegistrarCobranza ________________________
   ____________________________________________________________________*/
@@ -19,7 +20,7 @@ IF OBJECT_ID('cobranzas.RegistrarCobranza', 'P') IS NOT NULL
 GO
 
 CREATE PROCEDURE cobranzas.RegistrarCobranza
-    @idSocio INT,
+    @dniSocio VARCHAR(10),
     @monto DECIMAL(10, 2),
     @fecha DATE,
     @medioPago VARCHAR(50),
@@ -54,11 +55,14 @@ BEGIN
             RETURN;
         END;
 
-        -- Validación del socio
-        IF NOT EXISTS (
-            SELECT 1 FROM administracion.Socio 
-            WHERE id_socio = @idSocio AND activo = 1
-        )
+        -- Obtener id_socio a partir del dni y validar que esté activo
+        DECLARE @idSocio INT;
+        SELECT @idSocio = S.id_socio
+        FROM administracion.Socio S
+        JOIN administracion.Persona P ON S.id_persona = P.id_persona
+        WHERE P.dni = @dniSocio AND S.activo = 1;
+
+        IF @idSocio IS NULL
         BEGIN
             RAISERROR('El socio especificado no existe o no está activo.', 16, 1);
             ROLLBACK TRANSACTION;
