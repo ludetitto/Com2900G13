@@ -2,6 +2,7 @@ USE COM2900G13;
 GO
 
 /* ===================== LIMPIEZA COMPLETA ===================== */
+DELETE FROM actividades.presentismoClase;
 DELETE FROM actividades.InscriptoClase;
 DELETE FROM actividades.Clase;
 DELETE FROM actividades.Actividad;
