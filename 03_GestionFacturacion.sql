@@ -9,6 +9,7 @@
  ========================================================================= */
 USE COM2900G13;
 GO
+
 /*____________________________________________________________________
   _______________________ GestionarActividad ________________________
   ____________________________________________________________________*/
@@ -971,6 +972,40 @@ END;
 GO
 
 /*____________________________________________________________________
+  ____________________________ AnularFactura __________________________
+  ____________________________________________________________________*/
+IF OBJECT_ID('facturacion.AnularFactura', 'P') IS NOT NULL
+    DROP PROCEDURE facturacion.AnularFactura;
+GO
+
+CREATE PROCEDURE facturacion.AnularFactura(
+	@id_factura INT,
+    @motivo NVARCHAR(255)
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+	DECLARE @id_pago INT;
+	DECLARE @monto DECIMAL(10, 2) = (SELECT TOP 1 monto_total FROM facturacion.Factura WHERE id_factura = @id_factura);
+
+	IF @id_factura IN (SELECT id_factura FROM facturacion.Factura WHERE estado = 'Pagada')
+	BEGIN
+		SET @id_pago = (SELECT TOP 1 id_pago FROM cobranzas.Pago WHERE id_factura = @id_factura);
+
+		EXEC cobranzas.GenerarReembolso
+			@id_pago = @id_pago,
+			@monto = @monto,
+			@motivo = @motivo;
+	END
+	ELSE
+		UPDATE facturacion.Factura
+		SET anulada = 1
+		WHERE id_factura = @id_factura
+END;
+GO
+
+/*____________________________________________________________________
   __________________________ GenerarFactura ________________________
   ____________________________________________________________________*/
 IF OBJECT_ID('facturacion.GenerarFacturaSocioMensual', 'P') IS NOT NULL
@@ -991,23 +1026,33 @@ BEGIN
 		/*Creación de variables auxiliares para id_socio e id_emisor*/
         DECLARE @id_socio INT;
         DECLARE @id_emisor INT;
-		DECLARE @anulada INT;
+		DECLARE @monto_total DECIMAL(10, 2) = 0;
+		DECLARE @id_factura INT;
 
         /*Se obtiene el id_socio asociado a su correspondiente DNI*/
         SELECT @id_socio = id_socio 
         FROM administracion.Socio s
         INNER JOIN administracion.Persona p ON s.id_persona = p.id_persona
         WHERE p.dni = @dni_socio;
+
 		/*Si no existe el socio, no se realiza la transacción*/
         IF @id_socio IS NULL
         BEGIN
-            RAISERROR('No se encontró socio con ese DNI.', 16, 1);
+            RAISERROR('No se encontró socio responsable con ese DNI.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END
+
+		/*Si el socio no está activo, no se genera la factura*/
+        IF @id_socio IN (SELECT id_socio FROM administracion.Socio WHERE activo = 0)
+        BEGIN
+            RAISERROR('El socio que se está intentando facturar se encuentra inactivo.', 16, 1);
             ROLLBACK TRANSACTION;
             RETURN;
         END
 
 		IF EXISTS (
-		SELECT TOP 1 anulada = @anulada
+		SELECT TOP 1 id_factura
 		FROM facturacion.Factura
 		WHERE id_socio = @id_socio
 		  AND MONTH(fecha_emision) = MONTH(GETDATE())
@@ -1015,19 +1060,8 @@ BEGIN
 		  AND anulada = 0
 		)
 		BEGIN
-			RAISERROR('Ya existe una factura para este socio en el mes actual.', 16, 1);
+			RAISERROR('Ya fue facturada la actividad de este grupo familiar en este mes.', 16, 1);
 			ROLLBACK TRANSACTION;
-			RETURN;
-		END
-		/*Se contemplan casos donde la factura había sido anulada*/
-		ELSE IF @anulada = 1
-		BEGIN
-			UPDATE facturacion.Factura
-			SET anulada = 0
-			WHERE id_socio = @id_socio
-			AND MONTH(fecha_emision) = MONTH(GETDATE())
-			AND YEAR(fecha_emision) = YEAR(GETDATE())
-			COMMIT TRANSACTION;
 			RETURN;
 		END
 
@@ -1035,6 +1069,7 @@ BEGIN
         SELECT @id_emisor = id_emisor
         FROM facturacion.EmisorFactura
         WHERE cuil = @cuil_emisor;
+		
 		/*Si no existe el emisor, no se realiza la transacción*/
         IF @id_emisor IS NULL
         BEGIN
@@ -1043,18 +1078,66 @@ BEGIN
             RETURN;
         END
 
-		/*Obtener todas las actividades pendientes de pago asociadas al socio*/
-		
-        /*Generar factura per sé*/
+		/*Obtener monto total a facturar*/
+		SELECT @monto_total += costo_membresia
+		FROM administracion.CategoriaSocio CS
+		INNER JOIN administracion.Socio S ON S.id_categoria = CS.id_categoria
+		WHERE S.id_socio = @id_socio;
+
+		SELECT @monto_total += costo
+		FROM actividades.Actividad A
+		INNER JOIN actividades.Clase C ON C.id_actividad = A.id_actividad
+		INNER JOIN actividades.InscriptoClase I ON I.id_clase = C.id_clase
+		WHERE I.id_socio = @id_socio
+
+		SELECT @monto_total += monto
+		FROM cobranzas.Mora
+		WHERE id_socio = @id_socio
+
+		IF @id_socio IN (SELECT id_socio_rp FROM administracion.GrupoFamiliar)
+		BEGIN
+			SELECT @monto_total += CS.costo_membresia
+			FROM administracion.CategoriaSocio CS
+			INNER JOIN administracion.Socio S ON S.id_categoria = CS.id_categoria
+			INNER JOIN administracion.GrupoFamiliar G ON G.id_socio = S.id_socio
+			WHERE G.id_socio_rp = @id_socio;
+
+			SELECT @monto_total += A.costo
+			FROM actividades.Actividad A
+			INNER JOIN actividades.Clase C ON C.id_actividad = A.id_actividad
+			INNER JOIN actividades.InscriptoClase I ON I.id_clase = C.id_clase
+			INNER JOIN administracion.GrupoFamiliar G ON G.id_socio = I.id_socio
+			WHERE G.id_socio_rp = @id_socio;
+		END
+
+		/*Sumar montos*/
+		/* - 1000 + 500		--> -500 y saldo 0	*/
+		/* - 1000 + 0		-->	-1000 y saldo 0	*/
+		/* - 1000 - 2000	--> -3000 y saldo 0 */
+
+		/*Generar factura per sé*/
         INSERT INTO facturacion.Factura
-        (id_emisor, id_socio, leyenda, monto_total, fecha_emision, fecha_vencimiento1, fecha_vencimiento2, estado, anulada)
+        (id_emisor, id_socio, leyenda, monto_total, saldo_anterior, fecha_emision, fecha_vencimiento1, fecha_vencimiento2, estado, anulada)
 		VALUES
-        (@id_emisor, @id_socio, 'Consumidor final', 0, GETDATE(), GETDATE() + 5, GETDATE() + 10, 'Sin pago', 0);
-		
-		DECLARE @id_factura INT = SCOPE_IDENTITY();
+        (
+			@id_emisor, 
+			@id_socio, 
+			'Consumidor final', 
+			-@monto_total, 
+			(SELECT ISNULL(SUM(saldo), 0)FROM administracion.Socio WHERE id_socio = @id_socio),
+			GETDATE(), 
+			GETDATE() + 5, 
+			GETDATE() + 10, 
+			'No pagada', 
+			0);
+
+		SET @id_factura = (SELECT TOP 1 id_factura FROM facturacion.Factura ORDER BY fecha_emision DESC)
+
+		/*Obtener todas las actividades pendientes de pago asociadas al socio*/
 
         /*Generar detalles de factura*/
-		-- MEMBRESÍA
+
+		-- MEMBRESÍA DEL SOCIO
         INSERT INTO facturacion.DetalleFactura
 			(id_factura, id_categoria, tipo_item, descripcion, monto, cantidad)
 		SELECT
@@ -1066,9 +1149,9 @@ BEGIN
 			1
 		FROM administracion.CategoriaSocio CS
 		INNER JOIN administracion.Socio S ON S.id_categoria = CS.id_categoria
-		WHERE CS.id_categoria = @id_socio;
+		WHERE S.id_socio = @id_socio;
 
-		-- ACTIVIDADES
+		-- ACTIVIDADES DEL SOCIO
 		INSERT INTO facturacion.DetalleFactura
 			(id_factura, id_actividad, tipo_item, descripcion, monto, cantidad)
 		SELECT
@@ -1082,6 +1165,163 @@ BEGIN
 		INNER JOIN actividades.Clase C ON C.id_actividad = A.id_actividad
 		INNER JOIN actividades.InscriptoClase I ON I.id_clase = C.id_clase
 		WHERE I.id_socio = @id_socio
+
+		-- MEMBRESÍAS DE FAMILIARES
+		IF @id_socio IN (SELECT id_socio_rp FROM administracion.GrupoFamiliar)
+		BEGIN
+            INSERT INTO facturacion.DetalleFactura
+			(id_factura, id_categoria, tipo_item, descripcion, monto, cantidad)
+			SELECT
+				@id_factura,
+				CS.id_categoria,
+				'Membresia',
+				CS.nombre,
+				CS.costo_membresia,
+				1
+			FROM administracion.CategoriaSocio CS
+			INNER JOIN administracion.Socio S ON S.id_categoria = CS.id_categoria
+			INNER JOIN administracion.GrupoFamiliar G ON G.id_socio = S.id_socio
+			WHERE G.id_socio_rp = @id_socio;
+
+			-- ACTIVIDADES DE FAMILIARES
+			INSERT INTO facturacion.DetalleFactura
+				(id_factura, id_actividad, tipo_item, descripcion, monto, cantidad)
+			SELECT
+				@id_factura,
+				A.id_actividad,
+				'Actividad',
+				A.nombre,
+				A.costo,
+				COUNT(A.id_actividad) OVER(PARTITION BY I.id_socio) AS cantidad
+			FROM actividades.Actividad A
+			INNER JOIN actividades.Clase C ON C.id_actividad = A.id_actividad
+			INNER JOIN actividades.InscriptoClase I ON I.id_clase = C.id_clase
+			INNER JOIN administracion.GrupoFamiliar G ON G.id_socio = I.id_socio
+			WHERE G.id_socio_rp = @id_socio;
+        END
+
+		-- MORA (asumiendo que el id_socio es el del responsable)
+		INSERT INTO facturacion.DetalleFactura
+				(id_factura, id_extra, tipo_item, descripcion, monto, cantidad)
+			SELECT
+				@id_factura,
+				NULL,
+				'Interés por Mora',
+				'Mora a fecha actual.',
+				monto,
+				1
+			FROM cobranzas.Mora
+			WHERE id_socio = @id_socio
+
+		/*Confirmar transacción*/
+        COMMIT TRANSACTION;
+
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END;
+GO
+
+/*____________________________________________________________________
+  ____________________ GenerarFacturaSocioActExtra ___________________
+  ____________________________________________________________________*/
+IF OBJECT_ID('facturacion.GenerarFacturaSocioActExtra', 'P') IS NOT NULL
+    DROP PROCEDURE facturacion.GenerarFacturaSocioActExtra;
+GO
+
+CREATE PROCEDURE facturacion.GenerarFacturaSocioActExtra
+(
+    @dni_socio CHAR(10),
+    @cuil_emisor VARCHAR(20)
+)
+AS
+BEGIN
+	SET NOCOUNT ON;
+	/*Se realiza mediante una transacción a fin de garantizar ACID*/
+    BEGIN TRY
+        BEGIN TRANSACTION;
+		/*Creación de variables auxiliares para id_socio e id_emisor*/
+		DECLARE @id_socio INT;
+		DECLARE @id_emisor INT;
+		DECLARE @monto_total DECIMAL(10, 2) = 0;
+		DECLARE @id_factura INT;
+		DECLARE @saldo DECIMAL(10, 2);
+		
+		/*Se obtiene el id_socio asociado a su correspondiente DNI*/
+		SELECT @id_socio = id_socio 
+		FROM administracion.Socio s
+		INNER JOIN administracion.Persona p ON s.id_persona = p.id_persona
+		WHERE p.dni = @dni_socio;
+
+		/*Si no existe el socio o no es responsable, no se realiza la transacción*/
+		IF @id_socio IS NULL
+		BEGIN
+			RAISERROR('No se encontró socio responsable con ese DNI.', 16, 1);
+			ROLLBACK TRANSACTION;
+			RETURN;
+		END
+
+		IF EXISTS (
+		SELECT TOP 1 id_factura
+		FROM facturacion.Factura
+		WHERE id_socio = @id_socio
+			AND MONTH(fecha_emision) = MONTH(GETDATE())
+			AND YEAR(fecha_emision) = YEAR(GETDATE())
+			AND anulada = 0
+		)
+		BEGIN
+			RAISERROR('Ya fue facturada la actividad de este grupo familiar en este mes.', 16, 1);
+			ROLLBACK TRANSACTION;
+			RETURN;
+		END
+
+		/*Se obtiene el id_emisor asociado a su correspondiente CUIL*/
+		SELECT @id_emisor = id_emisor
+		FROM facturacion.EmisorFactura
+		WHERE cuil = @cuil_emisor;
+		
+		/*Si no existe el emisor, no se realiza la transacción*/
+		IF @id_emisor IS NULL
+		BEGIN
+			RAISERROR('No se encontró emisor con ese CUIL.', 16, 1);
+			ROLLBACK TRANSACTION;
+			RETURN;
+		END
+
+		/*Obtener monto total a facturar*/
+		SELECT @monto_total += costo
+		FROM actividades.ActividadExtra AE
+		INNER JOIN actividades.PresentismoActividadExtra PAE ON PAE.id_extra = AE.id_extra
+		WHERE PAE.id_socio = @id_socio;
+	
+		IF @id_socio IN (SELECT id_socio_rp FROM administracion.GrupoFamiliar)
+			BEGIN
+				SELECT @monto_total += AE.costo
+				FROM actividades.ActividadExtra AE
+				INNER JOIN actividades.PresentismoActividadExtra PAE ON PAE.id_extra = AE.id_extra
+				INNER JOIN administracion.GrupoFamiliar G ON G.id_socio = PAE.id_socio
+				WHERE G.id_socio_rp = @id_socio;
+			END
+
+		/*Generar factura per sé*/
+		INSERT INTO facturacion.Factura
+		(id_emisor, id_socio, leyenda, monto_total, saldo_anterior, fecha_emision, fecha_vencimiento1, fecha_vencimiento2, estado, anulada)
+		VALUES
+		(
+			@id_emisor, 
+			@id_socio, 
+			'Consumidor final', 
+			@monto_total, 
+			(SELECT ISNULL(SUM(saldo), 0)FROM administracion.Socio WHERE id_socio = @id_socio),
+			GETDATE(), 
+			GETDATE() + 5, 
+			GETDATE() + 10, 
+			'No pagada', 
+			0);
+
+		SET @id_factura = (SELECT TOP 1 id_factura FROM facturacion.Factura ORDER BY fecha_emision DESC)
 
 		-- ACTIVIDADES EXTRA
 		INSERT INTO facturacion.DetalleFactura
@@ -1097,16 +1337,27 @@ BEGIN
 		INNER JOIN actividades.PresentismoActividadExtra PAE ON PAE.id_extra = AE.id_extra
 		WHERE PAE.id_socio = @id_socio;
 
-        /*Actualizar monto_total*/
-        UPDATE facturacion.Factura
-        SET monto_total = (SELECT SUM(monto * cantidad) FROM facturacion.DetalleFactura WHERE id_factura = @id_factura)
-        WHERE id_factura = @id_factura;
+		IF @id_socio IN (SELECT id_socio_rp FROM administracion.GrupoFamiliar)
+		BEGIN
+			-- ACTIVIDADES EXTRA DE FAMILIARES
+			INSERT INTO facturacion.DetalleFactura
+				(id_factura, id_extra, tipo_item, descripcion, monto, cantidad)
+			SELECT
+				@id_factura,
+				AE.id_extra,
+				'Actividad extra',
+				AE.nombre,
+				AE.costo,
+				COUNT(PAE.id_extra) OVER(PARTITION BY PAE.id_socio) AS cantidad
+			FROM actividades.ActividadExtra AE
+			INNER JOIN actividades.PresentismoActividadExtra PAE ON PAE.id_extra = AE.id_extra
+			INNER JOIN administracion.GrupoFamiliar G ON G.id_socio = PAE.id_socio
+			WHERE G.id_socio_rp = @id_socio;
+		END
 		/*Confirmar transacción*/
         COMMIT TRANSACTION;
 
-        SELECT @id_factura AS id_factura;
-
-    END TRY
+	END TRY
     BEGIN CATCH
         ROLLBACK TRANSACTION;
         THROW;
@@ -1118,7 +1369,7 @@ GO
   ______________________ GenerarFacturaInvitado ______________________
   ____________________________________________________________________*/
 
-  IF OBJECT_ID('facturacion.GenerarFacturaInvitado', 'P') IS NOT NULL
+IF OBJECT_ID('facturacion.GenerarFacturaInvitado', 'P') IS NOT NULL
     DROP PROCEDURE facturacion.GenerarFacturaInvitado;
 GO
 
@@ -1165,26 +1416,12 @@ BEGIN
 			ROLLBACK TRANSACTION;
 			RETURN;
 		END
-		/*Si estaba anulada, se habilita nuevamente*/
-		ELSE IF EXISTS (SELECT TOP 1 F.id_factura
-						FROM facturacion.Factura F
-						INNER JOIN facturacion.DetalleFactura D ON F.id_factura = D.id_factura
-						WHERE F.id_factura = @id_factura
-						AND F.fecha_emision = GETDATE()
-						AND D.descripcion = @descripcion
-						AND F.anulada = 1)
-		BEGIN
-			UPDATE facturacion.Factura
-			SET anulada = 0
-			WHERE id_factura = @id_factura
-			COMMIT TRANSACTION;
-			RETURN;
-		END
 
         /*Se obtiene el id_emisor asociado a su correspondiente CUIL*/
         SELECT @id_emisor = id_emisor
         FROM facturacion.EmisorFactura
         WHERE cuil = @cuil_emisor;
+
 		/*Si no existe el emisor, no se realiza la transacción*/
         IF @id_emisor IS NULL
         BEGIN
@@ -1193,22 +1430,7 @@ BEGIN
             RETURN;
         END
 
-        /*Generar factura con pago inmediato (fecha_vencimiento = hoy, estado = 'Pagada')*/
-        INSERT INTO facturacion.Factura
-        (id_emisor, id_socio, leyenda, monto_total, fecha_emision, fecha_vencimiento1, fecha_vencimiento2, estado, anulada)
-        VALUES(
-			@id_emisor, 
-			NULL, 
-			'Consumidor final', 
-			(SELECT TOP 1 costo FROM actividades.ActividadExtra WHERE nombre = @descripcion  AND vigencia < GETDATE() ORDER BY vigencia DESC), 
-			GETDATE(), 
-			GETDATE(), 
-			GETDATE(), 
-			'Pagada', 
-			0
-		);
-
-        SET @id_factura = SCOPE_IDENTITY();
+        SET @id_factura = (SELECT TOP 1 id_factura FROM facturacion.Factura WHERE fecha_emision <= GETDATE() ORDER BY fecha_emision DESC);
 
          /*Generar detalle de factura*/
         INSERT INTO facturacion.DetalleFactura
@@ -1220,25 +1442,20 @@ BEGIN
 			(SELECT TOP 1 costo FROM actividades.ActividadExtra WHERE nombre = @descripcion AND vigencia < GETDATE() ORDER BY vigencia DESC),
 			1);
 
-		/*Se genera un tiempo de espera para confirmar el pago*/
-		WAITFOR DELAY '00:05';
-
-		IF NOT EXISTS (SELECT TOP 1 id_pago
-					   FROM cobranzas.Pago
-					   WHERE id_factura = @id_factura)
-		/*Si no se genera el pago, se anula la factura*/
-		BEGIN
-			UPDATE facturacion.Factura
-			SET anulada = 1
-			WHERE id_factura = @id_factura
-		END
-		/*Si se genera el pago, pasa a estado pagada*/
-		ELSE
-		BEGIN
-			UPDATE facturacion.Factura
-			SET estado = 'Pagada'
-			WHERE id_factura = @id_factura
-		END
+		INSERT INTO facturacion.Factura
+			(id_emisor, id_socio, leyenda, monto_total, saldo_anterior, fecha_emision, fecha_vencimiento1, fecha_vencimiento2, estado, anulada)
+			VALUES(
+				@id_emisor, 
+				NULL, 
+				'Consumidor final', 
+				(SELECT TOP 1 costo FROM actividades.ActividadExtra WHERE nombre = @descripcion  AND vigencia < GETDATE() ORDER BY vigencia DESC),
+				0,
+				GETDATE(), 
+				GETDATE(), 
+				GETDATE(), 
+				'Sin pago', 
+				0
+			);
 
         COMMIT TRANSACTION;
 
@@ -1247,25 +1464,5 @@ BEGIN
         ROLLBACK TRANSACTION;
         THROW;
     END CATCH
-END;
-GO
-
-/*____________________________________________________________________
-  ____________________________ AnularFactura __________________________
-  ____________________________________________________________________*/
-IF OBJECT_ID('facturacion.AnularFactura', 'P') IS NOT NULL
-    DROP PROCEDURE facturacion.AnularFactura;
-GO
-
-CREATE PROCEDURE facturacion.AnularFactura
-(@id_factura INT)
-AS
-BEGIN
-    SET NOCOUNT ON;
-	/*Borrado lógico de la factura generada*/
-    UPDATE facturacion.Factura
-    SET anulada = 1,
-        estado = 'Anulada'
-    WHERE id_factura = @id_factura;
 END;
 GO

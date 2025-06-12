@@ -22,6 +22,7 @@ EXEC administracion.GestionarPersona
     @dni = '12345678',
     @email = 'juan.perez@email.com',
     @fecha_nacimiento = '2024-10-25',
+	@domicilio = 'Av. San Martin 3492',
     @tel_contacto = '1234567890',
     @tel_emergencia = '0987654321',
     @operacion = 'Insertar';
@@ -36,6 +37,7 @@ EXEC administracion.GestionarPersona
     @dni = '12345678',
     @email = NULL,
     @fecha_nacimiento = '1985-12-25',
+	@domicilio = 'Av. San Martin 3889',
     @tel_contacto = NULL,
     @tel_emergencia = NULL,
     @operacion = 'Modificar';
@@ -52,6 +54,7 @@ EXEC administracion.GestionarPersona
     @dni = '12345678',
     @email = NULL,
     @fecha_nacimiento = NULL,
+	@domicilio = NULL,
     @tel_contacto = NULL,
     @tel_emergencia = NULL,
     @operacion = 'Eliminar';
@@ -65,6 +68,7 @@ EXEC administracion.GestionarPersona
     @dni = '99999999',
     @email = 'noexiste@email.com',
     @fecha_nacimiento = '2000-01-01',
+	@domicilio = 'Av. San Martin 1234',
     @tel_contacto = '0000000000',
     @tel_emergencia = '0000000000',
     @operacion = 'Modificar';
@@ -79,6 +83,7 @@ EXEC administracion.GestionarPersona
     @dni = '12345678',
     @email = NULL,
     @fecha_nacimiento = NULL,
+	@domicilio = NULL,
     @tel_contacto = NULL,
     @tel_emergencia = NULL,
     @operacion = 'Actualizar';
@@ -176,7 +181,7 @@ SELECT * FROM administracion.CategoriaSocio;
 
 
 
-
+	
 /*_____________________________________________________________________
   ________________________ P_GestionarSocio ___________________________
   _____________________________________________________________________*/
@@ -188,6 +193,7 @@ EXEC administracion.GestionarSocio
     @dni = '23456789',
     @email = 'lucas.martinez@email.com',
     @fecha_nacimiento = '1992-03-10',
+	@domicilio = 'Av. San Martin 3492',
     @tel_contacto = '1231231234',
     @tel_emergencia = '4324324321',
     @categoria = 'Mayor',
@@ -217,14 +223,14 @@ EXEC administracion.GestionarSocio
     @dni = '9999999999',
     @email = NULL,
     @fecha_nacimiento = NULL,
+	@domicilio = NULL,
     @tel_contacto = NULL,
     @tel_emergencia = NULL,
-    @id_categoria = NULL,
+    @categoria = NULL,
     @nro_socio = NULL,
     @obra_social = NULL,
     @nro_obra_social = NULL,
     @saldo = NULL,
-    @activo = NULL,
     @operacion = 'Eliminar';
 -- Resultado esperado: Error por DNI no encontrado
 GO
@@ -240,6 +246,7 @@ EXEC administracion.GestionarProfesor
     @dni = '34567890',
     @email = 'ana.garcia@email.com',
     @fecha_nacimiento = '1990-08-15',
+	@domicilio = 'Av. Urquiza 8392',
     @tel_contacto = '1112223333',
     @tel_emergencia = '3332221111',
     @operacion = 'Insertar';
@@ -255,6 +262,7 @@ EXEC administracion.GestionarProfesor
     @dni = '34567890',
     @email = NULL,
     @fecha_nacimiento = NULL,
+	@domicilio = NULL,
     @tel_contacto = NULL,
     @tel_emergencia = NULL,
     @operacion = 'Eliminar';
@@ -288,6 +296,7 @@ EXEC administracion.GestionarSocio
     @dni = '45778667',
     @email = 'francisco.vignardel@email.com',
     @fecha_nacimiento = '2004-04-10',
+	@domicilio = 'Av. Gral. Mosconi 2345',
     @tel_contacto = '1231233234',
     @tel_emergencia = '6624324321',
     @categoria = 'Mayor',
@@ -305,6 +314,7 @@ EXEC administracion.GestionarSocio
     @dni = '33444555',
     @email = 'juan.perez@email.com',
     @fecha_nacimiento = '2004-04-10',
+	@domicilio = 'Av. Crovara 2345',
     @tel_contacto = '3331233234',
     @tel_emergencia = '6624324388',
     @categoria = 'Cadete',
@@ -321,7 +331,11 @@ SELECT * FROM administracion.Persona
 -- ✅ PRUEBA 1: Inserción válida de invitado
 EXEC administracion.GestionarInvitado
     @dni_socio = '45778667',
-	@dni_invitado = '34567891',
+	@dni_invitado = '46501934',
+	@nombre = 'Lucia',
+    @apellido = 'De Titto',
+    @email = 'ldetitto10@email.com',
+	@domicilio = 'Av. Crovara 2345',
     @operacion = 'Insertar';
 -- Resultado esperado: Invitado insertado correctamente
 GO
@@ -333,8 +347,12 @@ select * from administracion.Invitado
 -- ✅ PRUEBA 2: Eliminación válida de invitado
 EXEC administracion.GestionarInvitado
     @dni_socio = '45778667',
-	@dni_invitado = '34567891',
-    @operacion = 'Eliminar';
+	@dni_invitado = '46501934',
+	@nombre = 'Lucia',
+    @apellido = 'De Titto',
+    @email = 'ldetitto10@email.com',
+	@domicilio = 'Av. Crovara 2345',
+    @operacion = 'Eliminar'
 -- Resultado esperado: Invitado eliminado correctamente
 GO
 
@@ -344,8 +362,12 @@ select * from administracion.Invitado
 
 -- ❌ PRUEBA 3: Insertar invitado con DNI ya existente
 EXEC administracion.GestionarInvitado
-    @dni_socio = '45678901',
-	@dni_invitado = '12345678',
+    @dni_socio = '45778667',
+	@dni_invitado = '33444555',
+	@nombre = 'Lucia',
+    @apellido = 'De Titto',
+    @email = 'ldetitto10@email.com',
+	@domicilio = 'Av. Crovara 2345',
     @operacion = 'Insertar';
 -- Resultado esperado: Error por restricción UNIQUE en DNI
 GO
@@ -402,7 +424,7 @@ GO
   _____________________________________________________________________*/
 
   -- 1. Socio existente sin familiares
-EXEC administracion.ConsultarEstadoSocioyGrupo @dni = '23456789';
+EXEC administracion.ConsultarEstadoSocioyGrupo @dni = '33444555';
 -- Esperado: Datos del titular, sin familiares
 
 -- 2. Socio existente con familiares (buscar un dni real con grupo)
@@ -424,8 +446,4 @@ EXEC administracion.ConsultarEstadoSocioyGrupo @dni = '00001111';
 -- 6. Socio inexistente
 EXEC administracion.ConsultarEstadoSocioyGrupo @dni = '99999999';
 -- Esperado: Error "No existe un socio activo con el DNI especificado."
-
-/*_______________________________________________________________________________
-  _________________________________PRUEBA MODULO ________________________________
-  _______________________________________________________________________________ */
 

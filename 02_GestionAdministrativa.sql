@@ -24,6 +24,7 @@ CREATE PROCEDURE administracion.GestionarPersona
     @dni CHAR(10),
     @email VARCHAR(70),
     @fecha_nacimiento DATE,
+	@domicilio VARCHAR(200),
     @tel_contacto CHAR(15),
     @tel_emergencia CHAR(15),
     @operacion CHAR(10)
@@ -66,6 +67,7 @@ BEGIN
             apellido = COALESCE(@apellido, apellido),
             email = COALESCE(@email, email),
             fecha_nacimiento = COALESCE(@fecha_nacimiento, fecha_nacimiento),
+			domicilio = COALESCE(@domicilio, domicilio),
             tel_contacto = COALESCE(@tel_contacto, tel_contacto),
             tel_emergencia = COALESCE(@tel_emergencia, tel_emergencia)
         WHERE dni = @dni;
@@ -98,6 +100,12 @@ BEGIN
             RETURN;
         END
 
+		IF @domicilio IS NULL OR LTRIM(RTRIM(@domicilio)) = ''
+        BEGIN
+            RAISERROR('El domicilio es obligatorio.', 16, 1);
+            RETURN;
+        END
+
         -- Si ya existe y está borrada, se reactiva
         IF EXISTS (SELECT 1 FROM administracion.Persona WHERE dni = @dni AND borrado = 1)
         BEGIN
@@ -106,6 +114,7 @@ BEGIN
                 apellido = @apellido,
                 email = @email,
                 fecha_nacimiento = @fecha_nacimiento,
+				domicilio = @domicilio,
                 tel_contacto = @tel_contacto,
                 tel_emergencia = @tel_emergencia,
                 borrado = 0
@@ -116,17 +125,15 @@ BEGIN
 
         -- Inserción normal si no existía
         INSERT INTO administracion.Persona (
-            nombre, apellido, dni, email, fecha_nacimiento, tel_contacto, tel_emergencia, borrado
+            nombre, apellido, dni, email, fecha_nacimiento, domicilio, tel_contacto, tel_emergencia, borrado
         )
         VALUES (
-            @nombre, @apellido, @dni, @email, @fecha_nacimiento, @tel_contacto, @tel_emergencia, 0
+            @nombre, @apellido, @dni, @email, @fecha_nacimiento, @domicilio, @tel_contacto, @tel_emergencia, 0
         );
     END
 END;
 GO
-/*____________________________________________________________________
-  _______________________ GestionarProfesor ________________________
-  ____________________________________________________________________*/
+
 /*____________________________________________________________________
   _______________________ GestionarProfesor ________________________
   ____________________________________________________________________*/
@@ -141,6 +148,7 @@ CREATE PROCEDURE administracion.GestionarProfesor
     @dni              CHAR(10),
     @email            VARCHAR(70),
     @fecha_nacimiento DATE,
+	@domicilio		  VARCHAR(200),
     @tel_contacto     CHAR(15),
     @tel_emergencia   CHAR(15),
     @operacion        CHAR(10)
@@ -186,6 +194,7 @@ BEGIN
                 @dni,
                 @email,
                 @fecha_nacimiento,
+				@domicilio,
                 @tel_contacto,
                 @tel_emergencia,
                 'Insertar';
@@ -328,6 +337,7 @@ CREATE PROCEDURE administracion.GestionarSocio
     @dni               CHAR(10),
     @email             VARCHAR(70)   = NULL,
     @fecha_nacimiento  DATE          = NULL,
+	@domicilio		   VARCHAR(200)	 = NULL,
     @tel_contacto      CHAR(15)      = NULL,
     @tel_emergencia    CHAR(15)      = NULL,
     @categoria         VARCHAR(50)   = NULL,
@@ -368,6 +378,7 @@ BEGIN
                 @dni              = @dni,
                 @email            = @email,
                 @fecha_nacimiento = @fecha_nacimiento,
+				@domicilio		  = @domicilio,
                 @tel_contacto     = @tel_contacto,
                 @tel_emergencia   = @tel_emergencia,
                 @operacion        = 'Insertar';
@@ -558,6 +569,10 @@ GO
 CREATE PROCEDURE administracion.GestionarInvitado
     @dni_socio     CHAR(10),
     @dni_invitado  CHAR(10),
+	@nombre CHAR(50),
+	@apellido CHAR(50),
+	@email VARCHAR(70),
+	@domicilio VARCHAR(200),
     @operacion     CHAR(10)
 AS
 BEGIN
@@ -588,11 +603,27 @@ BEGIN
             RETURN;
         END
 
-        IF @dni_invitado IS NULL
-           OR LEN(@dni_invitado) <> 8
-           OR @dni_invitado NOT LIKE '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
+        IF @nombre IS NULL OR LTRIM(RTRIM(@nombre)) = ''
         BEGIN
-            RAISERROR('DNI de invitado inválido (8 dígitos numéricos).',16,1);
+            RAISERROR('El nombre es obligatorio.', 16, 1);
+            RETURN;
+        END
+
+        IF @apellido IS NULL OR LTRIM(RTRIM(@apellido)) = ''
+        BEGIN
+            RAISERROR('El apellido es obligatorio.', 16, 1);
+            RETURN;
+        END
+
+        IF @dni_invitado IS NULL OR LEN(LTRIM(RTRIM(@dni_invitado))) > 10
+        BEGIN
+            RAISERROR('El DNI debe tener hasta 10 caracteres.', 16, 1);
+            RETURN;
+        END
+
+		IF @domicilio IS NULL OR LTRIM(RTRIM(@domicilio)) = ''
+        BEGIN
+            RAISERROR('El domicilio es obligatorio.', 16, 1);
             RETURN;
         END
 
@@ -613,8 +644,8 @@ BEGIN
             RETURN;
         END
 
-        INSERT INTO administracion.Invitado (id_socio, dni)
-        VALUES (@id_socio, @dni_invitado);
+        INSERT INTO administracion.Invitado (id_socio, dni, nombre, apellido, email, domicilio)
+        VALUES (@id_socio, @dni_invitado, @nombre, @apellido, @email, @domicilio);
     END
 
     -- ======== ELIMINAR ========
@@ -652,7 +683,6 @@ BEGIN
     END
 END;
 GO
-
 
 /*____________________________________________________________________
   ____________________ VerCuotasPagasGrupoFamiliar ___________________
