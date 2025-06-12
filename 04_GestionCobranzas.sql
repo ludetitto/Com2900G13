@@ -8,6 +8,7 @@
             De Titto Lucia 46501934
 ========================================================================= */
 USE COM2900G13
+GO
 
 /*____________________________________________________________________
   _________________________ RegistrarCobranza ________________________
@@ -191,6 +192,44 @@ END;
 GO
 
 /*____________________________________________________________________
+  _______________________ RegistrarNotaDeCredito _____________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('cobranzas.RegistrarNotaDeCredito', 'P') IS NOT NULL
+    DROP PROCEDURE cobranzas.RegistrarNotaDeCredito;
+GO
+
+CREATE PROCEDURE cobranzas.RegistrarNotaDeCredito
+    @monto DECIMAL(10,2),
+    @fecha_emision DATETIME,
+    @estado CHAR(20),
+    @motivo VARCHAR(100),
+    @id_pago INT = NULL -- opcional
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    BEGIN TRY
+        INSERT INTO cobranzas.NotaDeCredito (
+            id_factura, monto, fecha_emision, estado, motivo
+        )
+        VALUES (
+           (SELECT TOP 1 id_factura FROM cobranzas.Pago WHERE id_pago = @id_pago), 
+		   @monto, 
+		   @fecha_emision, 
+		   @estado, 
+		   @motivo
+        );
+    END TRY
+    BEGIN CATCH
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        DECLARE @ErrSeverity INT = ERROR_SEVERITY();
+        RAISERROR(@ErrMsg, @ErrSeverity, 1);
+    END CATCH
+END;
+GO
+
+/*____________________________________________________________________
   _________________________ GenerarReembolso _________________________
   ____________________________________________________________________*/
 
@@ -211,6 +250,8 @@ BEGIN
         BEGIN TRANSACTION;
 		
 		DECLARE @montoPago DECIMAL(10,2);
+		DECLARE @fecha_actual DATE = GETDATE();
+
         -- Validar existencia del pago
         IF NOT EXISTS (
             SELECT monto = @montoPago FROM cobranzas.Pago WHERE id_pago = @idPago
@@ -234,14 +275,15 @@ BEGIN
             WHERE p.id_pago = @idPago
         );
 
-        -- Insertar nota de crédito (reembolso)
-        INSERT INTO cobranzas.NotaDeCredito (
-            id_pago, monto, fecha_emision, estado, motivo
-        ) VALUES (
-            @idPago, @monto, GETDATE(), 'Emitida', @motivo
-        );
+		-- Insertar nota de crédito (reembolso)
+		EXEC cobranzas.RegistrarNotaDeCredito
+			@monto = @monto,
+			@fecha_emision = @fecha_actual,
+			@estado = NULL,
+			@motivo = @motivo,
+			@id_pago = @idPago
 
-        -- Aumentar el saldo del socio
+        -- Actualiza el saldo del socio
         UPDATE administracion.Socio
         SET saldo = saldo + @monto
         WHERE id_socio = @idSocio;
@@ -356,40 +398,6 @@ END;
 GO
 
 /*____________________________________________________________________
-  _______________________ RegistrarNotaDeCredito _____________________
-  ____________________________________________________________________*/
-
-IF OBJECT_ID('cobranzas.RegistrarNotaDeCredito', 'P') IS NOT NULL
-    DROP PROCEDURE cobranzas.RegistrarNotaDeCredito;
-GO
-
-CREATE PROCEDURE cobranzas.RegistrarNotaDeCredito
-    @monto DECIMAL(10,2),
-    @fecha_emision DATETIME,
-    @estado CHAR(20),
-    @motivo VARCHAR(100),
-    @id_pago INT = NULL -- opcional
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    BEGIN TRY
-        INSERT INTO cobranzas.NotaDeCredito (
-            id_pago, monto, fecha_emision, estado, motivo
-        )
-        VALUES (
-            @id_pago, @monto, @fecha_emision, @estado, @motivo
-        );
-    END TRY
-    BEGIN CATCH
-        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
-        DECLARE @ErrSeverity INT = ERROR_SEVERITY();
-        RAISERROR(@ErrMsg, @ErrSeverity, 1);
-    END CATCH
-END;
-GO
-
-/*____________________________________________________________________
   ____________________ RegistrarReintegroPorLluvia ___________________
   ____________________________________________________________________*/
 
@@ -481,7 +489,7 @@ BEGIN
             );';
         EXEC sp_executesql @sql;
 
-		SELECT * FROM #clima
+		--SELECT * FROM #clima
 
         /* Tabla variable para las facturas con reintegro */
         DECLARE @Facturas TABLE (
@@ -553,48 +561,5 @@ BEGIN
         IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
         THROW;
     END CATCH
-END;
-GO
-
-/*____________________________________________________________________
-  ____________________ AplicarRecargoVencimiento _____________________
-  ____________________________________________________________________*/
-
-  IF OBJECT_ID('cobranzas.AplicarRecargoVencimiento', 'P') IS NOT NULL
-    DROP PROCEDURE cobranzas.AplicarRecargoVencimiento;
-GO
-
-CREATE PROCEDURE cobranzas.AplicarRecargoVencimiento
-	@descripcion_recargo VARCHAR(50)
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    DECLARE @porcentaje_recargo DECIMAL(5, 2);
-
-    -- Obtener el porcentaje del recargo
-    SELECT @porcentaje_recargo = porcentaje
-    FROM facturacion.Recargo
-    WHERE descripcion = @descripcion_recargo
-      AND vigencia > GETDATE();
-
-    -- Verificar si se encontró el recargo
-    IF @porcentaje_recargo IS NOT NULL
-    BEGIN
-        UPDATE facturacion.Factura
-        SET monto_total = monto_total * (1 + @porcentaje_recargo)
-        WHERE anulada = 0 
-        AND id_factura IN (SELECT F.id_factura
-						   FROM facturacion.Factura F
-						   INNER JOIN facturacion.DetalleFactura D ON D.id_factura = F.id_factura
-						   WHERE D.tipo_item <> 'Actividad Extra'
-						   AND F.fecha_vencimiento1 < GETDATE() 
-						   AND F.fecha_vencimiento2 > GETDATE()
-						   );
-    END
-    ELSE
-    BEGIN
-        RAISERROR('No se encontró un recargo válido con la descripción proporcionada.', 16, 1);
-    END
 END;
 GO

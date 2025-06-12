@@ -11,7 +11,7 @@ USE COM2900G13;
 GO
 
 /*_____________________________________________________________________
-  ________________________ P_GestionarActividad _______________________
+  ________________________ GestionarActividad _______________________
   _____________________________________________________________________*/
 
 -- ✅ PRUEBA 1: Inserción válida de actividad
@@ -73,9 +73,9 @@ EXEC actividades.GestionarActividad
 GO
 SELECT * FROM actividades.Actividad
 
-/*_____________________________________________________________________
-  _________________________ P_GestionarClase __________________________
-  _____________________________________________________________________*/
+/*___________________________________________________________________
+  _________________________ GestionarClase __________________________
+  ___________________________________________________________________*/
 select * from administracion.Profesor
 select * from administracion.Persona
 
@@ -145,7 +145,7 @@ select * from administracion.Persona
 EXEC actividades.GestionarInscripcion
     @dni_socio = '23456789',
     @nombre_actividad = 'Ajedrez',
-    @horario = 'Miércoles 15:00',
+    @horario = 'Miércoles 17:00',
     @fecha_inscripcion = '2025-02-06',
     @operacion = 'Insertar';
 SELECT * FROM actividades.InscriptoClase;
@@ -202,7 +202,7 @@ GO
 EXEC actividades.GestionarPresentismoClase
     @nombre_actividad = 'Ajedrez',
     @dni_socio = '23456789',
-    @horario = 'Miércoles 15:00',
+    @horario = 'Miércoles 17:00',
     @fecha = '2025-02-06',
     @condicion = 'P',
     @operacion = 'Insertar';
@@ -438,7 +438,19 @@ EXEC actividades.GestionarPresentismoActividadExtra
 -- Resultado esperado: Error de operación inválida
 GO
 
+/*_____________________________________________________________________
+  _______________________ PRUEBAS GenerarEmisorFactura ______________________
+  _____________________________________________________________________*/
+ EXEC facturacion.GestionarEmisorFactura
+    @razon_social = 'Sol del Norte S.A.',
+    @cuil = '20-12345678-4',
+    @direccion = 'Av. Presidente Perón 1234',
+    @pais = 'Argentina',
+    @localidad = 'La Matanza',
+    @codigo_postal = '1234',
+    @operacion = 'Insertar'
 
+SELECT * FROM facturacion.EmisorFactura
 /*_____________________________________________________________________
   _______________________ PRUEBAS GenerarFactura ______________________
   _____________________________________________________________________*/
@@ -446,9 +458,37 @@ GO
 -- ✅ PRUEBA 1: Generación válida de factura
 EXEC facturacion.GenerarFacturaSocioMensual
 @dni_socio = '23456789',
-@cuil_emisor = '30-12345678-9';
+@cuil_emisor = '20-12345678-4';
 -- Resultado esperado: Factura generada sin errores
 GO
+
+EXEC actividades.GestionarActividad
+    @nombre = 'Yoga',
+    @costo = 3500.00,
+    @horario = 'Martes 13:00',
+    @vigencia = '2025-07-01',
+    @operacion = 'Insertar';
+
+EXEC actividades.GestionarClase
+    @nombre_actividad = 'Yoga',
+    @dni_profesor = '34567890',
+    @horario = 'Martes 13:00',
+    @operacion = 'Insertar';
+
+-- Resultado esperado: Clase insertada sin errores
+GO
+SELECT * FROM actividades.Clase
+
+DELETE FROM facturacion.Factura
+DELETE FROM facturacion.DetalleFactura
+SELECT * FROM facturacion.Factura
+SELECT * FROM facturacion.DetalleFactura
+
+SELECT * FROM administracion.Persona
+SELECT * FROM administracion.Socio
+SELECT * FROM administracion.Profesor
+SELECT * FROM actividades.Clase
+SELECT * FROM actividades.InscriptoClase
 
 EXEC administracion.VerCuotasPagasGrupoFamiliar
 	@dni_socio = '12345678'
