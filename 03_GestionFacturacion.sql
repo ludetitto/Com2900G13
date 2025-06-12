@@ -13,7 +13,6 @@ GO
 /*____________________________________________________________________
   _______________________ GestionarActividad ________________________
   ____________________________________________________________________*/
-
 IF OBJECT_ID('actividades.GestionarActividad', 'P') IS NOT NULL
     DROP PROCEDURE actividades.GestionarActividad;
 GO
@@ -21,59 +20,52 @@ GO
 CREATE PROCEDURE actividades.GestionarActividad
     @nombre    VARCHAR(100),
     @costo     DECIMAL(10,2),
-    @horario   VARCHAR(50),
     @vigencia  DATE,
     @operacion CHAR(10)
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- 1) Validar operación
+    -- Validar operación
     IF @operacion NOT IN ('Insertar','Modificar','Eliminar')
     BEGIN
-        RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.',16,1);
+        RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
         RETURN;
     END
 
-    -- 2) ELIMINAR
+    -- Eliminar actividad y clases asociadas
     IF @operacion = 'Eliminar'
     BEGIN
-        -- Verificar existencia de la actividad
         IF NOT EXISTS (SELECT 1 FROM actividades.Actividad WHERE nombre = @nombre)
         BEGIN
-            RAISERROR('No existe la actividad para eliminar.',16,1);
+            RAISERROR('No existe la actividad para eliminar.', 16, 1);
             RETURN;
         END
 
-        DECLARE @id_actividad INT;
-        SELECT @id_actividad = id_actividad
-        FROM actividades.Actividad
-        WHERE nombre = @nombre;
+        DECLARE @id_actividad INT = (
+            SELECT id_actividad FROM actividades.Actividad WHERE nombre = @nombre
+        );
 
         BEGIN TRY
             BEGIN TRANSACTION;
 
-            -- Primero borrar presentismos de las clases vinculadas
+            -- Eliminar presentismo
             DELETE pc
             FROM actividades.presentismoClase AS pc
-            INNER JOIN actividades.Clase AS c
-                ON pc.id_clase = c.id_clase
+            INNER JOIN actividades.Clase AS c ON pc.id_clase = c.id_clase
             WHERE c.id_actividad = @id_actividad;
 
-            -- Luego borrar inscripciones a las clases vinculadas
+            -- Eliminar inscripciones
             DELETE ic
             FROM actividades.InscriptoClase AS ic
-            INNER JOIN actividades.Clase AS c
-                ON ic.id_clase = c.id_clase
+            INNER JOIN actividades.Clase AS c ON ic.id_clase = c.id_clase
             WHERE c.id_actividad = @id_actividad;
 
-            -- Luego borrar las clases de esa actividad
-            DELETE FROM actividades.Clase
-            WHERE id_actividad = @id_actividad;
+            -- Eliminar clases
+            DELETE FROM actividades.Clase WHERE id_actividad = @id_actividad;
 
-            -- Finalmente borrar la actividad
-            DELETE FROM actividades.Actividad
-            WHERE id_actividad = @id_actividad;
+            -- Eliminar actividad
+            DELETE FROM actividades.Actividad WHERE id_actividad = @id_actividad;
 
             COMMIT TRANSACTION;
         END TRY
@@ -82,70 +74,73 @@ BEGIN
                 ROLLBACK TRANSACTION;
             THROW;
         END CATCH
-
         RETURN;
     END
 
-    -- 3) MODIFICAR
-    ELSE IF @operacion = 'Modificar'
+    -- Modificar valores base
+    IF @operacion = 'Modificar'
     BEGIN
         IF NOT EXISTS (SELECT 1 FROM actividades.Actividad WHERE nombre = @nombre)
         BEGIN
-            RAISERROR('No existe la actividad para modificar.',16,1);
+            RAISERROR('No existe la actividad para modificar.', 16, 1);
             RETURN;
         END
 
         UPDATE actividades.Actividad
         SET 
-            costo    = COALESCE(@costo,    costo),
-            horario  = COALESCE(@horario,  horario),
+            costo    = COALESCE(@costo, costo),
             vigencia = COALESCE(@vigencia, vigencia)
         WHERE nombre = @nombre;
+
         RETURN;
     END
 
-    -- 4) INSERTAR + validación de duplicados
-    ELSE /* @operacion = 'Insertar' */
+    -- Insertar nueva actividad
+    IF @operacion = 'Insertar'
     BEGIN
-        -- Nombre obligatorio
         IF @nombre IS NULL OR LTRIM(RTRIM(@nombre)) = ''
         BEGIN
-            RAISERROR('El nombre es obligatorio.',16,1);
-            RETURN;
-        END
-        -- Costo válido
-        IF @costo IS NULL OR @costo < 0
-        BEGIN
-            RAISERROR('El costo debe ser un número positivo.',16,1);
-            RETURN;
-        END
-        -- No permitir duplicados de nombre
-        IF EXISTS (SELECT 1 FROM actividades.Actividad WHERE nombre = @nombre)
-        BEGIN
-            RAISERROR('Ya existe una actividad con ese nombre.',16,1);
+            RAISERROR('El nombre es obligatorio.', 16, 1);
             RETURN;
         END
 
-        INSERT INTO actividades.Actividad (nombre, costo, horario, vigencia)
-        VALUES (@nombre, @costo, @horario, @vigencia);
+        IF @costo IS NULL OR @costo < 0
+        BEGIN
+            RAISERROR('El costo debe ser un número positivo.', 16, 1);
+            RETURN;
+        END
+
+        IF EXISTS (SELECT 1 FROM actividades.Actividad WHERE nombre = @nombre)
+        BEGIN
+            RAISERROR('Ya existe una actividad con ese nombre.', 16, 1);
+            RETURN;
+        END
+
+        INSERT INTO actividades.Actividad (nombre, costo, vigencia)
+        VALUES (@nombre, @costo, @vigencia);
+        RETURN;
     END
 END;
 GO
+
+/*____________________________________________________________________
+  _______________________ GestionarClase ________________________
+  ____________________________________________________________________*/
 
 IF OBJECT_ID('actividades.GestionarClase', 'P') IS NOT NULL
     DROP PROCEDURE actividades.GestionarClase;
 GO
 
 CREATE PROCEDURE actividades.GestionarClase
-    @nombre_actividad VARCHAR(100),
+    @nombre_actividad  VARCHAR(100),
     @dni_profesor      VARCHAR(10),
     @horario           VARCHAR(20),
+    @nombre_categoria  VARCHAR(50),
     @operacion         CHAR(10)
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    /* 1) Verificar operación válida */
     IF @operacion NOT IN ('Insertar','Modificar','Eliminar')
     BEGIN
         RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
@@ -153,148 +148,80 @@ BEGIN
     END
 
     DECLARE @actividad_id INT;
-    DECLARE @profesor_id   INT;
-    DECLARE @id_clase       INT;
+    DECLARE @profesor_id  INT;
+    DECLARE @id_clase     INT;
+    DECLARE @id_categoria INT;
 
-    /* === CASO: INSERTAR === */
-    IF @operacion = 'Insertar'
+    /* Obtener IDs */
+    SET @actividad_id = (SELECT id_actividad FROM actividades.Actividad WHERE nombre = @nombre_actividad);
+    SET @profesor_id = (
+        SELECT Pr.id_profesor
+        FROM administracion.Profesor Pr
+        JOIN administracion.Persona Pe ON Pr.id_persona = Pe.id_persona
+        WHERE Pe.dni = @dni_profesor
+    );
+    SET @id_categoria = (SELECT id_categoria FROM administracion.CategoriaSocio WHERE nombre = @nombre_categoria);
+
+    IF @actividad_id IS NULL
     BEGIN
-        /* Validar datos obligatorios */
-        IF @nombre_actividad IS NULL OR LEN(@nombre_actividad)=0
-        BEGIN
-            RAISERROR('El nombre de la actividad es obligatorio.', 16, 1);
-            RETURN;
-        END
-        IF @dni_profesor IS NULL OR LEN(@dni_profesor)=0
-        BEGIN
-            RAISERROR('El DNI del profesor es obligatorio.', 16, 1);
-            RETURN;
-        END
-
-        /* Obtener IDs */
-        SET @actividad_id = (
-            SELECT id_actividad
-            FROM actividades.Actividad
-            WHERE nombre = @nombre_actividad
-        );
-        SET @profesor_id = (
-            SELECT Pr.id_profesor
-            FROM administracion.Profesor Pr
-            JOIN administracion.Persona Pe ON Pr.id_persona = Pe.id_persona
-            WHERE Pe.dni = @dni_profesor
-        );
-
-        /* Validar existencia de actividad y profesor */
-        IF @actividad_id IS NULL
-        BEGIN
-            RAISERROR('No existe la actividad "%s".', 16, 1, @nombre_actividad);
-            RETURN;
-        END
-        IF @profesor_id IS NULL
-        BEGIN
-            RAISERROR('No existe el profesor con DNI %s.', 16, 1, @dni_profesor);
-            RETURN;
-        END
-
-        /* Insertar */
-        INSERT INTO actividades.Clase (id_actividad, id_profesor, horario)
-        VALUES (@actividad_id, @profesor_id, @horario);
+        RAISERROR('No existe la actividad "%s".', 16, 1, @nombre_actividad);
+        RETURN;
+    END
+    IF @profesor_id IS NULL
+    BEGIN
+        RAISERROR('No existe el profesor con DNI %s.', 16, 1, @dni_profesor);
+        RETURN;
+    END
+    IF @id_categoria IS NULL
+    BEGIN
+        RAISERROR('No existe la categoría de socio "%s".', 16, 1, @nombre_categoria);
         RETURN;
     END
 
-    /* === CASO: MODIFICAR === */
+    IF @operacion = 'Insertar'
+    BEGIN
+        INSERT INTO actividades.Clase (id_actividad, id_profesor, id_categoria, horario)
+        VALUES (@actividad_id, @profesor_id, @id_categoria, @horario);
+        RETURN;
+    END
+
     IF @operacion = 'Modificar'
     BEGIN
-        /* Validar que el profesor exista */
-        IF @dni_profesor IS NULL OR LEN(@dni_profesor)=0
-        BEGIN
-            RAISERROR('El DNI del profesor es obligatorio para modificar.', 16, 1);
-            RETURN;
-        END
-
-        SET @profesor_id = (
-            SELECT Pr.id_profesor
-            FROM administracion.Profesor Pr
-            JOIN administracion.Persona Pe ON Pr.id_persona = Pe.id_persona
-            WHERE Pe.dni = @dni_profesor
-        );
-        IF @profesor_id IS NULL
-        BEGIN
-            RAISERROR('No existe el profesor con DNI %s.', 16, 1, @dni_profesor);
-            RETURN;
-        END
-
-        /* Ubicar la clase por actividad + profesor */
         SET @id_clase = (
             SELECT C.id_clase
             FROM actividades.Clase C
-            JOIN actividades.Actividad A ON C.id_actividad = A.id_actividad
-            WHERE A.nombre = @nombre_actividad
+            WHERE C.id_actividad = @actividad_id
               AND C.id_profesor = @profesor_id
+              AND C.horario = @horario
         );
         IF @id_clase IS NULL
         BEGIN
-            RAISERROR('No existe la clase a modificar para esa actividad y profesor.', 16, 1);
+            RAISERROR('No se encontró la clase para modificar.', 16, 1);
             RETURN;
         END
 
-        /* Obtener posible nueva actividad (si cambia nombre) */
-        SET @actividad_id = (
-            SELECT id_actividad
-            FROM actividades.Actividad
-            WHERE nombre = @nombre_actividad
-        );
-
-        /* Realizar UPDATE: permite sólo cambiar horario (o actividad/profesor si se ajusta el SP) */
         UPDATE actividades.Clase
-        SET 
-            id_actividad = COALESCE(@actividad_id, id_actividad),
+        SET id_actividad = @actividad_id,
             id_profesor  = @profesor_id,
-            horario      = COALESCE(@horario, horario)
+            id_categoria = @id_categoria,
+            horario      = @horario
         WHERE id_clase = @id_clase;
         RETURN;
     END
 
-    /* === CASO: ELIMINAR === */
     IF @operacion = 'Eliminar'
     BEGIN
-        /* Validar datos obligatorios */
-        IF @nombre_actividad IS NULL OR LEN(@nombre_actividad)=0
-           OR @dni_profesor IS NULL OR LEN(@dni_profesor)=0
-           OR @horario IS NULL OR LEN(@horario)=0
-        BEGIN
-            RAISERROR('Nombre de actividad, DNI de profesor y horario son requeridos para eliminar.', 16, 1);
-            RETURN;
-        END
-
-        /* Verificar profesor */
-        SET @profesor_id = (
-            SELECT Pr.id_profesor
-            FROM administracion.Profesor Pr
-            JOIN administracion.Persona Pe ON Pr.id_persona = Pe.id_persona
-            WHERE Pe.dni = @dni_profesor
-        );
-        IF @profesor_id IS NULL
-        BEGIN
-            RAISERROR('No existe el profesor con DNI %s.', 16, 1, @dni_profesor);
-            RETURN;
-        END
-
-        /* Ubicar registro exacto por actividad+profesor+horario */
         SET @id_clase = (
             SELECT id_clase
             FROM actividades.Clase
-            WHERE id_actividad = (
-                SELECT id_actividad
-                FROM actividades.Actividad
-                WHERE nombre = @nombre_actividad
-            )
+            WHERE id_actividad = @actividad_id
               AND id_profesor = @profesor_id
               AND horario = @horario
+              AND id_categoria = @id_categoria
         );
         IF @id_clase IS NULL
         BEGIN
-            RAISERROR('No existe la clase a eliminar con esos datos.', 16, 1);
+            RAISERROR('No se encontró la clase a eliminar.', 16, 1);
             RETURN;
         END
 
@@ -305,11 +232,10 @@ BEGIN
 END;
 GO
 
-
 /*____________________________________________________________________
   _______________________ GestionarInscripcion _______________________
   ____________________________________________________________________*/
-  IF OBJECT_ID('actividades.GestionarInscripcion', 'P') IS NOT NULL
+IF OBJECT_ID('actividades.GestionarInscripcion', 'P') IS NOT NULL
     DROP PROCEDURE actividades.GestionarInscripcion;
 GO
 
@@ -317,46 +243,47 @@ CREATE PROCEDURE actividades.GestionarInscripcion
     @dni_socio VARCHAR(10),
     @nombre_actividad VARCHAR(100),
     @horario VARCHAR(50),
+    @nombre_categoria VARCHAR(50),
     @fecha_inscripcion DATE,
     @operacion CHAR(10)
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Validación de operación
+    -- Validar operación
     IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
     BEGIN
         RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
         RETURN;
     END
 
-    -- Normalizar DNI (elimina ceros a la izquierda)
-    DECLARE @dni_normalizado VARCHAR(10) = RIGHT('00000000' + LTRIM(STR(CAST(@dni_socio AS INT))), 8);
-
-    -- Buscar id_socio
+    -- Buscar ID de socio activo
     DECLARE @id_socio INT = (
         SELECT TOP 1 S.id_socio
         FROM administracion.Socio S
-        INNER JOIN administracion.Persona P ON S.id_persona = P.id_persona
-        WHERE REPLACE(P.dni, ' ', '') = @dni_normalizado AND S.activo = 1
+        JOIN administracion.Persona P ON S.id_persona = P.id_persona
+        WHERE P.dni = @dni_socio AND S.activo = 1
     );
 
-    -- Buscar id_clase
+    -- Buscar ID de clase correspondiente
     DECLARE @id_clase INT = (
         SELECT TOP 1 C.id_clase
         FROM actividades.Clase C
-        INNER JOIN actividades.Actividad A ON C.id_actividad = A.id_actividad
-        WHERE A.nombre = @nombre_actividad AND C.horario = @horario
+        JOIN actividades.Actividad A ON A.id_actividad = C.id_actividad
+        JOIN administracion.CategoriaSocio Cat ON Cat.id_categoria = C.id_categoria
+        WHERE A.nombre = @nombre_actividad
+          AND C.horario = @horario
+          AND Cat.nombre = @nombre_categoria
     );
 
-    -- Buscar id_inscripto
+    -- Buscar inscripción existente
     DECLARE @id_inscripto INT = (
         SELECT TOP 1 IC.id_inscripto
         FROM actividades.InscriptoClase IC
         WHERE IC.id_socio = @id_socio AND IC.id_clase = @id_clase
     );
 
-    /*CASO 1: Eliminar inscripción*/
+    -- === Eliminar ===
     IF @operacion = 'Eliminar'
     BEGIN
         IF @id_inscripto IS NULL
@@ -369,8 +296,8 @@ BEGIN
         RETURN;
     END
 
-    /*CASO 2: Modificar inscripción*/
-    ELSE IF @operacion = 'Modificar'
+    -- === Modificar ===
+    IF @operacion = 'Modificar'
     BEGIN
         IF @id_inscripto IS NULL
         BEGIN
@@ -384,8 +311,8 @@ BEGIN
         RETURN;
     END
 
-    /*CASO 3: Insertar inscripción*/
-    ELSE IF @operacion = 'Insertar'
+    -- === Insertar ===
+    IF @operacion = 'Insertar'
     BEGIN
         IF @id_socio IS NULL
         BEGIN
@@ -395,13 +322,17 @@ BEGIN
 
         IF @id_clase IS NULL
         BEGIN
-            RAISERROR('La clase no existe.', 16, 1);
+            RAISERROR('La clase no existe con esos parámetros.', 16, 1);
             RETURN;
         END
 
-        IF EXISTS (SELECT 1 FROM actividades.InscriptoClase WHERE id_socio = @id_socio AND id_clase = @id_clase)
+        IF EXISTS (
+            SELECT 1
+            FROM actividades.InscriptoClase
+            WHERE id_socio = @id_socio AND id_clase = @id_clase
+        )
         BEGIN
-            RAISERROR('El socio ya está inscripto en la clase.', 16, 1);
+            RAISERROR('El socio ya está inscripto en esa clase.', 16, 1);
             RETURN;
         END
 
@@ -414,8 +345,6 @@ BEGIN
     END
 END;
 GO
-
-
 /*____________________________________________________________________
   _____________________ GestionarPresentismoClase ____________________
   ____________________________________________________________________*/
@@ -428,38 +357,50 @@ CREATE PROCEDURE actividades.GestionarPresentismoClase
     @nombre_actividad VARCHAR(100),
     @dni_socio VARCHAR(10),
     @horario VARCHAR(20),
+    @nombre_categoria VARCHAR(50),
     @fecha DATE,
     @condicion CHAR(1) = NULL,
     @operacion CHAR(10)
 AS
 BEGIN
     SET NOCOUNT ON;
-	/*Verificación de operaciones válidas*/
+
+    -- Validación de operación
     IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
     BEGIN
         RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
         RETURN;
     END
 
-	/*Se obtienen los identificadores necesarios*/
-	DECLARE @id_clase INT = (SELECT C.id_clase
-							 FROM actividades.Clase C
-							 INNER JOIN actividades.Actividad A ON A.id_actividad = C.id_actividad
-							 WHERE A.nombre = @nombre_actividad AND C.horario = @horario);
+    -- Obtener ID de clase considerando también la categoría
+    DECLARE @id_clase INT = (
+        SELECT C.id_clase
+        FROM actividades.Clase C
+        JOIN actividades.Actividad A ON A.id_actividad = C.id_actividad
+        JOIN administracion.CategoriaSocio Cat ON Cat.id_categoria = C.id_categoria
+        WHERE A.nombre = @nombre_actividad
+          AND C.horario = @horario
+          AND Cat.nombre = @nombre_categoria
+    );
 
-	DECLARE @id_socio INT = (SELECT S.id_socio
-							 FROM administracion.Socio S
-							 INNER JOIN administracion.Persona P ON S.id_persona = P.id_persona
-							 WHERE P.dni = @dni_socio);
+    -- Obtener ID del socio
+    DECLARE @id_socio INT = (
+        SELECT S.id_socio
+        FROM administracion.Socio S
+        JOIN administracion.Persona P ON S.id_persona = P.id_persona
+        WHERE P.dni = @dni_socio
+    );
 
-	DECLARE @id_presentismo INT = (SELECT id_presentismo
-								   FROM actividades.presentismoClase
-								   WHERE id_clase = @id_clase AND id_socio = @id_socio AND fecha = COALESCE(@fecha, CONVERT(date, GETDATE())));
+    -- Buscar presentismo existente
+    DECLARE @id_presentismo INT = (
+        SELECT TOP 1 id_presentismo
+        FROM actividades.presentismoClase
+        WHERE id_clase = @id_clase AND id_socio = @id_socio AND fecha = COALESCE(@fecha, CONVERT(date, GETDATE()))
+    );
 
-	/*CASO 1: Eliminar presentismo*/
+    -- === Eliminar ===
     IF @operacion = 'Eliminar'
     BEGIN
-		/*Verificación de existencia de presentismo a borrar.*/
         IF @id_presentismo IS NULL
         BEGIN
             RAISERROR('No existe el presentismo para eliminar.', 16, 1);
@@ -467,28 +408,30 @@ BEGIN
         END
 
         DELETE FROM actividades.presentismoClase WHERE id_presentismo = @id_presentismo;
+        RETURN;
     END
-	/*CASO 2: Modificar presentismo*/
-    ELSE IF @operacion = 'Modificar'
+
+    -- === Modificar ===
+    IF @operacion = 'Modificar'
     BEGIN
-		/*Verificación de existencia de presentismo a modificar.*/
         IF @id_presentismo IS NULL
         BEGIN
             RAISERROR('No existe el presentismo para modificar.', 16, 1);
             RETURN;
         END
-		/*Se utiliza COALESCE para asegurar dato válido en caso de que algún usuario ingrese NULL en algún campo*/
+
         UPDATE actividades.presentismoClase
         SET id_clase = COALESCE(@id_clase, id_clase),
             id_socio = COALESCE(@id_socio, id_socio),
             fecha = COALESCE(@fecha, fecha),
             condicion = COALESCE(@condicion, condicion)
         WHERE id_presentismo = @id_presentismo;
+        RETURN;
     END
-	/*CASO 3: Insertar presentismo*/
-    ELSE IF @operacion = 'Insertar'
+
+    -- === Insertar ===
+    IF @operacion = 'Insertar'
     BEGIN
-		/*Verificación de datos no nulos necesarios para insertar presentismo*/
         IF @id_clase IS NULL
         BEGIN
             RAISERROR('La clase especificada no existe.', 16, 1);
@@ -505,10 +448,22 @@ BEGIN
             SET @fecha = GETDATE();
 
         IF @condicion IS NULL
-            SET @condicion = 'P'; -- Ejemplo: P=Presente
+            SET @condicion = 'P';
+
+        -- Validación: evitar duplicados exactos
+        IF EXISTS (
+            SELECT 1
+            FROM actividades.presentismoClase
+            WHERE id_clase = @id_clase AND id_socio = @id_socio AND fecha = @fecha
+        )
+        BEGIN
+            RAISERROR('Ya existe un presentismo registrado para esa clase, socio y fecha.', 16, 1);
+            RETURN;
+        END
 
         INSERT INTO actividades.presentismoClase (id_clase, id_socio, fecha, condicion)
         VALUES (@id_clase, @id_socio, @fecha, @condicion);
+        RETURN;
     END
 END;
 GO
@@ -1036,7 +991,7 @@ BEGIN
         WHERE p.dni = @dni_socio;
 
 		/*Si no existe el socio, no se realiza la transacción*/
-        IF @id_socio IS NULL
+        IF @id_socio IS NULL OR @id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar)
         BEGIN
             RAISERROR('No se encontró socio responsable con ese DNI.', 16, 1);
             ROLLBACK TRANSACTION;
@@ -1079,36 +1034,31 @@ BEGIN
         END
 
 		/*Obtener monto total a facturar*/
-		SELECT @monto_total += costo_membresia
-		FROM administracion.CategoriaSocio CS
-		INNER JOIN administracion.Socio S ON S.id_categoria = CS.id_categoria
-		WHERE S.id_socio = @id_socio;
+		SELECT @monto_total += subtotal
+		FROM (
+			SELECT CS.costo_membresia * COUNT(*) AS subtotal
+			FROM administracion.Socio S
+			INNER JOIN administracion.CategoriaSocio CS ON S.id_categoria = CS.id_categoria
+			WHERE S.id_socio = @id_socio
+			   OR S.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio)
+			GROUP BY CS.costo_membresia
+		) AS subtotalMembresias;
 
-		SELECT @monto_total += costo
-		FROM actividades.Actividad A
-		INNER JOIN actividades.Clase C ON C.id_actividad = A.id_actividad
-		INNER JOIN actividades.InscriptoClase I ON I.id_clase = C.id_clase
-		WHERE I.id_socio = @id_socio
+		SELECT @monto_total += subtotal
+		FROM (
+			SELECT A.costo * COUNT(*) AS subtotal
+			FROM actividades.Actividad A
+			INNER JOIN actividades.Clase C ON A.id_actividad = C.id_actividad
+			INNER JOIN actividades.InscriptoClase I ON I.id_clase = C.id_clase
+			INNER JOIN administracion.Socio S ON I.id_socio = S.id_socio
+			WHERE S.id_socio = @id_socio 
+			   OR S.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio)
+			GROUP BY A.costo
+		) AS subtotalActividades;
 
 		SELECT @monto_total += monto
 		FROM cobranzas.Mora
 		WHERE id_socio = @id_socio
-
-		IF @id_socio IN (SELECT id_socio_rp FROM administracion.GrupoFamiliar)
-		BEGIN
-			SELECT @monto_total += CS.costo_membresia
-			FROM administracion.CategoriaSocio CS
-			INNER JOIN administracion.Socio S ON S.id_categoria = CS.id_categoria
-			INNER JOIN administracion.GrupoFamiliar G ON G.id_socio = S.id_socio
-			WHERE G.id_socio_rp = @id_socio;
-
-			SELECT @monto_total += A.costo
-			FROM actividades.Actividad A
-			INNER JOIN actividades.Clase C ON C.id_actividad = A.id_actividad
-			INNER JOIN actividades.InscriptoClase I ON I.id_clase = C.id_clase
-			INNER JOIN administracion.GrupoFamiliar G ON G.id_socio = I.id_socio
-			WHERE G.id_socio_rp = @id_socio;
-		END
 
 		/*Sumar montos*/
 		/* - 1000 + 500		--> -500 y saldo 0	*/
@@ -1123,21 +1073,21 @@ BEGIN
 			@id_emisor, 
 			@id_socio, 
 			'Consumidor final', 
-			-@monto_total, 
+			@monto_total, 
 			(SELECT ISNULL(SUM(saldo), 0)FROM administracion.Socio WHERE id_socio = @id_socio),
 			GETDATE(), 
-			GETDATE() + 5, 
-			GETDATE() + 10, 
+			DATEADD(DAY, 5, GETDATE()), 
+			DATEADD(DAY, 10, GETDATE()), 
 			'No pagada', 
 			0);
 
-		SET @id_factura = (SELECT TOP 1 id_factura FROM facturacion.Factura ORDER BY fecha_emision DESC)
+		SET @id_factura = SCOPE_IDENTITY();
 
 		/*Obtener todas las actividades pendientes de pago asociadas al socio*/
 
         /*Generar detalles de factura*/
 
-		-- MEMBRESÍA DEL SOCIO
+		-- MEMBRESÍA DEL SOCIO Y FAMILIARES
         INSERT INTO facturacion.DetalleFactura
 			(id_factura, id_categoria, tipo_item, descripcion, monto, cantidad)
 		SELECT
@@ -1146,59 +1096,28 @@ BEGIN
 			'Membresia',
 			CS.nombre,
 			CS.costo_membresia,
-			1
-		FROM administracion.CategoriaSocio CS
-		INNER JOIN administracion.Socio S ON S.id_categoria = CS.id_categoria
-		WHERE S.id_socio = @id_socio;
+			COUNT(S.id_categoria) AS cantidad
+		FROM administracion.Socio S
+		INNER JOIN administracion.CategoriaSocio CS ON S.id_categoria = CS.id_categoria
+		WHERE S.id_socio = @id_socio OR S.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio)
+		GROUP BY CS.id_categoria, CS.nombre, CS.costo_membresia;
 
-		-- ACTIVIDADES DEL SOCIO
+		-- ACTIVIDADES DEL SOCIO Y FAMILIARES
 		INSERT INTO facturacion.DetalleFactura
 			(id_factura, id_actividad, tipo_item, descripcion, monto, cantidad)
 		SELECT
 			@id_factura,
-			A.id_actividad,
+			C.id_actividad,
 			'Actividad',
 			A.nombre,
 			A.costo,
-			COUNT(A.id_actividad) OVER(PARTITION BY I.id_socio) AS cantidad
-		FROM actividades.Actividad A
-		INNER JOIN actividades.Clase C ON C.id_actividad = A.id_actividad
-		INNER JOIN actividades.InscriptoClase I ON I.id_clase = C.id_clase
-		WHERE I.id_socio = @id_socio
-
-		-- MEMBRESÍAS DE FAMILIARES
-		IF @id_socio IN (SELECT id_socio_rp FROM administracion.GrupoFamiliar)
-		BEGIN
-            INSERT INTO facturacion.DetalleFactura
-			(id_factura, id_categoria, tipo_item, descripcion, monto, cantidad)
-			SELECT
-				@id_factura,
-				CS.id_categoria,
-				'Membresia',
-				CS.nombre,
-				CS.costo_membresia,
-				1
-			FROM administracion.CategoriaSocio CS
-			INNER JOIN administracion.Socio S ON S.id_categoria = CS.id_categoria
-			INNER JOIN administracion.GrupoFamiliar G ON G.id_socio = S.id_socio
-			WHERE G.id_socio_rp = @id_socio;
-
-			-- ACTIVIDADES DE FAMILIARES
-			INSERT INTO facturacion.DetalleFactura
-				(id_factura, id_actividad, tipo_item, descripcion, monto, cantidad)
-			SELECT
-				@id_factura,
-				A.id_actividad,
-				'Actividad',
-				A.nombre,
-				A.costo,
-				COUNT(A.id_actividad) OVER(PARTITION BY I.id_socio) AS cantidad
-			FROM actividades.Actividad A
-			INNER JOIN actividades.Clase C ON C.id_actividad = A.id_actividad
-			INNER JOIN actividades.InscriptoClase I ON I.id_clase = C.id_clase
-			INNER JOIN administracion.GrupoFamiliar G ON G.id_socio = I.id_socio
-			WHERE G.id_socio_rp = @id_socio;
-        END
+			COUNT(A.id_actividad) AS cantidad
+		FROM administracion.Socio S
+		INNER JOIN actividades.InscriptoClase I ON I.id_socio = S.id_socio
+		INNER JOIN actividades.Clase C ON I.id_clase = C.id_clase
+		INNER JOIN actividades.Actividad A ON C.id_actividad = A.id_actividad
+		WHERE S.id_socio = @id_socio OR S.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio)
+		GROUP BY C.id_actividad, A.nombre, A.costo;
 
 		-- MORA (asumiendo que el id_socio es el del responsable)
 		INSERT INTO facturacion.DetalleFactura
@@ -1234,6 +1153,7 @@ GO
 CREATE PROCEDURE facturacion.GenerarFacturaSocioActExtra
 (
     @dni_socio CHAR(10),
+	@periodo VARCHAR(20),
     @cuil_emisor VARCHAR(20)
 )
 AS
@@ -1248,6 +1168,8 @@ BEGIN
 		DECLARE @monto_total DECIMAL(10, 2) = 0;
 		DECLARE @id_factura INT;
 		DECLARE @saldo DECIMAL(10, 2);
+		DECLARE @fecha_vencimiento1 DATE;
+		DECLARE @fecha_vencimiento2 DATE;
 		
 		/*Se obtiene el id_socio asociado a su correspondiente DNI*/
 		SELECT @id_socio = id_socio 
@@ -1272,7 +1194,7 @@ BEGIN
 			AND anulada = 0
 		)
 		BEGIN
-			RAISERROR('Ya fue facturada la actividad de este grupo familiar en este mes.', 16, 1);
+			RAISERROR('Ya fue facturada la actividad.', 16, 1);
 			ROLLBACK TRANSACTION;
 			RETURN;
 		END
@@ -1290,20 +1212,21 @@ BEGIN
 			RETURN;
 		END
 
+		/*Se calcula el vencimiento de las facturas en base al periodo escogido*/
+		SET @fecha_vencimiento1 = GETDATE();
+		SET @fecha_vencimiento2 = GETDATE();
+
+		IF @periodo NOT LIKE 'Dia'
+		BEGIN
+			SET @fecha_vencimiento1 = DATEADD(DAY, 5, @fecha_vencimiento1);
+			SET @fecha_vencimiento2 = DATEADD(DAY, 5, @fecha_vencimiento1);
+		END
+
 		/*Obtener monto total a facturar*/
 		SELECT @monto_total += costo
 		FROM actividades.ActividadExtra AE
 		INNER JOIN actividades.PresentismoActividadExtra PAE ON PAE.id_extra = AE.id_extra
 		WHERE PAE.id_socio = @id_socio;
-	
-		IF @id_socio IN (SELECT id_socio_rp FROM administracion.GrupoFamiliar)
-			BEGIN
-				SELECT @monto_total += AE.costo
-				FROM actividades.ActividadExtra AE
-				INNER JOIN actividades.PresentismoActividadExtra PAE ON PAE.id_extra = AE.id_extra
-				INNER JOIN administracion.GrupoFamiliar G ON G.id_socio = PAE.id_socio
-				WHERE G.id_socio_rp = @id_socio;
-			END
 
 		/*Generar factura per sé*/
 		INSERT INTO facturacion.Factura
@@ -1316,12 +1239,12 @@ BEGIN
 			@monto_total, 
 			(SELECT ISNULL(SUM(saldo), 0)FROM administracion.Socio WHERE id_socio = @id_socio),
 			GETDATE(), 
-			GETDATE() + 5, 
-			GETDATE() + 10, 
+			@fecha_vencimiento1,
+			@fecha_vencimiento2,
 			'No pagada', 
 			0);
 
-		SET @id_factura = (SELECT TOP 1 id_factura FROM facturacion.Factura ORDER BY fecha_emision DESC)
+		SET @id_factura = SCOPE_IDENTITY();
 
 		-- ACTIVIDADES EXTRA
 		INSERT INTO facturacion.DetalleFactura
@@ -1333,27 +1256,11 @@ BEGIN
 			AE.nombre,
 			AE.costo,
 			COUNT(PAE.id_extra) OVER(PARTITION BY PAE.id_socio) AS cantidad
-		FROM actividades.ActividadExtra AE
-		INNER JOIN actividades.PresentismoActividadExtra PAE ON PAE.id_extra = AE.id_extra
-		WHERE PAE.id_socio = @id_socio;
+		FROM administracion.Socio S
+		INNER JOIN actividades.PresentismoActividadExtra PAE ON PAE.id_socio = S.id_socio
+		INNER JOIN actividades.ActividadExtra AE ON PAE.id_extra = AE.id_extra
+		WHERE PAE.id_socio = @id_socio
 
-		IF @id_socio IN (SELECT id_socio_rp FROM administracion.GrupoFamiliar)
-		BEGIN
-			-- ACTIVIDADES EXTRA DE FAMILIARES
-			INSERT INTO facturacion.DetalleFactura
-				(id_factura, id_extra, tipo_item, descripcion, monto, cantidad)
-			SELECT
-				@id_factura,
-				AE.id_extra,
-				'Actividad extra',
-				AE.nombre,
-				AE.costo,
-				COUNT(PAE.id_extra) OVER(PARTITION BY PAE.id_socio) AS cantidad
-			FROM actividades.ActividadExtra AE
-			INNER JOIN actividades.PresentismoActividadExtra PAE ON PAE.id_extra = AE.id_extra
-			INNER JOIN administracion.GrupoFamiliar G ON G.id_socio = PAE.id_socio
-			WHERE G.id_socio_rp = @id_socio;
-		END
 		/*Confirmar transacción*/
         COMMIT TRANSACTION;
 
