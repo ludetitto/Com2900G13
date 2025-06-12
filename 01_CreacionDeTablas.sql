@@ -10,9 +10,19 @@
 USE COM2900G13;
 GO
 
+-- =============================
+-- ELIMINAR VISTAS Y FUNCIONES
+-- =============================
+
+-- Vistas que usan administracion
+DROP VIEW IF EXISTS administracion.vwSociosConCategoria;
+
+-- Funciones y procedimientos específicos
+DROP PROCEDURE IF EXISTS cobranzas.AplicarBloqueoVencimiento;
+
 
 /* =============================
-   1. ELIMINAR PROCEDIMIENTOS
+   ELIMINAR PROCEDIMIENTOS
    ============================= */
 DROP PROCEDURE IF EXISTS actividades.GestionarActividad
 DROP PROCEDURE IF EXISTS actividades.GestionarActividadExtra

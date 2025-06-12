@@ -879,3 +879,28 @@ BEGIN
     ORDER BY fam.id_grupo, f.id_socio;
 END;
 GO
+
+
+/*____________________________________________________________________
+  _____________________ Vista: vwSociosConCategoria __________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('administracion.vwSociosConCategoria', 'V') IS NOT NULL
+    DROP VIEW administracion.vwSociosConCategoria;
+GO
+
+CREATE VIEW administracion.vwSociosConCategoria AS
+SELECT 
+    P.dni,
+    P.nombre,
+    P.apellido,
+    P.fecha_nacimiento,
+    P.email,
+    S.id_socio,
+    C.nombre AS categoria,
+    C.costo_membresia,
+    C.vigencia
+FROM administracion.Socio S
+JOIN administracion.Persona P ON S.id_persona = P.id_persona
+JOIN administracion.CategoriaSocio C ON S.id_categoria = C.id_categoria;
+GO

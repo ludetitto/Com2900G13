@@ -2,6 +2,9 @@ USE COM2900G13;
 GO
 
 /* ===================== LIMPIEZA COMPLETA ===================== */
+DELETE FROM facturacion.DetalleFactura
+DELETE FROM facturacion.Factura
+DELETE FROM facturacion.EmisorFactura
 DELETE FROM actividades.presentismoClase;
 DELETE FROM actividades.InscriptoClase;
 DELETE FROM actividades.Clase;
@@ -57,17 +60,5 @@ SELECT * FROM administracion.Invitado;
 SELECT * FROM administracion.GrupoFamiliar;
 
 /* ===================== CONSULTA FINAL ===================== */
-SELECT 
-    P.dni,
-    P.nombre,
-    P.apellido,
-    P.fecha_nacimiento,
-    P.email,
-    S.id_socio,
-    C.nombre AS categoria,
-    C.costo_membresia,
-    C.vigencia
-FROM administracion.Socio S
-JOIN administracion.Persona P ON S.id_persona = P.id_persona
-JOIN administracion.CategoriaSocio C ON S.id_categoria = C.id_categoria
-ORDER BY P.apellido, P.nombre;
+SELECT * FROM administracion.vwSociosConCategoria
+ORDER BY apellido, nombre;
