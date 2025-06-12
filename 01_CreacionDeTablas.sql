@@ -245,7 +245,6 @@ CREATE TABLE actividades.Actividad (
     id_actividad INT IDENTITY(1,1) PRIMARY KEY,
     nombre VARCHAR(100),
     costo DECIMAL(10,2),
-    horario VARCHAR(50),
 	vigencia DATE,
 );
 GO
@@ -257,10 +256,12 @@ GO
 CREATE TABLE actividades.Clase (
     id_clase INT IDENTITY(1,1) PRIMARY KEY,
     id_actividad INT,
-	id_profesor INT,
-	horario VARCHAR(20),
-	CONSTRAINT FK_clase_actividad_id FOREIGN KEY (id_actividad) REFERENCES actividades.Actividad(id_actividad),
-	CONSTRAINT FK_clase_profesor_id FOREIGN KEY (id_profesor) REFERENCES administracion.Profesor(id_profesor)
+    id_profesor INT,
+    id_categoria INT, 
+    horario VARCHAR(20),
+    CONSTRAINT FK_clase_actividad_id FOREIGN KEY (id_actividad) REFERENCES actividades.Actividad(id_actividad),
+    CONSTRAINT FK_clase_profesor_id FOREIGN KEY (id_profesor) REFERENCES administracion.Profesor(id_profesor),
+    CONSTRAINT FK_clase_categoria_id FOREIGN KEY (id_categoria) REFERENCES administracion.CategoriaSocio(id_categoria)
 );
 GO
 
