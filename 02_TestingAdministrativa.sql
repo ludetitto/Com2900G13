@@ -180,8 +180,6 @@ GO
 SELECT * FROM administracion.CategoriaSocio;
 
 
-
-	
 /*_____________________________________________________________________
   ________________________ P_GestionarSocio ___________________________
   _____________________________________________________________________*/
@@ -204,6 +202,7 @@ EXEC administracion.GestionarSocio
     @operacion = 'Insertar';
 -- Resultado esperado: Persona y socio insertados correctamente
 GO
+
 SELECT * FROM administracion.Socio
 SELECT * FROM administracion.Persona
 
@@ -398,18 +397,8 @@ GO
 SELECT * FROM administracion.Socio
 SELECT * FROM administracion.GrupoFamiliar
 
--- ✅ PRUEBA 3: insertar a un socio a el mismo
-EXEC administracion.GestionarGrupoFamiliar
-    @dni_socio = '33444555',
-    @dni_socio_rp = '33444555',
-    @operacion = 'Insertar';
--- Resultado esperado: Grupo familiar insertado correctamente
-GO
-SELECT * FROM administracion.Socio
-SELECT * FROM administracion.Persona
-SELECT * FROM administracion.GrupoFamiliar
 
--- ❌ PRUEBA 4: Insertar grupo familiar con socio inexistente
+-- ❌ PRUEBA 3: Insertar grupo familiar con socio inexistente
 EXEC administracion.GestionarGrupoFamiliar
     @dni_socio = '99999999',
     @dni_socio_rp = '88888888',

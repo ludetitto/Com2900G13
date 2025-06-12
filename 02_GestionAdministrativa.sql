@@ -245,7 +245,6 @@ BEGIN
     END
 END;
 GO
-
 /*____________________________________________________________________
   ____________________ GestionarCategoriaSocio _____________________
   ____________________________________________________________________*/
@@ -265,7 +264,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Verificación de operaciones válidas
+    -- Validación de operación
     IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
     BEGIN
         RAISERROR('Operación inválida. Use Insertar, Modificar o Eliminar.', 16, 1);
@@ -284,6 +283,12 @@ BEGIN
         IF @edad_desde IS NULL OR @edad_hasta IS NULL
         BEGIN
             RAISERROR('Debe especificar el rango de edad (desde/hasta).', 16, 1);
+            RETURN;
+        END
+
+        IF EXISTS (SELECT 1 FROM administracion.CategoriaSocio WHERE nombre = @nombre)
+        BEGIN
+            RAISERROR('Ya existe una categoría con ese nombre.', 16, 1);
             RETURN;
         END
 
