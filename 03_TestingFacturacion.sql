@@ -470,58 +470,100 @@ SELECT * FROM facturacion.EmisorFactura
   _______________________ PRUEBAS GenerarFactura ______________________
   _____________________________________________________________________*/
 
--- ✅ PRUEBA 1: Generación válida de factura
-EXEC facturacion.GenerarFacturaSocioMensual
-@dni_socio = '23456789',
-@cuil_emisor = '20-12345678-4';
--- Resultado esperado: Factura generada sin errores
-GO
+-- ✅ PRUEBA 1: Generación válida de factura para varias actividades
 
-EXEC actividades.GestionarActividad
-    @nombre = 'Yoga',
+-- Carga de actividades previa [NO OLVIDAR DESCOMENTAR PARA HACER EL EJEMPLO]
+/*EXEC actividades.GestionarActividad
+    @nombre = 'Futsal',
     @costo = 3500.00,
     @horario = 'Martes 13:00',
     @vigencia = '2025-07-01',
     @operacion = 'Insertar';
 
+EXEC actividades.GestionarActividad
+    @nombre = 'Ajedrez',
+    @costo = 3500.00,
+    @horario = 'Lunes 18:00',
+    @vigencia = '2025-07-01',
+    @operacion = 'Insertar';
+-- Resultado esperado: Actividades insertadas sin errores
+
 EXEC actividades.GestionarClase
-    @nombre_actividad = 'Yoga',
+    @nombre_actividad = 'Futsal',
     @dni_profesor = '34567890',
     @horario = 'Martes 13:00',
     @operacion = 'Insertar';
 
--- Resultado esperado: Clase insertada sin errores
-GO
-SELECT * FROM actividades.Clase
+EXEC actividades.GestionarClase
+    @nombre_actividad = 'Ajedrez',
+    @dni_profesor = '34567890',
+    @horario = 'Lunes 18:00',
+    @operacion = 'Insertar';
+-- Resultado esperado: Clases insertadas sin errores
 
-DELETE FROM facturacion.Factura
+EXEC actividades.GestionarInscripcion
+    @dni_socio = '40606060',
+    @nombre_actividad = 'Futsal',
+    @horario = 'Martes 13:00',
+    @fecha_inscripcion = '2025-02-06',
+    @operacion = 'Insertar';
+
+EXEC actividades.GestionarInscripcion
+    @dni_socio = '40606060',
+    @nombre_actividad = 'Ajedrez',
+    @horario = 'Lunes 18:00',
+    @fecha_inscripcion = '2025-02-06',
+    @operacion = 'Insertar';
+-- Resultado esperado: Inscripciones insertadas sin errores
+GO*/
+
+EXEC facturacion.GenerarFacturaSocioMensual
+@dni_socio = '33444555',
+@cuil_emisor = '20-12345678-4';
+-- Resultado esperado: Factura generada sin errores
+GO
+
+/*
 DELETE FROM facturacion.DetalleFactura
+DELETE FROM facturacion.Factura
+*/
+
 SELECT * FROM facturacion.Factura
 SELECT * FROM facturacion.DetalleFactura
 
-SELECT * FROM administracion.Persona
-SELECT * FROM administracion.Socio
-SELECT * FROM administracion.Profesor
-SELECT * FROM actividades.Clase
-SELECT * FROM actividades.InscriptoClase
+-- ✅ PRUEBA 2: Generación válida de factura para varias actividades y varios socios de un grupo familiar
 
-EXEC administracion.VerCuotasPagasGrupoFamiliar
-	@dni_socio = '12345678'
+-- Carga de actividades previa [NO OLVIDAR DESCOMENTAR PARA HACER EL EJEMPLO]
+/*EXEC actividades.GestionarInscripcion
+    @dni_socio = '45778667',
+    @nombre_actividad = 'Futsal',
+    @horario = 'Martes 13:00',
+    @fecha_inscripcion = '2025-02-06',
+    @operacion = 'Insertar';
+
+EXEC actividades.GestionarInscripcion
+    @dni_socio = '40505050',
+    @nombre_actividad = 'Futsal',
+    @horario = 'Martes 13:00',
+    @fecha_inscripcion = '2025-02-06',
+    @operacion = 'Insertar';
+
+EXEC actividades.GestionarInscripcion
+    @dni_socio = '40505050',
+    @nombre_actividad = 'Ajedrez',
+    @horario = 'Lunes 18:00',
+    @fecha_inscripcion = '2025-02-06',
+    @operacion = 'Insertar';
+-- Resultado esperado: Inscripciones insertadas sin errores
+GO*/
+
+EXEC facturacion.GenerarFacturaSocioMensual
+@dni_socio = '45778667',
+@cuil_emisor = '20-12345678-4';
+-- Resultado esperado: Factura generada sin errores
 GO
 
-SELECT * FROM administracion.GrupoFamiliar
-SELECT * FROM administracion.Persona
-SELECT * FROM facturacion.Factura
-
-UPDATE administracion.Socio
-SET activo = 1
-WHERE id_socio = 1
-
-UPDATE facturacion.Factura
-SET estado = 'Pagada', anulada = 0
-WHERE id_socio = 1
-
--- ❌ PRUEBA 2: Socio no existe
+-- ❌ PRUEBA 3: Socio no existe
 EXEC facturacion.GenerarFacturaSocioMensual
 @dni_socio = '99999999',
 @cuil_emisor = '20-12345678-3';
