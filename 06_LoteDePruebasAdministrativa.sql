@@ -21,9 +21,9 @@ EXEC administracion.GestionarPersona 'Jose', 'Suarez', '99888777', 'jose.suarez@
 GO
 
 /* ===================== INSERTAR CATEGORÍAS ===================== */
-EXEC administracion.GestionarCategoriaSocio 'Menor', 0, 12, 700.00, '2025-12-31', 'Insertar';
-EXEC administracion.GestionarCategoriaSocio 'Cadete', 13, 17, 800.00, '2025-12-31', 'Insertar';
-EXEC administracion.GestionarCategoriaSocio 'Mayor', 18, 150, 1000.00, '2025-12-31', 'Insertar';
+EXEC administracion.GestionarCategoriaSocio 'Menor', 0, 12, 10000, '2025-12-31', 'Insertar';
+EXEC administracion.GestionarCategoriaSocio 'Cadete', 13, 17, 15000, '2025-12-31', 'Insertar';
+EXEC administracion.GestionarCategoriaSocio 'Mayor', 18, 150, 25000, '2025-12-31', 'Insertar';
 GO
 
 /* ===================== INSERTAR SOCIOS ===================== */
