@@ -11,7 +11,7 @@ USE COM2900G13;
 GO
 
 /*_____________________________________________________________________
-  ________________________ P_GestionarActividad _______________________
+  ________________________ GestionarActividad _______________________
   _____________________________________________________________________*/
 
 -- ✅ PRUEBA 1: Inserción válida de actividad
@@ -73,9 +73,9 @@ EXEC actividades.GestionarActividad
 GO
 SELECT * FROM actividades.Actividad
 
-/*_____________________________________________________________________
-  _________________________ P_GestionarClase __________________________
-  _____________________________________________________________________*/
+/*___________________________________________________________________
+  _________________________ GestionarClase __________________________
+  ___________________________________________________________________*/
 select * from administracion.Profesor
 select * from administracion.Persona
 
@@ -462,10 +462,33 @@ EXEC facturacion.GenerarFacturaSocioMensual
 -- Resultado esperado: Factura generada sin errores
 GO
 
+EXEC actividades.GestionarActividad
+    @nombre = 'Yoga',
+    @costo = 3500.00,
+    @horario = 'Martes 13:00',
+    @vigencia = '2025-07-01',
+    @operacion = 'Insertar';
+
+EXEC actividades.GestionarClase
+    @nombre_actividad = 'Yoga',
+    @dni_profesor = '34567890',
+    @horario = 'Martes 13:00',
+    @operacion = 'Insertar';
+
+-- Resultado esperado: Clase insertada sin errores
+GO
+SELECT * FROM actividades.Clase
+
 DELETE FROM facturacion.Factura
 DELETE FROM facturacion.DetalleFactura
 SELECT * FROM facturacion.Factura
 SELECT * FROM facturacion.DetalleFactura
+
+SELECT * FROM administracion.Persona
+SELECT * FROM administracion.Socio
+SELECT * FROM administracion.Profesor
+SELECT * FROM actividades.Clase
+SELECT * FROM actividades.InscriptoClase
 
 EXEC administracion.VerCuotasPagasGrupoFamiliar
 	@dni_socio = '12345678'

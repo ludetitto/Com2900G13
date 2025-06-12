@@ -428,6 +428,7 @@ CREATE TABLE cobranzas.Pago (
     id_pago INT IDENTITY(1,1) PRIMARY KEY,
 	id_factura INT,
     id_medio INT,
+	nro_transaccion INT,
 	monto DECIMAL(10,2),
     fecha_emision DATETIME,
 	fecha_vencimiento DATE,
