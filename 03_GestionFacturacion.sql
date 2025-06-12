@@ -345,8 +345,6 @@ BEGIN
     END
 END;
 GO
-
-
 /*____________________________________________________________________
   _____________________ GestionarPresentismoClase ____________________
   ____________________________________________________________________*/
@@ -359,38 +357,50 @@ CREATE PROCEDURE actividades.GestionarPresentismoClase
     @nombre_actividad VARCHAR(100),
     @dni_socio VARCHAR(10),
     @horario VARCHAR(20),
+    @nombre_categoria VARCHAR(50),
     @fecha DATE,
     @condicion CHAR(1) = NULL,
     @operacion CHAR(10)
 AS
 BEGIN
     SET NOCOUNT ON;
-	/*Verificación de operaciones válidas*/
+
+    -- Validación de operación
     IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
     BEGIN
         RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
         RETURN;
     END
 
-	/*Se obtienen los identificadores necesarios*/
-	DECLARE @id_clase INT = (SELECT C.id_clase
-							 FROM actividades.Clase C
-							 INNER JOIN actividades.Actividad A ON A.id_actividad = C.id_actividad
-							 WHERE A.nombre = @nombre_actividad AND C.horario = @horario);
+    -- Obtener ID de clase considerando también la categoría
+    DECLARE @id_clase INT = (
+        SELECT C.id_clase
+        FROM actividades.Clase C
+        JOIN actividades.Actividad A ON A.id_actividad = C.id_actividad
+        JOIN administracion.CategoriaSocio Cat ON Cat.id_categoria = C.id_categoria
+        WHERE A.nombre = @nombre_actividad
+          AND C.horario = @horario
+          AND Cat.nombre = @nombre_categoria
+    );
 
-	DECLARE @id_socio INT = (SELECT S.id_socio
-							 FROM administracion.Socio S
-							 INNER JOIN administracion.Persona P ON S.id_persona = P.id_persona
-							 WHERE P.dni = @dni_socio);
+    -- Obtener ID del socio
+    DECLARE @id_socio INT = (
+        SELECT S.id_socio
+        FROM administracion.Socio S
+        JOIN administracion.Persona P ON S.id_persona = P.id_persona
+        WHERE P.dni = @dni_socio
+    );
 
-	DECLARE @id_presentismo INT = (SELECT id_presentismo
-								   FROM actividades.presentismoClase
-								   WHERE id_clase = @id_clase AND id_socio = @id_socio AND fecha = COALESCE(@fecha, CONVERT(date, GETDATE())));
+    -- Buscar presentismo existente
+    DECLARE @id_presentismo INT = (
+        SELECT TOP 1 id_presentismo
+        FROM actividades.presentismoClase
+        WHERE id_clase = @id_clase AND id_socio = @id_socio AND fecha = COALESCE(@fecha, CONVERT(date, GETDATE()))
+    );
 
-	/*CASO 1: Eliminar presentismo*/
+    -- === Eliminar ===
     IF @operacion = 'Eliminar'
     BEGIN
-		/*Verificación de existencia de presentismo a borrar.*/
         IF @id_presentismo IS NULL
         BEGIN
             RAISERROR('No existe el presentismo para eliminar.', 16, 1);
@@ -398,28 +408,30 @@ BEGIN
         END
 
         DELETE FROM actividades.presentismoClase WHERE id_presentismo = @id_presentismo;
+        RETURN;
     END
-	/*CASO 2: Modificar presentismo*/
-    ELSE IF @operacion = 'Modificar'
+
+    -- === Modificar ===
+    IF @operacion = 'Modificar'
     BEGIN
-		/*Verificación de existencia de presentismo a modificar.*/
         IF @id_presentismo IS NULL
         BEGIN
             RAISERROR('No existe el presentismo para modificar.', 16, 1);
             RETURN;
         END
-		/*Se utiliza COALESCE para asegurar dato válido en caso de que algún usuario ingrese NULL en algún campo*/
+
         UPDATE actividades.presentismoClase
         SET id_clase = COALESCE(@id_clase, id_clase),
             id_socio = COALESCE(@id_socio, id_socio),
             fecha = COALESCE(@fecha, fecha),
             condicion = COALESCE(@condicion, condicion)
         WHERE id_presentismo = @id_presentismo;
+        RETURN;
     END
-	/*CASO 3: Insertar presentismo*/
-    ELSE IF @operacion = 'Insertar'
+
+    -- === Insertar ===
+    IF @operacion = 'Insertar'
     BEGIN
-		/*Verificación de datos no nulos necesarios para insertar presentismo*/
         IF @id_clase IS NULL
         BEGIN
             RAISERROR('La clase especificada no existe.', 16, 1);
@@ -436,10 +448,22 @@ BEGIN
             SET @fecha = GETDATE();
 
         IF @condicion IS NULL
-            SET @condicion = 'P'; -- Ejemplo: P=Presente
+            SET @condicion = 'P';
+
+        -- Validación: evitar duplicados exactos
+        IF EXISTS (
+            SELECT 1
+            FROM actividades.presentismoClase
+            WHERE id_clase = @id_clase AND id_socio = @id_socio AND fecha = @fecha
+        )
+        BEGIN
+            RAISERROR('Ya existe un presentismo registrado para esa clase, socio y fecha.', 16, 1);
+            RETURN;
+        END
 
         INSERT INTO actividades.presentismoClase (id_clase, id_socio, fecha, condicion)
         VALUES (@id_clase, @id_socio, @fecha, @condicion);
+        RETURN;
     END
 END;
 GO

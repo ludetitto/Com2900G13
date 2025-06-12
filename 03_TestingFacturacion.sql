@@ -198,40 +198,50 @@ SELECT * FROM actividades.InscriptoClase;
   ___________________ GestionarPresentismoClase _______________________
   _____________________________________________________________________*/
 
+
 -- ✅ PRUEBA 1: Inserción válida de presentismo
 -- Esperado: Se registra correctamente el presentismo
 EXEC actividades.GestionarPresentismoClase
     @nombre_actividad = 'Ajedrez',
-    @dni_socio = '23456789',
-    @horario = 'Miércoles 17:00',
+    @dni_socio = '40505050',
+    @horario = 'Sábado 19:00',
+    @nombre_categoria = 'Mayor',
     @fecha = '2025-02-06',
     @condicion = 'P',
     @operacion = 'Insertar';
 GO
+
+-- Verificar inserción
 SELECT * FROM actividades.presentismoClase;
+GO
 
 -- ✅ PRUEBA 2: Modificación válida de presentismo
 -- Esperado: Se actualiza correctamente el campo condicion
 EXEC actividades.GestionarPresentismoClase
     @nombre_actividad = 'Ajedrez',
-    @dni_socio = '23456789',
-    @horario = 'Miércoles 15:00',
+    @dni_socio = '40505050',
+    @horario = 'Sábado 19:00',
+    @nombre_categoria = 'Mayor',
     @fecha = '2025-02-06',
-    @condicion = 'A',
+    @condicion = 'A', -- Ausente
     @operacion = 'Modificar';
 GO
 SELECT * FROM actividades.presentismoClase;
+GO
+
 
 -- ✅ PRUEBA 3: Eliminación válida de presentismo
 -- Esperado: Se elimina el registro correctamente
 EXEC actividades.GestionarPresentismoClase
     @nombre_actividad = 'Ajedrez',
-    @dni_socio = '23456789',
-    @horario = 'Miércoles 15:00',
+    @dni_socio = '40505050',
+    @horario = 'Sábado 19:00',
+    @nombre_categoria = 'Mayor',
     @fecha = '2025-02-06',
     @operacion = 'Eliminar';
 GO
 SELECT * FROM actividades.presentismoClase;
+GO
 
 
 -- ❌ PRUEBA 4: Eliminar presentismo inexistente
@@ -240,17 +250,21 @@ EXEC actividades.GestionarPresentismoClase
     @nombre_actividad = 'Yoga',
     @dni_socio = '99999999',
     @horario = 'Lunes 10:00',
+    @nombre_categoria = 'Mayor',
     @fecha = '2025-06-08',
     @operacion = 'Eliminar';
 GO
+
+
 -- ❌ PRUEBA 5: Operación inválida
 -- Esperado: Error lanzado por RAISERROR de operación inválida
 EXEC actividades.GestionarPresentismoClase
     @nombre_actividad = 'Yoga',
     @dni_socio = '12345678',
     @horario = 'Lunes 10:00',
+    @nombre_categoria = 'Mayor',
     @fecha = '2025-06-08',
-    @operacion = 'Asistir';
+    @operacion = 'Asistir'; -- operación inválida
 GO
 
 /*_____________________________________________________________________
