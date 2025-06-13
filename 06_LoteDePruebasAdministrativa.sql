@@ -59,6 +59,9 @@ SELECT * FROM administracion.Profesor;
 SELECT * FROM administracion.Invitado;
 SELECT * FROM administracion.GrupoFamiliar;
 
-/* ===================== CONSULTA FINAL ===================== */
+/* ===================== CONSULTA VISTAS SOCIO / PERSONA ===================== */
 SELECT * FROM administracion.vwSociosConCategoria
+ORDER BY apellido, nombre;
+
+SELECT * FROM administracion.vwSociosConObraSocial
 ORDER BY apellido, nombre;
