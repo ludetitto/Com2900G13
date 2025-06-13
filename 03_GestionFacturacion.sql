@@ -961,7 +961,7 @@ END;
 GO
 
 /*____________________________________________________________________
-  __________________________ GenerarFactura ________________________
+  ______________________ GenerarFacturaSocioMensual ___________________
   ____________________________________________________________________*/
 IF OBJECT_ID('facturacion.GenerarFacturaSocioMensual', 'P') IS NOT NULL
     DROP PROCEDURE facturacion.GenerarFacturaSocioMensual;
@@ -1226,7 +1226,7 @@ BEGIN
 		SELECT @monto_total += costo
 		FROM actividades.ActividadExtra AE
 		INNER JOIN actividades.PresentismoActividadExtra PAE ON PAE.id_extra = AE.id_extra
-		WHERE PAE.id_socio = @id_socio;
+		WHERE PAE.id_socio = @id_socio AND AE.periodo LIKE @periodo;
 
 		/*Generar factura per sé*/
 		INSERT INTO facturacion.Factura
@@ -1252,14 +1252,14 @@ BEGIN
 		SELECT
 			@id_factura,
 			AE.id_extra,
-			'Actividad extra',
+			'Actividad extra - Periodo' + AE.periodo,
 			AE.nombre,
 			AE.costo,
 			COUNT(PAE.id_extra) OVER(PARTITION BY PAE.id_socio) AS cantidad
 		FROM administracion.Socio S
 		INNER JOIN actividades.PresentismoActividadExtra PAE ON PAE.id_socio = S.id_socio
 		INNER JOIN actividades.ActividadExtra AE ON PAE.id_extra = AE.id_extra
-		WHERE PAE.id_socio = @id_socio
+		WHERE PAE.id_socio = @id_socio AND AE.periodo LIKE @periodo;
 
 		/*Confirmar transacción*/
         COMMIT TRANSACTION;
@@ -1337,18 +1337,6 @@ BEGIN
             RETURN;
         END
 
-        SET @id_factura = (SELECT TOP 1 id_factura FROM facturacion.Factura WHERE fecha_emision <= GETDATE() ORDER BY fecha_emision DESC);
-
-         /*Generar detalle de factura*/
-        INSERT INTO facturacion.DetalleFactura
-        (id_factura, tipo_item, descripcion, monto, cantidad)
-        VALUES(
-			@id_factura, 
-			'Actividad extra', 
-			(SELECT TOP 1 nombre FROM actividades.ActividadExtra WHERE nombre = @descripcion AND vigencia < GETDATE() ORDER BY vigencia DESC), 
-			(SELECT TOP 1 costo FROM actividades.ActividadExtra WHERE nombre = @descripcion AND vigencia < GETDATE() ORDER BY vigencia DESC),
-			1);
-
 		INSERT INTO facturacion.Factura
 			(id_emisor, id_socio, leyenda, monto_total, saldo_anterior, fecha_emision, fecha_vencimiento1, fecha_vencimiento2, estado, anulada)
 			VALUES(
@@ -1363,6 +1351,23 @@ BEGIN
 				'Sin pago', 
 				0
 			);
+
+        SET @id_factura = SCOPE_IDENTITY();
+
+         -- ACTIVIDADES EXTRA
+		INSERT INTO facturacion.DetalleFactura
+			(id_factura, id_extra, tipo_item, descripcion, monto, cantidad)
+		SELECT
+			@id_factura,
+			AE.id_extra,
+			'Actividad extra - Periodo' + AE.periodo,
+			AE.nombre,
+			AE.costo,
+			COUNT(PAE.id_extra) OVER(PARTITION BY PAE.id_socio) AS cantidad
+		FROM administracion.Socio S
+		INNER JOIN actividades.PresentismoActividadExtra PAE ON PAE.id_socio = S.id_socio
+		INNER JOIN actividades.ActividadExtra AE ON PAE.id_extra = AE.id_extra
+		WHERE PAE.id_socio IS NULL AND AE.periodo LIKE 'Dia' AND AE.es_invitado = 1;
 
         COMMIT TRANSACTION;
 

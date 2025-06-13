@@ -18,7 +18,6 @@ EXEC actividades.GestionarActividad 'Natación', 45000, '2025-05-31', 'Insertar';
 EXEC actividades.GestionarActividad 'Ajedrez', 2000, '2025-05-31', 'Insertar';
 GO
 
-
 -- FUTSAL - Lunes
 EXEC actividades.GestionarClase 'Futsal', '34567890', 'Lunes 08:00', 'Menor', 'Insertar';
 EXEC actividades.GestionarClase 'Futsal', '34567890', 'Lunes 14:00', 'Cadete', 'Insertar';

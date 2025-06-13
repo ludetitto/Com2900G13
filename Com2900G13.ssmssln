@@ -3,12 +3,28 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # SQL Server Management Studio Solution File, Format Version 20.00
 VisualStudioVersion = 15.0.28307.421
 MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{35CEE9E8-EE94-49B5-8FD4-B738FE0F9153}"
+	ProjectSection(SolutionItems) = preProject
+		00_CreacionBaseDeDatos.sql = 00_CreacionBaseDeDatos.sql
+		01_CreacionDeTablas.sql = 01_CreacionDeTablas.sql
+		02_GestionAdministrativa.sql = 02_GestionAdministrativa.sql
+		02_TestingAdministrativa.sql = 02_TestingAdministrativa.sql
+		03_GestionFacturacion.sql = 03_GestionFacturacion.sql
+		03_TestingFacturacion.sql = 03_TestingFacturacion.sql
+		04_GestionCobranzas.sql = 04_GestionCobranzas.sql
+		04_TestingCobranzas.sql = 04_TestingCobranzas.sql
+		05_GestionMorosidad.sql = 05_GestionMorosidad.sql
+		05_TestingMorosidad.sql = 05_TestingMorosidad.sql
+		06_LoteDePruebasAdministrativa.sql = 06_LoteDePruebasAdministrativa.sql
+		07_LoteDePruebasFacturacion.sql = 07_LoteDePruebasFacturacion.sql
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Default|Default = Default|Default
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{AF864A68-1D41-4108-A251-C6860C6DBB41}.Default|Default.ActiveCfg = Default
+		{16E7FCBB-7B2F-4697-A464-DDE49C36AAD4}.Default|Default.ActiveCfg = Default
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
