@@ -40,6 +40,7 @@ DROP PROCEDURE IF EXISTS administracion.GestionarPersona
 DROP PROCEDURE IF EXISTS administracion.GestionarCategoriaSocio
 DROP PROCEDURE IF EXISTS administracion.GestionarGrupoFamiliar
 
+DROP PROCEDURE IF EXISTS cobranzas.RegistrarMedioDePago
 DROP PROCEDURE IF EXISTS cobranzas.RegistrarCobranza
 DROP PROCEDURE IF EXISTS cobranzas.RegistrarReintegroPorLluvia
 DROP PROCEDURE IF EXISTS cobranzas.RegistrarPagoACuenta
@@ -67,6 +68,7 @@ DROP TABLE IF EXISTS cobranzas.NotaDeCredito;
 DROP TABLE IF EXISTS cobranzas.PagoACuenta;
 DROP TABLE IF EXISTS cobranzas.Pago;
 DROP TABLE IF EXISTS cobranzas.MedioDePago;
+DROP TABLE IF EXISTS cobranzas.DebitoAutomaticoSocio;
 
 -- FACTURACION
 DROP TABLE IF EXISTS facturacion.Descuento;
@@ -422,6 +424,7 @@ GO
    TABLAS DEL MÓDULO COBRANZAS
    =========================== */
 
+
 IF OBJECT_ID('cobranzas.MedioDePago', 'U') IS NOT NULL
     DROP TABLE cobranzas.MedioDePago;
 GO
@@ -432,6 +435,19 @@ CREATE TABLE cobranzas.MedioDePago (
     debito_automatico BIT
 );
 GO
+
+IF OBJECT_ID('cobranzas.DebitoAutomaticoSocio', 'U') IS NOT NULL
+    DROP TABLE cobranzas.DebitoAutomaticoSocio;
+GO
+CREATE TABLE cobranzas.DebitoAutomaticoSocio (
+    id_socio INT,
+    id_medio INT,
+    habilitado BIT NOT NULL,
+    PRIMARY KEY (id_socio, id_medio),
+    CONSTRAINT FK_debito_socio FOREIGN KEY (id_socio) REFERENCES administracion.Socio(id_socio),
+    CONSTRAINT FK_debito_medio FOREIGN KEY (id_medio) REFERENCES cobranzas.MedioDePago(id_medio)
+);
+
 
 IF OBJECT_ID('cobranzas.Pago', 'U') IS NOT NULL
     DROP TABLE cobranzas.Pago;
