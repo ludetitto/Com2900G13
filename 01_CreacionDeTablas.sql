@@ -325,11 +325,13 @@ GO
 CREATE TABLE actividades.presentismoActividadExtra (
     id_presentismo_extra INT IDENTITY(1,1) PRIMARY KEY,
     id_extra INT,
-	id_socio INT,
+	id_socio INT DEFAULT NULL,
+	id_invitado INT DEFAULT NULL,
 	fecha DATE,
 	condicion CHAR(1),
 	CONSTRAINT FK_presentismoActividadExtra_actividad_id FOREIGN KEY (id_extra) REFERENCES actividades.ActividadExtra(id_extra),
-	CONSTRAINT FK_presentismoActividadExtra_socio_id FOREIGN KEY (id_socio) REFERENCES administracion.Socio(id_socio)
+	CONSTRAINT FK_presentismoActividadExtra_socio_id FOREIGN KEY (id_socio) REFERENCES administracion.Socio(id_socio),
+	CONSTRAINT FK_presentismoActividadExtra_invitado_id FOREIGN KEY (id_invitado) REFERENCES administracion.Invitado(id_invitado)
 );
 GO
 
