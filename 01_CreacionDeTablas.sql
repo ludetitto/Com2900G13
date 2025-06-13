@@ -16,10 +16,10 @@ GO
 
 -- Vistas que usan administracion
 DROP VIEW IF EXISTS administracion.vwSociosConCategoria;
+DROP VIEW IF EXISTS administracion.vwSociosConObraSocial;
 
 -- Funciones y procedimientos específicos
 DROP PROCEDURE IF EXISTS cobranzas.AplicarBloqueoVencimiento;
-
 
 /* =============================
    ELIMINAR PROCEDIMIENTOS
@@ -28,7 +28,6 @@ DROP PROCEDURE IF EXISTS actividades.GestionarActividad
 DROP PROCEDURE IF EXISTS actividades.GestionarActividadExtra
 DROP PROCEDURE IF EXISTS actividades.GestionarClase
 DROP PROCEDURE IF EXISTS actividades.GestionarInscripcion
-DROP PROCEDURE IF EXISTS actividades.GestionarInscriptoActividadExtra
 DROP PROCEDURE IF EXISTS actividades.GestionarPresentismoActividadExtra
 DROP PROCEDURE IF EXISTS actividades.GestionarPresentismoClase
 DROP PROCEDURE IF EXISTS administracion.ConsultarEstadoSocioyGrupo
@@ -382,7 +381,8 @@ GO
 CREATE TABLE facturacion.Factura (
     id_factura INT IDENTITY(1,1) PRIMARY KEY,
 	id_emisor INT NOT NULL,
-    id_socio INT NOT NULL,
+    id_socio INT DEFAULT NULL,
+	id_invitado INT DEFAULT NULL,
 	leyenda CHAR(50) NOT NULL,
 	monto_total DECIMAL(10,2),
 	saldo_anterior DECIMAL(10,2),
@@ -392,7 +392,8 @@ CREATE TABLE facturacion.Factura (
 	estado CHAR(10),
     anulada BIT,
 	CONSTRAINT FK_factura_emisor_id FOREIGN KEY (id_emisor) REFERENCES facturacion.Emisorfactura (id_emisor),
-	CONSTRAINT FK_factura_socio_id FOREIGN KEY (id_socio) REFERENCES administracion.Socio (id_socio)
+	CONSTRAINT FK_factura_socio_id FOREIGN KEY (id_socio) REFERENCES administracion.Socio (id_socio),
+	CONSTRAINT FK_factura_invitado_id FOREIGN KEY (id_invitado) REFERENCES administracion.Invitado (id_invitado)
 );
 GO
 
