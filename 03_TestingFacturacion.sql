@@ -12,7 +12,7 @@ GO
 
 
 /*_____________________________________________________________________
-  ________________________ GestionarActividad _______________________
+  _____________________ PRUEBAS GestionarActividad ____________________
   _____________________________________________________________________*/
 
 -- ✅ PRUEBA 1: Inserción válida de actividad
@@ -59,7 +59,7 @@ EXEC actividades.GestionarActividad
 GO
 
 /*___________________________________________________________________
-  _________________________ GestionarClase __________________________
+  _____________________ PRUEBAS GestionarClase ______________________
   ___________________________________________________________________*/
 
 -- Ver datos de referencia
@@ -116,7 +116,7 @@ EXEC actividades.GestionarClase
 GO
 
 /*_____________________________________________________________________
-  _______________________ GestionarInscripcion ________________________
+  ___________________ PRUEBAS GestionarInscripcion ____________________
   _____________________________________________________________________*/
 
 -- Ver socios y clases existentes
@@ -195,7 +195,7 @@ SELECT * FROM actividades.InscriptoClase;
 
 
 /*_____________________________________________________________________
-  ___________________ GestionarPresentismoClase _______________________
+  _________________ PRUEBAS GestionarPresentismoClase _________________
   _____________________________________________________________________*/
 
 
@@ -330,56 +330,6 @@ EXEC actividades.GestionarActividadExtra
 -- Resultado esperado: Error de operación no válida
 GO
 
-
-/*_____________________________________________________________________
-  ______________ PRUEBAS GestionarInscriptoActividadExtra _____________
-  _____________________________________________________________________*/
-
--- ✅ PRUEBA 1: Inserción válida
-EXEC actividades.GestionarInscriptoActividadExtra
-@dni_socio = '12345678',
-@nombre_actividad_extra = 'Pileta',
-@fecha_inscripcion = '2025-06-01',
-@operacion = 'Insertar';
--- Resultado esperado: Inscripción creada correctamente
-GO
-
--- ✅ PRUEBA 2: Modificación válida
-EXEC actividades.GestionarInscriptoActividadExtra
-@dni_socio = '0012345678',
-@nombre_actividad_extra = 'Pileta',
-@fecha_inscripcion = '2025-06-02',
-@operacion = 'Modificar';
--- Resultado esperado: Inscripción modificada
-GO
-
--- ✅ PRUEBA 3: Eliminación válida
-EXEC actividades.GestionarInscriptoActividadExtra
-@dni_socio = '0012345678',
-@nombre_actividad_extra = 'Pileta',
-@fecha_inscripcion = NULL,
-@operacion = 'Eliminar';
--- Resultado esperado: Inscripción eliminada
-GO
-
--- ❌ PRUEBA 4: Insertar sin DNI
-EXEC actividades.GestionarInscriptoActividadExtra
-@dni_socio = NULL,
-@nombre_actividad_extra = 'Pileta',
-@fecha_inscripcion = NULL,
-@operacion = 'Insertar';
--- Resultado esperado: Error por DNI obligatorio
-GO
-
--- ❌ PRUEBA 5: Operación inválida
-EXEC actividades.GestionarInscriptoActividadExtra
-@dni_socio = '0012345678',
-@nombre_actividad_extra = 'Pileta',
-@fecha_inscripcion = NULL,
-@operacion = 'Alta';
--- Resultado esperado: Error por operación inválida
-GO
-
 /*_____________________________________________________________________
   ______________ PRUEBAS GestionarPresentismoActividadExtra ___________
   _____________________________________________________________________*/
@@ -391,7 +341,7 @@ EXEC actividades.GestionarPresentismoActividadExtra
 @nombre_actividad_extra = 'Pileta',
 @periodo = '2025-06',
 @es_invitado = 'N',
-@dni_socio = '45778667',
+@dni = '45778667',
 @fecha = '2025-06-08',
 @condicion = 'P',
 @operacion = 'Insertar';
@@ -406,7 +356,7 @@ EXEC actividades.GestionarPresentismoActividadExtra
 @nombre_actividad_extra = 'Pileta',
 @periodo = '2025-06',
 @es_invitado = 'N',
-@dni_socio = '45778667',
+@dni = '45778667',
 @fecha = '2025-06-08',
 @condicion = 'F',
 @operacion = 'Modificar';
@@ -420,7 +370,7 @@ EXEC actividades.GestionarPresentismoActividadExtra
 @nombre_actividad_extra = 'Pileta',
 @periodo = '2025-06',
 @es_invitado = 'N',
-@dni_socio = '45778667',
+@dni = '45778667',
 @fecha = '2025-06-08',
 @condicion = NULL,
 @operacion = 'Eliminar';
@@ -434,7 +384,7 @@ EXEC actividades.GestionarPresentismoActividadExtra
 @nombre_actividad_extra = NULL,
 @periodo = '2025-06',
 @es_invitado = 'N',
-@dni_socio = '0012345678',
+@dni = '0012345678',
 @fecha = NULL,
 @condicion = NULL,
 @operacion = 'Insertar';
@@ -446,7 +396,7 @@ EXEC actividades.GestionarPresentismoActividadExtra
 @nombre_actividad_extra = 'Pileta',
 @periodo = '2025-06',
 @es_invitado = 'N',
-@dni_socio = '0012345678',
+@dni = '0012345678',
 @fecha = NULL,
 @condicion = NULL,
 @operacion = 'Registrar';
@@ -454,8 +404,9 @@ EXEC actividades.GestionarPresentismoActividadExtra
 GO
 
 /*_____________________________________________________________________
-  _______________________ PRUEBAS GenerarEmisorFactura ______________________
+  ___________________ PRUEBAS GenerarEmisorFactura ____________________
   _____________________________________________________________________*/
+ -- ✅ PRUEBA 1: Inserción válida
  EXEC facturacion.GestionarEmisorFactura
     @razon_social = 'Sol del Norte S.A.',
     @cuil = '20-12345678-4',
@@ -464,58 +415,53 @@ GO
     @localidad = 'La Matanza',
     @codigo_postal = '1234',
     @operacion = 'Insertar'
-
+-- Resultado esperado: Emisor de factura insertado sin errores
+GO
 SELECT * FROM facturacion.EmisorFactura
+
+-- ✅ PRUEBA 2: Modificación válida
+ EXEC facturacion.GestionarEmisorFactura
+    @razon_social = 'Sol del Norte S.A.',
+    @cuil = '20-12345678-4',
+    @direccion = 'Av. Loria 1234',
+    @pais = 'Argentina',
+    @localidad = 'La Matanza',
+    @codigo_postal = '1234',
+    @operacion = 'Modificar'
+-- Resultado esperado: Emisor de factura modificado sin errores
+GO
+SELECT * FROM facturacion.EmisorFactura
+
+-- ✅ PRUEBA 3: Eliminación válida
+ EXEC facturacion.GestionarEmisorFactura
+    @razon_social = NULL,
+    @cuil = '20-12345678-4',
+    @direccion = NULL,
+    @pais = NULL,
+    @localidad = NULL,
+    @codigo_postal = NULL,
+    @operacion = 'Eliminar'
+-- Resultado esperado: Emisor de factura eliminado sin errores
+GO
+SELECT * FROM facturacion.EmisorFactura
+
+-- ❌ PRUEBA 5: Emisor de factura inexistente
+ EXEC facturacion.GestionarEmisorFactura
+    @razon_social = 'Sol del Norte S.A.',
+    @cuil = '20-22222222-4',
+    @direccion = 'Av. Loria 1234',
+    @pais = 'Argentina',
+    @localidad = 'La Matanza',
+    @codigo_postal = '1234',
+    @operacion = 'Modificar'
+-- Resultado esperado: Error de emisor de factura inválido
+GO
+
 /*_____________________________________________________________________
-  _______________________ PRUEBAS GenerarFactura ______________________
+  _________________ PRUEBAS GenerarFacturaSocioMensual ________________
   _____________________________________________________________________*/
 
 -- ✅ PRUEBA 1: Generación válida de factura para varias actividades
-
--- Carga de actividades previa [NO OLVIDAR DESCOMENTAR PARA HACER EL EJEMPLO]
-/*EXEC actividades.GestionarActividad
-    @nombre = 'Futsal',
-    @costo = 3500.00,
-    @horario = 'Martes 13:00',
-    @vigencia = '2025-07-01',
-    @operacion = 'Insertar';
-
-EXEC actividades.GestionarActividad
-    @nombre = 'Ajedrez',
-    @costo = 3500.00,
-    @horario = 'Lunes 18:00',
-    @vigencia = '2025-07-01',
-    @operacion = 'Insertar';
--- Resultado esperado: Actividades insertadas sin errores
-
-EXEC actividades.GestionarClase
-    @nombre_actividad = 'Futsal',
-    @dni_profesor = '34567890',
-    @horario = 'Martes 13:00',
-    @operacion = 'Insertar';
-
-EXEC actividades.GestionarClase
-    @nombre_actividad = 'Ajedrez',
-    @dni_profesor = '34567890',
-    @horario = 'Lunes 18:00',
-    @operacion = 'Insertar';
--- Resultado esperado: Clases insertadas sin errores
-
-EXEC actividades.GestionarInscripcion
-    @dni_socio = '40606060',
-    @nombre_actividad = 'Futsal',
-    @horario = 'Martes 13:00',
-    @fecha_inscripcion = '2025-02-06',
-    @operacion = 'Insertar';
-
-EXEC actividades.GestionarInscripcion
-    @dni_socio = '40606060',
-    @nombre_actividad = 'Ajedrez',
-    @horario = 'Lunes 18:00',
-    @fecha_inscripcion = '2025-02-06',
-    @operacion = 'Insertar';
--- Resultado esperado: Inscripciones insertadas sin errores
-GO*/
 
 EXEC facturacion.GenerarFacturaSocioMensual
 @dni_socio = '33444555',
@@ -523,39 +469,10 @@ EXEC facturacion.GenerarFacturaSocioMensual
 -- Resultado esperado: Factura generada sin errores
 GO
 
-/*
-DELETE FROM facturacion.DetalleFactura
-DELETE FROM facturacion.Factura
-*/
-
 SELECT * FROM facturacion.Factura
 SELECT * FROM facturacion.DetalleFactura
 
 -- ✅ PRUEBA 2: Generación válida de factura para varias actividades y varios socios de un grupo familiar
-
--- Carga de actividades previa [NO OLVIDAR DESCOMENTAR PARA HACER EL EJEMPLO]
-/*EXEC actividades.GestionarInscripcion
-    @dni_socio = '45778667',
-    @nombre_actividad = 'Futsal',
-    @horario = 'Martes 13:00',
-    @fecha_inscripcion = '2025-02-06',
-    @operacion = 'Insertar';
-
-EXEC actividades.GestionarInscripcion
-    @dni_socio = '40505050',
-    @nombre_actividad = 'Futsal',
-    @horario = 'Martes 13:00',
-    @fecha_inscripcion = '2025-02-06',
-    @operacion = 'Insertar';
-
-EXEC actividades.GestionarInscripcion
-    @dni_socio = '40505050',
-    @nombre_actividad = 'Ajedrez',
-    @horario = 'Lunes 18:00',
-    @fecha_inscripcion = '2025-02-06',
-    @operacion = 'Insertar';
--- Resultado esperado: Inscripciones insertadas sin errores
-GO*/
 
 EXEC facturacion.GenerarFacturaSocioMensual
 @dni_socio = '45778667',
@@ -567,5 +484,71 @@ GO
 EXEC facturacion.GenerarFacturaSocioMensual
 @dni_socio = '99999999',
 @cuil_emisor = '20-12345678-3';
+-- Resultado esperado: Error lanzado por RAISERROR
+GO
+
+/*_____________________________________________________________________
+  _________________ PRUEBAS GenerarFacturaInvitado ________________
+  _____________________________________________________________________*/
+
+-- ✅ PRUEBA 1: Generación válida de factura para una actividad
+
+EXEC facturacion.GenerarFacturaInvitado
+@dni_invitado = '46501934',
+@cuil_emisor = '20-12345678-4',
+@descripcion = 'Pileta verano';
+-- Resultado esperado: Factura generada sin errores
+GO
+
+SELECT * FROM facturacion.Factura
+SELECT * FROM facturacion.DetalleFactura
+
+-- ❌ PRUEBA 2: Generación inválida de factura para una actividad a la que no asistió
+
+EXEC facturacion.GenerarFacturaInvitado
+@dni_invitado = '46501934',
+@cuil_emisor = '20-12345678-4',
+@descripcion = 'Colonia de verano';
+-- Resultado esperado: Error lanzado por RAISERROR
+GO
+
+-- ❌ PRUEBA 3: Invitado no existe
+EXEC facturacion.GenerarFacturaInvitado
+@dni_invitado = '11111111',
+@cuil_emisor = '20-12345678-4',
+@descripcion = 'Colonia de verano';
+-- Resultado esperado: Error lanzado por RAISERROR
+GO
+
+/*_____________________________________________________________________
+  _________________ PRUEBAS GenerarFacturaSocioActExtra ________________
+  _____________________________________________________________________*/
+
+-- ✅ PRUEBA 1: Generación válida de factura para una actividad
+
+EXEC facturacion.GenerarFacturaSocioActExtra
+@dni_socio = '45778667',
+@cuil_emisor = '20-12345678-4',
+@descripcion = 'Pileta verano';
+-- Resultado esperado: Factura generada sin errores
+GO
+
+SELECT * FROM facturacion.Factura
+SELECT * FROM facturacion.DetalleFactura
+
+-- ❌ PRUEBA 2: Generación inválida de factura para una actividad a la que no asistió
+
+EXEC facturacion.GenerarFacturaSocioActExtra
+@dni_socio = '40707070',
+@cuil_emisor = '20-12345678-4',
+@descripcion = 'Colonia de verano';
+-- Resultado esperado: Error lanzado por RAISERROR
+GO
+
+-- ❌ PRUEBA 3: Invitado no existe
+EXEC facturacion.GenerarFacturaSocioActExtra
+@dni_socio = '11111111',
+@cuil_emisor = '20-12345678-4',
+@descripcion = 'Colonia de verano';
 -- Resultado esperado: Error lanzado por RAISERROR
 GO
