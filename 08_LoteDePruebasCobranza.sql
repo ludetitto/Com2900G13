@@ -3,11 +3,12 @@ GO
 SET NOCOUNT ON;
 GO
 
-DELETE FROM cobranzas.MedioDePago
-DBCC CHECKIDENT ('cobranzas.MedioDePago', RESEED, 0)WITH NO_INFOMSGS;
+DELETE FROM cobranzas.Pago;
+DBCC CHECKIDENT ('cobranzas.Pago', RESEED, 0) WITH NO_INFOMSGS;
 
-DELETE FROM cobranzas.Pago
-DBCC CHECKIDENT ('cobranzas.MedioDePago', RESEED, 0)WITH NO_INFOMSGS;
+DELETE FROM cobranzas.MedioDePago;
+DBCC CHECKIDENT ('cobranzas.MedioDePago', RESEED, 0) WITH NO_INFOMSGS;
+
 
 -- Insertar medios de pago - Tarjetas de crédito (con débito automático habilitado)
 EXEC cobranzas.GestionarMedioDePago @nombre = 'Visa',         @debito_automatico = 1, @operacion = 'Insertar';

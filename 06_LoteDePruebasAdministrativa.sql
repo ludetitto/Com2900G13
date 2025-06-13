@@ -7,14 +7,12 @@ DELETE FROM actividades.presentismoActividadExtra;
 DBCC CHECKIDENT ('actividades.presentismoActividadExtra', RESEED, 0) WITH NO_INFOMSGS;
 DELETE FROM actividades.presentismoClase;
 DBCC CHECKIDENT ('actividades.presentismoClase', RESEED, 0) WITH NO_INFOMSGS;
-DELETE FROM actividades.ActividadExtra;
-DBCC CHECKIDENT ('actividades.ActividadExtra', RESEED, 0) WITH NO_INFOMSGS;
+
 DELETE FROM actividades.InscriptoClase;
 DBCC CHECKIDENT ('actividades.InscriptoClase', RESEED, 0) WITH NO_INFOMSGS;
 DELETE FROM actividades.Clase;
 DBCC CHECKIDENT ('actividades.Clase', RESEED, 0) WITH NO_INFOMSGS;
-DELETE FROM actividades.Actividad;
-DBCC CHECKIDENT ('actividades.Actividad', RESEED, 0) WITH NO_INFOMSGS;
+
 DELETE FROM cobranzas.DebitoAutomaticoSocio;
 DELETE FROM cobranzas.PagoACuenta;
 DBCC CHECKIDENT ('cobranzas.PagoACuenta', RESEED, 0) WITH NO_INFOMSGS;
@@ -24,8 +22,15 @@ DELETE FROM cobranzas.Pago;
 DBCC CHECKIDENT ('cobranzas.Pago', RESEED, 0) WITH NO_INFOMSGS;
 DELETE FROM cobranzas.MedioDePago;
 DBCC CHECKIDENT ('cobranzas.MedioDePago', RESEED, 0) WITH NO_INFOMSGS;
+
 DELETE FROM facturacion.DetalleFactura;
 DBCC CHECKIDENT ('facturacion.DetalleFactura', RESEED, 0) WITH NO_INFOMSGS;
+
+DELETE FROM actividades.ActividadExtra;
+DBCC CHECKIDENT ('actividades.ActividadExtra', RESEED, 0) WITH NO_INFOMSGS;
+
+DELETE FROM actividades.Actividad;
+DBCC CHECKIDENT ('actividades.Actividad', RESEED, 0) WITH NO_INFOMSGS;
 DELETE FROM facturacion.Factura;
 DBCC CHECKIDENT ('facturacion.Factura', RESEED, 0)WITH NO_INFOMSGS;
 DELETE FROM facturacion.EmisorFactura;
