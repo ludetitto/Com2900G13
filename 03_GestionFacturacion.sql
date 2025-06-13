@@ -602,7 +602,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Validación de operación
+	 -- Validación de operación
     IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
     BEGIN
         RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
@@ -649,7 +649,7 @@ BEGIN
         ELSE IF @es_invitado = 'S'
         BEGIN
             IF @dni IS NOT NULL AND NOT EXISTS (
-                SELECT 1
+                SELECT id_invitado
                 FROM administracion.Invitado
                 WHERE dni = @dni
             )
@@ -665,7 +665,7 @@ BEGIN
         IF @condicion IS NULL
             SET @condicion = 'P';
 
-        INSERT INTO actividades.presentismoActividadExtra (id_extra, id_socio, fecha, condicion)
+        INSERT INTO actividades.presentismoActividadExtra (id_extra, id_socio, id_invitado, fecha, condicion)
         VALUES (
             (SELECT id_extra
                 FROM actividades.ActividadExtra
@@ -677,6 +677,9 @@ BEGIN
                 FROM administracion.Socio S
                 INNER JOIN administracion.Persona Pe ON S.id_persona = Pe.id_persona
                 WHERE Pe.dni = @dni),
+			(SELECT id_invitado
+                FROM administracion.Invitado
+                WHERE dni = @dni),
             @fecha,
             @condicion
         );
@@ -1027,8 +1030,8 @@ GO
 CREATE PROCEDURE facturacion.GenerarFacturaSocioActExtra
 (
     @dni_socio CHAR(10),
-	@periodo VARCHAR(20),
-    @cuil_emisor VARCHAR(20)
+	@cuil_emisor VARCHAR(20),
+    @descripcion VARCHAR(255)
 )
 AS
 BEGIN
@@ -1042,6 +1045,7 @@ BEGIN
 		DECLARE @monto_total DECIMAL(10, 2) = 0;
 		DECLARE @id_factura INT;
 		DECLARE @saldo DECIMAL(10, 2);
+		DECLARE @periodo VARCHAR(20);
 		DECLARE @fecha_vencimiento1 DATE;
 		DECLARE @fecha_vencimiento2 DATE;
 		
@@ -1060,18 +1064,33 @@ BEGIN
 		END
 
 		IF EXISTS (
-		SELECT TOP 1 id_factura
-		FROM facturacion.Factura
-		WHERE id_socio = @id_socio
+		SELECT TOP 1 F.id_factura
+		FROM facturacion.Factura F
+		INNER JOIN facturacion.DetalleFactura D ON D.id_factura = F.id_factura
+		WHERE F.id_socio = @id_socio
 			AND MONTH(fecha_emision) = MONTH(GETDATE())
 			AND YEAR(fecha_emision) = YEAR(GETDATE())
 			AND anulada = 0
+			AND D.descripcion = @descripcion
 		)
 		BEGIN
 			RAISERROR('Ya fue facturada la actividad.', 16, 1);
 			ROLLBACK TRANSACTION;
 			RETURN;
 		END
+		ELSE IF NOT EXISTS (SELECT TOP 1 PAE.id_invitado
+							FROM actividades.presentismoActividadExtra PAE
+							INNER JOIN actividades.ActividadExtra AE ON AE.id_extra = PAE.id_extra
+							WHERE AE.nombre = @descripcion
+							AND MONTH(PAE.fecha) = MONTH(GETDATE())
+							AND YEAR(PAE.fecha) = YEAR(GETDATE())
+							AND AE.nombre = @descripcion
+							AND AE.es_invitado = 'N')
+		BEGIN
+			RAISERROR('El socio no ha asistido a la actividad descripta.', 16, 1);
+			ROLLBACK TRANSACTION;
+			RETURN;
+		END;
 
 		/*Se obtiene el id_emisor asociado a su correspondiente CUIL*/
 		SELECT @id_emisor = id_emisor
@@ -1087,6 +1106,14 @@ BEGIN
 		END
 
 		/*Se calcula el vencimiento de las facturas en base al periodo escogido*/
+		SET @periodo = (SELECT TOP 1 AE.periodo 
+						FROM actividades.ActividadExtra AE
+						INNER JOIN actividades.presentismoActividadExtra PAE ON AE.id_extra = PAE.id_extra
+						WHERE PAE.id_socio = @id_socio 
+						AND MONTH(PAE.fecha) = MONTH(GETDATE()) 
+						AND YEAR(PAE.fecha) = YEAR(GETDATE())
+						AND AE.nombre = @descripcion
+						AND AE.es_invitado = 'N');
 		SET @fecha_vencimiento1 = GETDATE();
 		SET @fecha_vencimiento2 = GETDATE();
 
@@ -1097,10 +1124,14 @@ BEGIN
 		END
 
 		/*Obtener monto total a facturar*/
-		SELECT @monto_total += costo
-		FROM actividades.ActividadExtra AE
-		INNER JOIN actividades.PresentismoActividadExtra PAE ON PAE.id_extra = AE.id_extra
-		WHERE PAE.id_socio = @id_socio AND AE.periodo LIKE @periodo;
+		SELECT @monto_total = MAX(AE.costo)
+		FROM actividades.PresentismoActividadExtra PAE
+		INNER JOIN actividades.ActividadExtra AE ON PAE.id_extra = AE.id_extra
+		WHERE PAE.id_socio = @id_socio
+		AND MONTH(PAE.fecha) = MONTH(GETDATE())
+		AND YEAR(PAE.fecha) = YEAR(GETDATE())
+		AND AE.nombre = @descripcion
+		AND AE.es_invitado = 'N';
 
 		/*Generar factura per sé*/
 		INSERT INTO facturacion.Factura
@@ -1122,18 +1153,21 @@ BEGIN
 
 		-- ACTIVIDADES EXTRA
 		INSERT INTO facturacion.DetalleFactura
-			(id_factura, id_extra, tipo_item, descripcion, monto, cantidad)
+		(id_factura, id_extra, tipo_item, descripcion, monto, cantidad)
 		SELECT
 			@id_factura,
 			AE.id_extra,
-			'Actividad extra - Periodo' + AE.periodo,
+			'Actividad extra - Periodo ' + AE.periodo,
 			AE.nombre,
 			AE.costo,
-			COUNT(PAE.id_extra) OVER(PARTITION BY PAE.id_socio) AS cantidad
-		FROM administracion.Socio S
-		INNER JOIN actividades.PresentismoActividadExtra PAE ON PAE.id_socio = S.id_socio
+			1
+		FROM actividades.PresentismoActividadExtra PAE
 		INNER JOIN actividades.ActividadExtra AE ON PAE.id_extra = AE.id_extra
-		WHERE PAE.id_socio = @id_socio AND AE.periodo LIKE @periodo;
+		WHERE PAE.id_socio = @id_socio
+		AND MONTH(PAE.fecha) = MONTH(GETDATE())
+		AND YEAR(PAE.fecha) = YEAR(GETDATE())
+		AND AE.nombre = @descripcion
+		AND AE.es_invitado = 'N';
 
 		/*Confirmar transacción*/
         COMMIT TRANSACTION;
@@ -1184,6 +1218,21 @@ BEGIN
             RETURN;
         END
 
+		IF NOT EXISTS (SELECT PAE.id_extra
+					   FROM actividades.PresentismoActividadExtra PAE
+					   INNER JOIN actividades.ActividadExtra AE ON PAE.id_extra = AE.id_extra
+					   WHERE PAE.id_invitado = @id_invitado 
+					   AND AE.periodo LIKE 'Dia' 
+					   AND AE.es_invitado = 'S' 
+					   AND AE.nombre = @descripcion
+					   AND MONTH(PAE.fecha) = MONTH(GETDATE())
+					   AND YEAR(PAE.fecha) = YEAR(GETDATE()))
+		BEGIN
+            RAISERROR('El invitado ingresado no asistió a la actividad descripta.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END
+
 		/*Verificar si ya existe una factura emitida hoy para este invitado con esa actividad*/
 		IF EXISTS (SELECT TOP 1  id_factura = @id_factura
 					FROM facturacion.Factura F
@@ -1191,7 +1240,9 @@ BEGIN
 					WHERE F.id_socio IS NULL
 					AND F.fecha_emision = GETDATE()
 					AND D.descripcion = @descripcion
-					AND F.anulada = 0)
+					AND F.anulada = 0
+					AND MONTH(F.fecha_emision) = MONTH(GETDATE())
+					AND YEAR(F.fecha_emision) = YEAR(GETDATE()))
 		BEGIN
 			RAISERROR('Ya se generó una factura hoy para este invitado con esa actividad.', 16, 1);
 			ROLLBACK TRANSACTION;
@@ -1217,7 +1268,12 @@ BEGIN
 				@id_emisor, 
 				@id_invitado, 
 				'Consumidor final', 
-				(SELECT TOP 1 costo FROM actividades.ActividadExtra WHERE nombre = @descripcion AND es_invitado = 'S' AND vigencia < GETDATE() ORDER BY vigencia DESC),
+				(SELECT TOP 1 costo 
+				 FROM actividades.ActividadExtra 
+				 WHERE nombre = @descripcion 
+				 AND es_invitado = 'S' 
+				 AND vigencia > GETDATE() 
+				 ORDER BY vigencia DESC),
 				0,
 				GETDATE(), 
 				GETDATE(), 
@@ -1240,7 +1296,12 @@ BEGIN
 			1
 		FROM actividades.PresentismoActividadExtra PAE
 		INNER JOIN actividades.ActividadExtra AE ON PAE.id_extra = AE.id_extra
-		WHERE PAE.id_socio IS NULL AND AE.periodo LIKE 'Dia' AND AE.es_invitado = 'S' AND AE.nombre = @descripcion;
+		WHERE PAE.id_invitado = @id_invitado 
+		AND AE.periodo LIKE 'Dia' 
+		AND AE.es_invitado = 'S' 
+		AND AE.nombre = @descripcion
+		AND MONTH(PAE.fecha) = MONTH(GETDATE())
+		AND YEAR(PAE.fecha) = YEAR(GETDATE());
 
         COMMIT TRANSACTION;
 
