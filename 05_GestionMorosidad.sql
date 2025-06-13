@@ -25,6 +25,8 @@ BEGIN
     SET NOCOUNT ON;
 
     DECLARE @porcentaje_recargo DECIMAL(5, 2);
+	DECLARE @monto_recargo DECIMAL(10, 2);
+	DECLARE @id_mora INT;
 
     -- Obtener el porcentaje del recargo
     SELECT @porcentaje_recargo = porcentaje
@@ -35,8 +37,8 @@ BEGIN
     -- Verificar si se encontró el recargo
     IF @porcentaje_recargo IS NOT NULL
     BEGIN
-        UPDATE facturacion.Factura
-        SET monto_total = monto_total * (1 + @porcentaje_recargo)
+        SELECT @monto_recargo = monto_total * (1 + @porcentaje_recargo)
+		FROM facturacion.Factura
         WHERE anulada = 0 
         AND id_factura IN (SELECT F.id_factura
 						   FROM facturacion.Factura F
@@ -57,9 +59,16 @@ BEGIN
 		id_socio,
 		id_factura,
 		0,
-		monto_total * @porcentaje_recargo AS monto
+		@monto_recargo
 	FROM facturacion.Factura
 	WHERE fecha_vencimiento1 < CAST(GETDATE() AS DATE)
+
+	SET @id_mora = SCOPE_IDENTITY();
+
+	/*Se actualiza saldo del socio a partir de la mora*/
+	UPDATE administracion.Socio
+	SET saldo = -@monto_recargo
+	WHERE id_socio IN (SELECT id_socio FROM cobranzas.Mora WHERE id_mora = @id_mora)
 
 END;
 GO
@@ -78,10 +87,10 @@ BEGIN
     SET NOCOUNT ON;
 	
 	/*Tabla temporal para guardar los socios a bloquear*/
-    DECLARE @SociosABloquear TABLE (id_socio INT);
+    DECLARE @socios_a_bloquear TABLE (id_socio INT);
 
     /*Insertamos los socios con facturas vencidas y sin pago*/
-    INSERT INTO @SociosABloquear (id_socio)
+    INSERT INTO @socios_a_bloquear (id_socio)
     SELECT DISTINCT S.id_socio
     FROM facturacion.Factura F
     INNER JOIN administracion.Socio S ON S.id_socio = F.id_socio
@@ -95,7 +104,7 @@ BEGIN
     UPDATE S
     SET activo = 0
     FROM administracion.Socio S
-    INNER JOIN @SociosABloquear B ON S.id_socio = B.id_socio;
+    INNER JOIN @socios_a_bloquear B ON S.id_socio = B.id_socio;
 
     /*Insertamos notificaciones*/
     INSERT INTO cobranzas.Notificacion (id_mora, mensaje, fecha, destinatario)
@@ -105,9 +114,10 @@ BEGIN
         GETDATE(),
         P.email
     FROM cobranzas.Mora M
-    INNER JOIN @SociosABloquear B ON M.id_socio = B.id_socio
+    INNER JOIN @socios_a_bloquear B ON M.id_socio = B.id_socio
     INNER JOIN administracion.Socio S ON S.id_socio = M.id_socio
-	INNER JOIN administracion.Persona P ON P.id_persona = S.id_persona;
+	INNER JOIN administracion.Persona P ON P.id_persona = S.id_persona
+	WHERE M.facturada = 0;
 END;
 GO
 
