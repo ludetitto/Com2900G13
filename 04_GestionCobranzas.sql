@@ -10,11 +10,88 @@
 USE COM2900G13
 GO
 
+/*____________________________________________________________________
+  _________________________ RegistrarMedioDePago ________________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('cobranzas.GestionarMedioDePago', 'P') IS NOT NULL
+    DROP PROCEDURE cobranzas.GestionarMedioDePago;
+GO
+
+CREATE PROCEDURE cobranzas.GestionarMedioDePago
+    @nombre             VARCHAR(100),
+    @debito_automatico  BIT = 0,
+    @operacion          CHAR(10)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validar operación
+    IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
+    BEGIN
+        RAISERROR('Operación no válida. Debe ser Insertar, Modificar o Eliminar.', 16, 1);
+        RETURN;
+    END
+
+    -- Validación de nombre
+    IF @nombre IS NULL OR LTRIM(RTRIM(@nombre)) = ''
+    BEGIN
+        RAISERROR('El nombre del medio de pago no puede ser nulo ni vacío.', 16, 1);
+        RETURN;
+    END
+
+    -- INSERTAR
+    IF @operacion = 'Insertar'
+    BEGIN
+        IF EXISTS (SELECT 1 FROM cobranzas.MedioDePago WHERE nombre = @nombre)
+        BEGIN
+            RAISERROR('Ya existe un medio de pago con ese nombre.', 16, 1);
+            RETURN;
+        END
+
+        INSERT INTO cobranzas.MedioDePago (nombre, debito_automatico)
+        VALUES (@nombre, @debito_automatico);
+    END
+
+    -- MODIFICAR
+    IF @operacion = 'Modificar'
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM cobranzas.MedioDePago WHERE nombre = @nombre)
+        BEGIN
+            RAISERROR('El medio de pago que intenta modificar no existe.', 16, 1);
+            RETURN;
+        END
+
+        UPDATE cobranzas.MedioDePago
+        SET debito_automatico = @debito_automatico
+        WHERE nombre = @nombre;
+
+        PRINT 'Medio de pago modificado correctamente.';
+        RETURN;
+    END
+
+    -- ELIMINAR
+    IF @operacion = 'Eliminar'
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM cobranzas.MedioDePago WHERE nombre = @nombre)
+        BEGIN
+            RAISERROR('El medio de pago que intenta eliminar no existe.', 16, 1);
+            RETURN;
+        END
+
+        DELETE FROM cobranzas.MedioDePago
+        WHERE nombre = @nombre;
+
+        PRINT 'Medio de pago eliminado correctamente.';
+        RETURN;
+    END
+END;
+GO
+
 
 /*____________________________________________________________________
   _________________________ RegistrarCobranza ________________________
   ____________________________________________________________________*/
-
 IF OBJECT_ID('cobranzas.RegistrarCobranza', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.RegistrarCobranza;
 GO
@@ -23,9 +100,9 @@ CREATE PROCEDURE cobranzas.RegistrarCobranza
     @dni_socio VARCHAR(10),
     @monto DECIMAL(10, 2),
     @fecha DATE,
-    @medio_pago VARCHAR(50),
-    @nombre_actividad_extra INT = NULL,  -- parámetro opcional
-    @id_factura INT						 -- parámetro obligatorio
+    @medio_pago VARCHAR(100),
+    @nombre_actividad_extra INT = NULL,
+    @id_factura INT
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -34,12 +111,16 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
-		DECLARE @id_medio INT;
-		DECLARE @id_socio INT;
-		DECLARE @id_extra INT;
-		DECLARE @sobrante DECIMAL(5, 2);
+        DECLARE @id_medio INT;
+        DECLARE @id_socio INT;
+        DECLARE @id_extra INT;
+        DECLARE @sobrante DECIMAL(10,2);
+        DECLARE @nro_transaccion INT;
 
-		-- Validación del monto ingresado
+        -- Generar nro_transaccion incremental (último valor + 1)
+        SELECT @nro_transaccion = ISNULL(MAX(nro_transaccion), 0) + 1 FROM cobranzas.Pago;
+
+        -- Validar monto
         IF @monto IS NULL OR @monto <= 0
         BEGIN
             RAISERROR('Monto ingresado no válido.', 16, 1);
@@ -47,7 +128,7 @@ BEGIN
             RETURN;
         END;
 
-        -- Validación del medio de pago no permitido
+        -- No se permite efectivo ni cheque
         IF @medio_pago IN ('Efectivo', 'Cheque')
         BEGIN
             RAISERROR('No se aceptan pagos en Efectivo ni Cheque.', 16, 1);
@@ -55,19 +136,23 @@ BEGIN
             RETURN;
         END;
 
-        -- Validación del medio de pago registrado
-        SELECT @id_medio = id_medio 
-        FROM cobranzas.MedioDePago 
-        WHERE nombre = @medio_pago;
+        -- Verificar medio de pago
+        SELECT @id_medio = id_medio
+        FROM cobranzas.MedioDePago
+        WHERE nombre = @medio_pago
+          AND nombre IN (
+              'Visa', 'MasterCard', 'Tarjeta Naranja', 
+              'Pago Fácil', 'Rapipago', 'Transferencia Mercado Pago'
+          );
 
         IF @id_medio IS NULL
         BEGIN
-            RAISERROR('Medio de pago no válido. Debe ser uno registrado.', 16, 1);
+            RAISERROR('Medio de pago inválido.', 16, 1);
             ROLLBACK TRANSACTION;
             RETURN;
         END;
 
-        -- Obtener id_socio a partir del dni y validar que esté activo
+        -- Buscar socio
         SELECT @id_socio = S.id_socio
         FROM administracion.Socio S
         JOIN administracion.Persona P ON S.id_persona = P.id_persona
@@ -75,53 +160,59 @@ BEGIN
 
         IF @id_socio IS NULL
         BEGIN
-            RAISERROR('El socio especificado no existe o no está activo.', 16, 1);
+            RAISERROR('El socio no existe o está inactivo.', 16, 1);
             ROLLBACK TRANSACTION;
             RETURN;
         END;
 
-		SELECT @id_extra = id_extra
-        FROM actividades.ActividadExtra 
-        WHERE nombre = @nombre_actividad_extra
-
-        -- Validación de la actividad extra (opcional)
-        IF @nombre_actividad_extra IS NULL OR @id_extra IS NULL
+        -- Validar actividad extra (opcional)
+        IF @nombre_actividad_extra IS NOT NULL
         BEGIN
-            RAISERROR('La actividad extra especificada no existe.', 16, 1);
-            ROLLBACK TRANSACTION;
-            RETURN;
+            SELECT @id_extra = id_extra
+            FROM actividades.ActividadExtra 
+            WHERE id_extra = @nombre_actividad_extra;
+
+            IF @id_extra IS NULL
+            BEGIN
+                RAISERROR('La actividad extra no existe.', 16, 1);
+                ROLLBACK TRANSACTION;
+                RETURN;
+            END;
         END;
 
-        -- Validar existencia de factura válida asociada al socio
+        -- Validar factura
         SELECT @sobrante = @monto - monto_total
         FROM facturacion.Factura 
         WHERE id_factura = @id_factura 
-            AND id_socio = @id_socio 
-            AND anulada = 0
+          AND id_socio = @id_socio 
+          AND anulada = 0;
 
         IF @sobrante IS NULL
         BEGIN
-            RAISERROR('La factura no existe, no pertenece al socio o está anulada.', 16, 1);
+            RAISERROR('Factura inválida para el socio.', 16, 1);
             ROLLBACK TRANSACTION;
             RETURN;
-        END IF @sobrante < 0
-		BEGIN
-			SELECT @sobrante += saldo
-			FROM administracion.Socio
-			WHERE id_socio = @id_socio
+        END;
 
-			IF @sobrante < 0
-				BEGIN
-				RAISERROR('Monto de pago y saldo actual insuficientes.', 16, 1);
-				ROLLBACK TRANSACTION;
-				RETURN;
-			END
-		END;
+        IF @sobrante < 0
+        BEGIN
+            SELECT @sobrante += saldo
+            FROM administracion.Socio
+            WHERE id_socio = @id_socio;
+
+            IF @sobrante < 0
+            BEGIN
+                RAISERROR('Saldo insuficiente.', 16, 1);
+                ROLLBACK TRANSACTION;
+                RETURN;
+            END;
+        END;
 
         -- Insertar el pago
         INSERT INTO cobranzas.Pago (
             id_factura,
             id_medio,
+            nro_transaccion,
             monto,
             fecha_emision,
             fecha_vencimiento,
@@ -130,22 +221,17 @@ BEGIN
         VALUES (
             @id_factura,
             @id_medio,
+            @nro_transaccion,
             @monto,
             GETDATE(),
             @fecha,
             'Pagado'
         );
 
-		/*Sumar montos
-			- 1000 + 500	--> -500 y saldo 0
-			- 1000 + 0		-->	-1000 y saldo 0
-			- 1000 - 2000	--> -3000 y saldo 0 
-		*/
-
-        -- Actualizar el saldo del socio (DEBERIA SER CON PAGO A CUENTA)
-		UPDATE administracion.Socio
-		SET saldo = @sobrante
-		WHERE id_socio = @id_socio
+        -- Actualizar saldo del socio
+        UPDATE administracion.Socio
+        SET saldo = @sobrante
+        WHERE id_socio = @id_socio;
 
         COMMIT TRANSACTION;
     END TRY
@@ -160,69 +246,125 @@ BEGIN
 END;
 GO
 
+
 /*____________________________________________________________________
   _____________________ HabilitarDebitoAutomatico ____________________
   ____________________________________________________________________*/
-
 IF OBJECT_ID('cobranzas.HabilitarDebitoAutomatico', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.HabilitarDebitoAutomatico;
 GO
 
 CREATE PROCEDURE cobranzas.HabilitarDebitoAutomatico
-    @nombre_medio VARCHAR(50)
+    @dni_socio     VARCHAR(10),
+    @nombre_medio  VARCHAR(100)
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Validar existencia del medio de pago
-    IF NOT EXISTS (
-        SELECT 1 FROM cobranzas.MedioDePago WHERE nombre = @nombre_medio
-    )
+    DECLARE @id_socio INT, @id_medio INT;
+
+    -- Buscar socio activo
+    SELECT @id_socio = S.id_socio
+    FROM administracion.Socio S
+    JOIN administracion.Persona P ON S.id_persona = P.id_persona
+    WHERE P.dni = @dni_socio AND S.activo = 1;
+
+    IF @id_socio IS NULL
     BEGIN
-        RAISERROR('El medio de pago especificado no existe.', 16, 1);
+        RAISERROR('El socio especificado no existe o no está activo.', 16, 1);
         RETURN;
     END
 
-    -- Actualizar el campo debito_automatico a 1
-    UPDATE cobranzas.MedioDePago
-    SET debito_automatico = 1
-    WHERE nombre = @nombre_medio;
+    -- Buscar medio de pago válido para débito automático
+    SELECT @id_medio = id_medio
+    FROM cobranzas.MedioDePago
+    WHERE nombre = @nombre_medio AND debito_automatico = 1;
 
-    PRINT 'Débito automático habilitado correctamente para el medio de pago especificado.';
+    IF @id_medio IS NULL
+    BEGIN
+        RAISERROR('El medio de pago especificado no permite débito automático.', 16, 1);
+        RETURN;
+    END
+
+    -- Insertar o actualizar la preferencia del socio
+    IF EXISTS (
+        SELECT 1 FROM cobranzas.DebitoAutomaticoSocio
+        WHERE id_socio = @id_socio AND id_medio = @id_medio
+    )
+    BEGIN
+        UPDATE cobranzas.DebitoAutomaticoSocio
+        SET habilitado = 1
+        WHERE id_socio = @id_socio AND id_medio = @id_medio;
+    END
+    ELSE
+    BEGIN
+        INSERT INTO cobranzas.DebitoAutomaticoSocio (id_socio, id_medio, habilitado)
+        VALUES (@id_socio, @id_medio, 1);
+    END
+
+    PRINT 'Débito automático habilitado para el socio con ese medio de pago.';
 END;
 GO
+
 
 /*____________________________________________________________________
   ___________________ DeshabilitarDebitoAutomatico ___________________
   ____________________________________________________________________*/
-
 IF OBJECT_ID('cobranzas.DeshabilitarDebitoAutomatico', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.DeshabilitarDebitoAutomatico;
 GO
 
 CREATE PROCEDURE cobranzas.DeshabilitarDebitoAutomatico
-    @nombre_medio VARCHAR(50)
+    @dni_socio     VARCHAR(10),
+    @nombre_medio  VARCHAR(100)
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Validar existencia del medio de pago
-    IF NOT EXISTS (
-        SELECT 1 FROM cobranzas.MedioDePago WHERE nombre = @nombre_medio
-    )
+    DECLARE @id_socio INT, @id_medio INT;
+
+    -- Buscar socio activo
+    SELECT @id_socio = S.id_socio
+    FROM administracion.Socio S
+    JOIN administracion.Persona P ON S.id_persona = P.id_persona
+    WHERE P.dni = @dni_socio AND S.activo = 1;
+
+    IF @id_socio IS NULL
+    BEGIN
+        RAISERROR('El socio especificado no existe o no está activo.', 16, 1);
+        RETURN;
+    END
+
+    -- Buscar medio de pago
+    SELECT @id_medio = id_medio
+    FROM cobranzas.MedioDePago
+    WHERE nombre = @nombre_medio;
+
+    IF @id_medio IS NULL
     BEGIN
         RAISERROR('El medio de pago especificado no existe.', 16, 1);
         RETURN;
     END
 
-    -- Actualizar el campo debito_automatico a 0
-    UPDATE cobranzas.MedioDePago
-    SET debito_automatico = 0
-    WHERE nombre = @nombre_medio;
+    -- Deshabilitar si ya estaba configurado
+    IF EXISTS (
+        SELECT 1 FROM cobranzas.DebitoAutomaticoSocio
+        WHERE id_socio = @id_socio AND id_medio = @id_medio AND habilitado = 1
+    )
+    BEGIN
+        UPDATE cobranzas.DebitoAutomaticoSocio
+        SET habilitado = 0
+        WHERE id_socio = @id_socio AND id_medio = @id_medio;
 
-    PRINT 'Débito automático deshabilitado correctamente para el medio de pago especificado.';
+        PRINT 'Débito automático deshabilitado para el socio con ese medio de pago.';
+    END
+    ELSE
+    BEGIN
+        RAISERROR('El socio no tiene habilitado el débito automático con ese medio de pago.', 16, 1);
+    END
 END;
 GO
+
 
 /*____________________________________________________________________
   _______________________ RegistrarNotaDeCredito _____________________
