@@ -32,13 +32,16 @@ EXEC cobranzas.RegistrarCobranza
     @id_factura = 1;
 GO
 
+-- ================= REGISTRAR COBRANZA PARA FACTURA =================
+
+
 -- ================= VERIFICAR RESULTADOS =================
 
 select * from cobranzas.MedioDePago
 
 SELECT * FROM cobranzas.Pago WHERE id_factura = 1;
 SELECT saldo FROM administracion.Socio 
+
 WHERE id_persona = (SELECT id_persona FROM administracion.Persona WHERE dni = '33444555');
 select * from facturacion.factura where id_factura = 1
-
 

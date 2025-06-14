@@ -445,6 +445,12 @@ BEGIN
             RETURN;
         END
 
+		IF @id_socio IN (SELECT id_socio FROM administracion.Socio WHERE activo = 0)
+        BEGIN
+            RAISERROR('El socio especificado se encuentra inactivo.', 16, 1);
+            RETURN;
+        END
+
         IF @fecha IS NULL
             SET @fecha = GETDATE();
 
@@ -948,9 +954,9 @@ BEGIN
 			'Consumidor final', 
 			@monto_total, 
 			(SELECT ISNULL(SUM(saldo), 0)FROM administracion.Socio WHERE id_socio = @id_socio),
-			GETDATE(), 
-			DATEADD(DAY, 5, GETDATE()), 
-			DATEADD(DAY, 10, GETDATE()), 
+			GETDATE() - 6, 
+			DATEADD(DAY, -1, GETDATE()), 
+			DATEADD(DAY, 4, GETDATE()), 
 			'No pagada', 
 			0);
 
@@ -1279,7 +1285,7 @@ BEGIN
 				GETDATE(), 
 				GETDATE(), 
 				GETDATE(), 
-				'No pagado', 
+				'No pagada', 
 				0
 			);
 

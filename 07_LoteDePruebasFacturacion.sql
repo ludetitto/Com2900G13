@@ -3,6 +3,7 @@ GO
 SET NOCOUNT ON;
 GO
 
+=======
 -- Borrar detalle y factura (en ese orden)
 DELETE FROM facturacion.DetalleFactura;
 DELETE FROM facturacion.Factura;
