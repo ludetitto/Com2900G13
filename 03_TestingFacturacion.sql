@@ -10,227 +10,238 @@
 USE COM2900G13;
 GO
 
+
 /*_____________________________________________________________________
-  ________________________ GestionarActividad _______________________
+  _____________________ PRUEBAS GestionarActividad ____________________
   _____________________________________________________________________*/
 
 -- ✅ PRUEBA 1: Inserción válida de actividad
--- Esperado: Se inserta el registro correctamente
 EXEC actividades.GestionarActividad
     @nombre = 'Ajedrez',
     @costo = 3500.00,
-    @horario = 'Lunes 18:00',
     @vigencia = '2025-07-01',
     @operacion = 'Insertar';
--- Resultado esperado: Actividad insertada sin errores
 GO
-SELECT * FROM actividades.Actividad
+SELECT * FROM actividades.Actividad;
 
 -- ✅ PRUEBA 2: Modificación válida de actividad existente
--- Esperado: Se actualizan los datos correctamente
 EXEC actividades.GestionarActividad
     @nombre = 'Ajedrez',
     @costo = 4000.00,
-    @horario = NULL,
     @vigencia = NULL,
     @operacion = 'Modificar';
--- Resultado esperado: Actividad modificada sin errores
 GO
-SELECT * FROM actividades.Actividad
+SELECT * FROM actividades.Actividad;
 
 -- ✅ PRUEBA 3: Eliminación válida de actividad
--- Esperado: Se elimina el registro de la actividad
 EXEC actividades.GestionarActividad
     @nombre = 'Ajedrez',
     @costo = NULL,
-    @horario = NULL,
     @vigencia = NULL,
     @operacion = 'Eliminar';
--- Resultado esperado: Actividad eliminada sin errores
 GO
-SELECT * FROM actividades.Actividad
-
+SELECT * FROM actividades.Actividad;
 
 -- ❌ PRUEBA 4: Modificar actividad inexistente
 EXEC actividades.GestionarActividad
     @nombre = 'No Existe',
     @costo = 1000.00,
-    @horario = 'Martes 10:00',
     @vigencia = '2025-08-01',
     @operacion = 'Modificar';
--- Resultado esperado: Error lanzado por RAISERROR
 GO
-SELECT * FROM actividades.Actividad
 
 -- ❌ PRUEBA 5: Operación inválida
 EXEC actividades.GestionarActividad
-    @nombre = 'Ajedez',
+    @nombre = 'Ajedrez',
     @costo = 1000.00,
-    @horario = 'Lunes 10:00',
     @vigencia = '2025-09-01',
     @operacion = 'Actualizar';
--- Resultado esperado: Error lanzado por RAISERROR de operación inválida
 GO
-SELECT * FROM actividades.Actividad
 
 /*___________________________________________________________________
-  _________________________ GestionarClase __________________________
+  _____________________ PRUEBAS GestionarClase ______________________
   ___________________________________________________________________*/
-select * from administracion.Profesor
-select * from administracion.Persona
+
+-- Ver datos de referencia
+SELECT * FROM administracion.Profesor;
+SELECT * FROM administracion.Persona;
+SELECT * FROM administracion.CategoriaSocio;
 
 -- ✅ PRUEBA 1: Inserción válida de clase
--- Esperado: Se inserta el registro correctamente
-
 EXEC actividades.GestionarClase
     @nombre_actividad = 'Ajedrez',
     @dni_profesor = '34567890',
     @horario = 'Miércoles 17:00',
+    @nombre_categoria = 'Mayor',
     @operacion = 'Insertar';
--- Resultado esperado: Clase insertada sin errores
 GO
-SELECT * FROM actividades.Clase
+SELECT * FROM actividades.Clase;
 
 -- ✅ PRUEBA 2: Modificación válida de clase
--- Esperado: Se actualizan los datos correctamente
 EXEC actividades.GestionarClase
     @nombre_actividad = 'Ajedrez',
     @dni_profesor = '34567890',
     @horario = 'Miércoles 15:00',
+    @nombre_categoria = 'Mayor',
     @operacion = 'Modificar';
--- Resultado esperado: Clase modificada sin errores
 GO
-SELECT * FROM actividades.Clase
+SELECT * FROM actividades.Clase;
 
 -- ✅ PRUEBA 3: Eliminación válida de clase
--- Esperado: Se elimina la clase correspondiente
 EXEC actividades.GestionarClase
     @nombre_actividad = 'Ajedrez',
-    @dni_profesor = '23456789',
-    @horario = 'Miércoles 14:00',
+    @dni_profesor = '34567890',
+    @horario = 'Miércoles 15:00',
+    @nombre_categoria = 'Mayor',
     @operacion = 'Eliminar';
--- Resultado esperado: Clase eliminada sin errores
 GO
-SELECT * FROM actividades.Clase
+SELECT * FROM actividades.Clase;
 
 -- ❌ PRUEBA 4: Modificar clase inexistente
 EXEC actividades.GestionarClase
     @nombre_actividad = 'Actividad Fantasma',
     @dni_profesor = '00000000',
     @horario = 'Domingo 12:00',
+    @nombre_categoria = 'Mayor',
     @operacion = 'Modificar';
--- Resultado esperado: Error lanzado por RAISERROR
 GO
-SELECT * FROM actividades.Clase
 
 -- ❌ PRUEBA 5: Operación inválida
 EXEC actividades.GestionarClase
     @nombre_actividad = 'Ajedrez',
-    @dni_profesor = '12345678',
+    @dni_profesor = '34567890',
     @horario = 'Miércoles 17:00',
+    @nombre_categoria = 'Mayor',
     @operacion = 'Actualizar';
--- Resultado esperado: Error lanzado por RAISERROR de operación inválida
 GO
 
 /*_____________________________________________________________________
-  _______________________ GestionarInscripcion ________________________
+  ___________________ PRUEBAS GestionarInscripcion ____________________
   _____________________________________________________________________*/
 
-
-select * from administracion.Socio
-select * from administracion.Persona
-
--- ✅ PRUEBA 1: Inserción válida de inscripción
--- Esperado: Se inserta la inscripción correctamente si el socio y la clase existen
+-- Ver socios y clases existentes
+SELECT * FROM administracion.Socio;
+SELECT * FROM administracion.Persona;
+SELECT * FROM actividades.Clase;
+-- ✅ Francisco (Mayor) se inscribe a Ajedrez
 EXEC actividades.GestionarInscripcion
-    @dni_socio = '23456789',
+    @dni_socio = '45778667',
     @nombre_actividad = 'Ajedrez',
-    @horario = 'Miércoles 17:00',
-    @fecha_inscripcion = '2025-02-06',
+    @horario = 'Sábado 19:00',
+    @nombre_categoria = 'Mayor',
+    @fecha_inscripcion = '2025-06-12',
     @operacion = 'Insertar';
+
+select * from actividades.InscriptoClase
+
+-- ✅ Mariana (Menor) se inscribe a Natación
+EXEC actividades.GestionarInscripcion
+    @dni_socio = '40505050',
+    @nombre_actividad = 'Natación',
+    @horario = 'Viernes 08:00',
+    @nombre_categoria = 'Menor',
+    @fecha_inscripcion = '2025-06-12',
+    @operacion = 'Insertar';
+
+select * from actividades.InscriptoClase
+
+-- ✅ Camila (Menor) se inscribe a Vóley
+EXEC actividades.GestionarInscripcion
+    @dni_socio = '40606060',
+    @nombre_actividad = 'Vóley',
+    @horario = 'Martes 08:00',
+    @nombre_categoria = 'Menor',
+    @fecha_inscripcion = '2025-06-12',
+    @operacion = 'Insertar';
+
+select * from actividades.InscriptoClase
+
+
+-- ✅ Luciano (Mayor) se inscribe a Futsal
+EXEC actividades.GestionarInscripcion
+    @dni_socio = '40707070',
+    @nombre_actividad = 'Futsal',
+    @horario = 'Lunes 19:00',
+    @nombre_categoria = 'Mayor',
+    @fecha_inscripcion = '2025-06-12',
+    @operacion = 'Insertar';
+
+select * from actividades.InscriptoClase
+
+
+-- ✅ Juan Perez (Mayor) se inscribe a Baile artístico
+EXEC actividades.GestionarInscripcion
+    @dni_socio = '33444555',
+    @nombre_actividad = 'Baile artístico',
+    @horario = 'Jueves 14:00',
+    @nombre_categoria = 'Cadete',
+    @fecha_inscripcion = '2025-06-12',
+    @operacion = 'Insertar';
+
+	select * from actividades.InscriptoClase
+
+
+-- ❌ Error esperado: José intenta inscribirse a clase inexistente
+EXEC actividades.GestionarInscripcion
+    @dni_socio = '99888777',
+    @nombre_actividad = 'Karate',
+    @horario = 'Martes 10:00',
+    @nombre_categoria = 'Mayor',
+    @fecha_inscripcion = '2025-06-12',
+    @operacion = 'Insertar';
+
+-- Ver inscripciones actuales
 SELECT * FROM actividades.InscriptoClase;
 
--- ✅ PRUEBA 2: Modificación válida de inscripción existente
--- Esperado: Se actualiza la fecha de inscripción
-EXEC actividades.GestionarInscripcion
-    @dni_socio = '23456789',
-    @nombre_actividad = 'Ajedrez',
-    @horario = 'Miércoles 15:00',
-    @fecha_inscripcion = '2024-11-01',
-    @operacion = 'Modificar';
-GO
-SELECT * FROM actividades.InscriptoClase;
-
-
--- ✅ PRUEBA 3: Eliminación válida de inscripción existente
--- Esperado: Se elimina la inscripción correctamente
-EXEC actividades.GestionarInscripcion
-    @dni_socio = '23456789',
-    @nombre_actividad = 'Ajedrez',
-    @horario = 'Miércoles 15:00',
-    @fecha_inscripcion = NULL,
-    @operacion = 'Eliminar';
-GO
-SELECT * FROM actividades.InscriptoClase;
-
-
--- ❌ PRUEBA 4: Modificar inscripción inexistente
--- Esperado: Error lanzado por RAISERROR
-EXEC actividades.GestionarInscripcion
-    @dni_socio = '99999999',
-    @nombre_actividad = 'Yoga',
-    @horario = 'Lunes 10:00',
-    @fecha_inscripcion = '2025-06-08',
-    @operacion = 'Modificar';
-GO
--- ❌ PRUEBA 5: Operación inválida
--- Esperado: Error por operación no permitida
-EXEC actividades.GestionarInscripcion
-    @dni_socio = '12345678',
-    @nombre_actividad = 'Yoga',
-    @horario = 'Lunes 10:00',
-    @fecha_inscripcion = '2025-06-08',
-    @operacion = 'Actualizar';
-GO
 
 /*_____________________________________________________________________
-  ___________________ GestionarPresentismoClase _______________________
+  _________________ PRUEBAS GestionarPresentismoClase _________________
   _____________________________________________________________________*/
+
 
 -- ✅ PRUEBA 1: Inserción válida de presentismo
 -- Esperado: Se registra correctamente el presentismo
 EXEC actividades.GestionarPresentismoClase
     @nombre_actividad = 'Ajedrez',
-    @dni_socio = '23456789',
-    @horario = 'Miércoles 17:00',
+    @dni_socio = '40505050',
+    @horario = 'Sábado 19:00',
+    @nombre_categoria = 'Mayor',
     @fecha = '2025-02-06',
     @condicion = 'P',
     @operacion = 'Insertar';
 GO
+
+-- Verificar inserción
 SELECT * FROM actividades.presentismoClase;
+GO
 
 -- ✅ PRUEBA 2: Modificación válida de presentismo
 -- Esperado: Se actualiza correctamente el campo condicion
 EXEC actividades.GestionarPresentismoClase
     @nombre_actividad = 'Ajedrez',
-    @dni_socio = '23456789',
-    @horario = 'Miércoles 15:00',
+    @dni_socio = '40505050',
+    @horario = 'Sábado 19:00',
+    @nombre_categoria = 'Mayor',
     @fecha = '2025-02-06',
-    @condicion = 'A',
+    @condicion = 'A', -- Ausente
     @operacion = 'Modificar';
 GO
 SELECT * FROM actividades.presentismoClase;
+GO
+
 
 -- ✅ PRUEBA 3: Eliminación válida de presentismo
 -- Esperado: Se elimina el registro correctamente
 EXEC actividades.GestionarPresentismoClase
     @nombre_actividad = 'Ajedrez',
-    @dni_socio = '23456789',
-    @horario = 'Miércoles 15:00',
+    @dni_socio = '40505050',
+    @horario = 'Sábado 19:00',
+    @nombre_categoria = 'Mayor',
     @fecha = '2025-02-06',
     @operacion = 'Eliminar';
 GO
 SELECT * FROM actividades.presentismoClase;
+GO
 
 
 -- ❌ PRUEBA 4: Eliminar presentismo inexistente
@@ -239,17 +250,21 @@ EXEC actividades.GestionarPresentismoClase
     @nombre_actividad = 'Yoga',
     @dni_socio = '99999999',
     @horario = 'Lunes 10:00',
+    @nombre_categoria = 'Mayor',
     @fecha = '2025-06-08',
     @operacion = 'Eliminar';
 GO
+
+
 -- ❌ PRUEBA 5: Operación inválida
 -- Esperado: Error lanzado por RAISERROR de operación inválida
 EXEC actividades.GestionarPresentismoClase
     @nombre_actividad = 'Yoga',
     @dni_socio = '12345678',
     @horario = 'Lunes 10:00',
+    @nombre_categoria = 'Mayor',
     @fecha = '2025-06-08',
-    @operacion = 'Asistir';
+    @operacion = 'Asistir'; -- operación inválida
 GO
 
 /*_____________________________________________________________________
@@ -315,56 +330,6 @@ EXEC actividades.GestionarActividadExtra
 -- Resultado esperado: Error de operación no válida
 GO
 
-
-/*_____________________________________________________________________
-  ______________ PRUEBAS GestionarInscriptoActividadExtra _____________
-  _____________________________________________________________________*/
-
--- ✅ PRUEBA 1: Inserción válida
-EXEC actividades.GestionarInscriptoActividadExtra
-@dni_socio = '12345678',
-@nombre_actividad_extra = 'Pileta',
-@fecha_inscripcion = '2025-06-01',
-@operacion = 'Insertar';
--- Resultado esperado: Inscripción creada correctamente
-GO
-
--- ✅ PRUEBA 2: Modificación válida
-EXEC actividades.GestionarInscriptoActividadExtra
-@dni_socio = '0012345678',
-@nombre_actividad_extra = 'Pileta',
-@fecha_inscripcion = '2025-06-02',
-@operacion = 'Modificar';
--- Resultado esperado: Inscripción modificada
-GO
-
--- ✅ PRUEBA 3: Eliminación válida
-EXEC actividades.GestionarInscriptoActividadExtra
-@dni_socio = '0012345678',
-@nombre_actividad_extra = 'Pileta',
-@fecha_inscripcion = NULL,
-@operacion = 'Eliminar';
--- Resultado esperado: Inscripción eliminada
-GO
-
--- ❌ PRUEBA 4: Insertar sin DNI
-EXEC actividades.GestionarInscriptoActividadExtra
-@dni_socio = NULL,
-@nombre_actividad_extra = 'Pileta',
-@fecha_inscripcion = NULL,
-@operacion = 'Insertar';
--- Resultado esperado: Error por DNI obligatorio
-GO
-
--- ❌ PRUEBA 5: Operación inválida
-EXEC actividades.GestionarInscriptoActividadExtra
-@dni_socio = '0012345678',
-@nombre_actividad_extra = 'Pileta',
-@fecha_inscripcion = NULL,
-@operacion = 'Alta';
--- Resultado esperado: Error por operación inválida
-GO
-
 /*_____________________________________________________________________
   ______________ PRUEBAS GestionarPresentismoActividadExtra ___________
   _____________________________________________________________________*/
@@ -376,7 +341,7 @@ EXEC actividades.GestionarPresentismoActividadExtra
 @nombre_actividad_extra = 'Pileta',
 @periodo = '2025-06',
 @es_invitado = 'N',
-@dni_socio = '45778667',
+@dni = '45778667',
 @fecha = '2025-06-08',
 @condicion = 'P',
 @operacion = 'Insertar';
@@ -391,7 +356,7 @@ EXEC actividades.GestionarPresentismoActividadExtra
 @nombre_actividad_extra = 'Pileta',
 @periodo = '2025-06',
 @es_invitado = 'N',
-@dni_socio = '45778667',
+@dni = '45778667',
 @fecha = '2025-06-08',
 @condicion = 'F',
 @operacion = 'Modificar';
@@ -405,7 +370,7 @@ EXEC actividades.GestionarPresentismoActividadExtra
 @nombre_actividad_extra = 'Pileta',
 @periodo = '2025-06',
 @es_invitado = 'N',
-@dni_socio = '45778667',
+@dni = '45778667',
 @fecha = '2025-06-08',
 @condicion = NULL,
 @operacion = 'Eliminar';
@@ -419,7 +384,7 @@ EXEC actividades.GestionarPresentismoActividadExtra
 @nombre_actividad_extra = NULL,
 @periodo = '2025-06',
 @es_invitado = 'N',
-@dni_socio = '0012345678',
+@dni = '0012345678',
 @fecha = NULL,
 @condicion = NULL,
 @operacion = 'Insertar';
@@ -431,7 +396,7 @@ EXEC actividades.GestionarPresentismoActividadExtra
 @nombre_actividad_extra = 'Pileta',
 @periodo = '2025-06',
 @es_invitado = 'N',
-@dni_socio = '0012345678',
+@dni = '0012345678',
 @fecha = NULL,
 @condicion = NULL,
 @operacion = 'Registrar';
@@ -439,8 +404,9 @@ EXEC actividades.GestionarPresentismoActividadExtra
 GO
 
 /*_____________________________________________________________________
-  _______________________ PRUEBAS GenerarEmisorFactura ______________________
+  ___________________ PRUEBAS GenerarEmisorFactura ____________________
   _____________________________________________________________________*/
+ -- ✅ PRUEBA 1: Inserción válida
  EXEC facturacion.GestionarEmisorFactura
     @razon_social = 'Sol del Norte S.A.',
     @cuil = '20-12345678-4',
@@ -449,66 +415,140 @@ GO
     @localidad = 'La Matanza',
     @codigo_postal = '1234',
     @operacion = 'Insertar'
-
+-- Resultado esperado: Emisor de factura insertado sin errores
+GO
 SELECT * FROM facturacion.EmisorFactura
+
+-- ✅ PRUEBA 2: Modificación válida
+ EXEC facturacion.GestionarEmisorFactura
+    @razon_social = 'Sol del Norte S.A.',
+    @cuil = '20-12345678-4',
+    @direccion = 'Av. Loria 1234',
+    @pais = 'Argentina',
+    @localidad = 'La Matanza',
+    @codigo_postal = '1234',
+    @operacion = 'Modificar'
+-- Resultado esperado: Emisor de factura modificado sin errores
+GO
+SELECT * FROM facturacion.EmisorFactura
+
+-- ✅ PRUEBA 3: Eliminación válida
+ EXEC facturacion.GestionarEmisorFactura
+    @razon_social = NULL,
+    @cuil = '20-12345678-4',
+    @direccion = NULL,
+    @pais = NULL,
+    @localidad = NULL,
+    @codigo_postal = NULL,
+    @operacion = 'Eliminar'
+-- Resultado esperado: Emisor de factura eliminado sin errores
+GO
+SELECT * FROM facturacion.EmisorFactura
+
+-- ❌ PRUEBA 5: Emisor de factura inexistente
+ EXEC facturacion.GestionarEmisorFactura
+    @razon_social = 'Sol del Norte S.A.',
+    @cuil = '20-22222222-4',
+    @direccion = 'Av. Loria 1234',
+    @pais = 'Argentina',
+    @localidad = 'La Matanza',
+    @codigo_postal = '1234',
+    @operacion = 'Modificar'
+-- Resultado esperado: Error de emisor de factura inválido
+GO
+
 /*_____________________________________________________________________
-  _______________________ PRUEBAS GenerarFactura ______________________
+  _________________ PRUEBAS GenerarFacturaSocioMensual ________________
   _____________________________________________________________________*/
 
--- ✅ PRUEBA 1: Generación válida de factura
+-- ✅ PRUEBA 1: Generación válida de factura para varias actividades
+
 EXEC facturacion.GenerarFacturaSocioMensual
-@dni_socio = '23456789',
+@dni_socio = '33444555',
 @cuil_emisor = '20-12345678-4';
 -- Resultado esperado: Factura generada sin errores
 GO
 
-EXEC actividades.GestionarActividad
-    @nombre = 'Yoga',
-    @costo = 3500.00,
-    @horario = 'Martes 13:00',
-    @vigencia = '2025-07-01',
-    @operacion = 'Insertar';
-
-EXEC actividades.GestionarClase
-    @nombre_actividad = 'Yoga',
-    @dni_profesor = '34567890',
-    @horario = 'Martes 13:00',
-    @operacion = 'Insertar';
-
--- Resultado esperado: Clase insertada sin errores
-GO
-SELECT * FROM actividades.Clase
-
-DELETE FROM facturacion.Factura
-DELETE FROM facturacion.DetalleFactura
 SELECT * FROM facturacion.Factura
 SELECT * FROM facturacion.DetalleFactura
 
-SELECT * FROM administracion.Persona
-SELECT * FROM administracion.Socio
-SELECT * FROM administracion.Profesor
-SELECT * FROM actividades.Clase
-SELECT * FROM actividades.InscriptoClase
+-- ✅ PRUEBA 2: Generación válida de factura para varias actividades y varios socios de un grupo familiar
 
-EXEC administracion.VerCuotasPagasGrupoFamiliar
-	@dni_socio = '12345678'
+EXEC facturacion.GenerarFacturaSocioMensual
+@dni_socio = '45778667',
+@cuil_emisor = '20-12345678-4';
+-- Resultado esperado: Factura generada sin errores
 GO
 
-SELECT * FROM administracion.GrupoFamiliar
-SELECT * FROM administracion.Persona
-SELECT * FROM facturacion.Factura
-
-UPDATE administracion.Socio
-SET activo = 1
-WHERE id_socio = 1
-
-UPDATE facturacion.Factura
-SET estado = 'Pagada', anulada = 0
-WHERE id_socio = 1
-
--- ❌ PRUEBA 2: Socio no existe
+-- ❌ PRUEBA 3: Socio no existe
 EXEC facturacion.GenerarFacturaSocioMensual
 @dni_socio = '99999999',
 @cuil_emisor = '20-12345678-3';
+-- Resultado esperado: Error lanzado por RAISERROR
+GO
+
+/*_____________________________________________________________________
+  _________________ PRUEBAS GenerarFacturaInvitado ________________
+  _____________________________________________________________________*/
+
+-- ✅ PRUEBA 1: Generación válida de factura para una actividad
+
+EXEC facturacion.GenerarFacturaInvitado
+@dni_invitado = '46501934',
+@cuil_emisor = '20-12345678-4',
+@descripcion = 'Pileta verano';
+-- Resultado esperado: Factura generada sin errores
+GO
+
+SELECT * FROM facturacion.Factura
+SELECT * FROM facturacion.DetalleFactura
+
+-- ❌ PRUEBA 2: Generación inválida de factura para una actividad a la que no asistió
+
+EXEC facturacion.GenerarFacturaInvitado
+@dni_invitado = '46501934',
+@cuil_emisor = '20-12345678-4',
+@descripcion = 'Colonia de verano';
+-- Resultado esperado: Error lanzado por RAISERROR
+GO
+
+-- ❌ PRUEBA 3: Invitado no existe
+EXEC facturacion.GenerarFacturaInvitado
+@dni_invitado = '11111111',
+@cuil_emisor = '20-12345678-4',
+@descripcion = 'Colonia de verano';
+-- Resultado esperado: Error lanzado por RAISERROR
+GO
+
+/*_____________________________________________________________________
+  _________________ PRUEBAS GenerarFacturaSocioActExtra ________________
+  _____________________________________________________________________*/
+
+-- ✅ PRUEBA 1: Generación válida de factura para una actividad
+
+EXEC facturacion.GenerarFacturaSocioActExtra
+@dni_socio = '45778667',
+@cuil_emisor = '20-12345678-4',
+@descripcion = 'Pileta verano';
+-- Resultado esperado: Factura generada sin errores
+GO
+
+SELECT * FROM facturacion.Factura
+SELECT * FROM facturacion.DetalleFactura
+
+-- ❌ PRUEBA 2: Generación inválida de factura para una actividad a la que no asistió
+
+EXEC facturacion.GenerarFacturaSocioActExtra
+@dni_socio = '40707070',
+@cuil_emisor = '20-12345678-4',
+@descripcion = 'Colonia de verano';
+-- Resultado esperado: Error lanzado por RAISERROR
+GO
+
+-- ❌ PRUEBA 3: Invitado no existe
+EXEC facturacion.GenerarFacturaSocioActExtra
+@dni_socio = '11111111',
+@cuil_emisor = '20-12345678-4',
+@descripcion = 'Colonia de verano';
 -- Resultado esperado: Error lanzado por RAISERROR
 GO

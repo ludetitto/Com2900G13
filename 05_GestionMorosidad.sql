@@ -10,6 +10,93 @@
 USE COM2900G13
 GO
 
+
+/*____________________________________________________________________
+  ________________________ GestionarRecargo __________________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('cobranzas.GestionarRecargo', 'P') IS NOT NULL
+    DROP PROCEDURE cobranzas.GestionarRecargo;
+GO
+
+CREATE PROCEDURE cobranzas.GestionarRecargo
+    @porcentaje		DECIMAL(5,2),
+	@descripcion	VARCHAR(50),
+	@vigencia				DATE,
+    @operacion			 CHAR(10)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validar operación
+    IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
+    BEGIN
+        RAISERROR('Operación no válida. Debe ser Insertar, Modificar o Eliminar.', 16, 1);
+        RETURN;
+    END
+
+    -- Validación de la descripción
+    IF @descripcion IS NULL OR LTRIM(RTRIM(@descripcion)) = ''
+    BEGIN
+        RAISERROR('La descripción del recargo no puede ser nulo ni vacío.', 16, 1);
+        RETURN;
+    END
+
+	 -- Validación de la vigencia
+    IF @vigencia IS NULL OR @vigencia < GETDATE()
+    BEGIN
+        RAISERROR('La vigencia del recargo ingresada es inválida.', 16, 1);
+        RETURN;
+    END
+
+    -- INSERTAR
+    IF @operacion = 'Insertar'
+    BEGIN
+        IF EXISTS (SELECT 1 FROM facturacion.Recargo WHERE descripcion = @descripcion AND vigencia = @vigencia)
+        BEGIN
+            RAISERROR('Ya existe un recargo con esa descripción.', 16, 1);
+            RETURN;
+        END
+
+        INSERT INTO facturacion.Recargo(porcentaje, descripcion, vigencia)
+        VALUES (@porcentaje, @descripcion, @vigencia);
+    END
+
+    -- MODIFICAR
+    IF @operacion = 'Modificar'
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM facturacion.Recargo  WHERE descripcion = @descripcion AND vigencia = @vigencia)
+        BEGIN
+            RAISERROR('El medio de pago que intenta modificar no existe.', 16, 1);
+            RETURN;
+        END
+
+        UPDATE facturacion.Recargo
+        SET porcentaje = @porcentaje
+        WHERE descripcion = @descripcion;
+
+        PRINT 'Recargo modificado correctamente.';
+        RETURN;
+    END
+
+    -- ELIMINAR
+    IF @operacion = 'Eliminar'
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM facturacion.Recargo  WHERE descripcion = @descripcion AND vigencia = @vigencia)
+        BEGIN
+            RAISERROR('El recargo que intenta eliminar no existe.', 16, 1);
+            RETURN;
+        END
+
+        DELETE FROM facturacion.Recargo
+        WHERE descripcion = @descripcion;
+
+        PRINT 'Recargo eliminado correctamente.';
+        RETURN;
+    END
+END;
+GO
+
 /*____________________________________________________________________
   ____________________ AplicarRecargoVencimiento _____________________
   ____________________________________________________________________*/
@@ -25,6 +112,7 @@ BEGIN
     SET NOCOUNT ON;
 
     DECLARE @porcentaje_recargo DECIMAL(5, 2);
+	DECLARE @id_mora INT;
 
     -- Obtener el porcentaje del recargo
     SELECT @porcentaje_recargo = porcentaje
@@ -35,15 +123,14 @@ BEGIN
     -- Verificar si se encontró el recargo
     IF @porcentaje_recargo IS NOT NULL
     BEGIN
-        UPDATE facturacion.Factura
-        SET monto_total = monto_total * (1 + @porcentaje_recargo)
+        SELECT id_factura
+		FROM facturacion.Factura
         WHERE anulada = 0 
         AND id_factura IN (SELECT F.id_factura
 						   FROM facturacion.Factura F
 						   INNER JOIN facturacion.DetalleFactura D ON D.id_factura = F.id_factura
 						   WHERE D.tipo_item <> 'Actividad Extra'
-						   AND F.fecha_vencimiento1 < GETDATE() 
-						   AND F.fecha_vencimiento2 > GETDATE()
+						   AND GETDATE() BETWEEN F.fecha_vencimiento1 AND F.fecha_vencimiento2
 						   );
     END
     ELSE
@@ -57,9 +144,19 @@ BEGIN
 		id_socio,
 		id_factura,
 		0,
-		monto_total * @porcentaje_recargo AS monto
+		monto_total * @porcentaje_recargo
 	FROM facturacion.Factura
 	WHERE fecha_vencimiento1 < CAST(GETDATE() AS DATE)
+
+	SET @id_mora = SCOPE_IDENTITY();
+
+	/*Se actualiza saldo del socio a partir de la mora*/
+	UPDATE administracion.Socio
+	SET saldo = - (SELECT F.monto_total * @porcentaje_recargo 
+				   FROM cobranzas.Mora M
+				   INNER JOIN facturacion.Factura F ON F.id_factura = M.id_factura
+				   WHERE M.id_mora = @id_mora)
+	WHERE id_socio IN (SELECT id_socio FROM cobranzas.Mora WHERE id_mora = @id_mora)
 
 END;
 GO
@@ -78,10 +175,10 @@ BEGIN
     SET NOCOUNT ON;
 	
 	/*Tabla temporal para guardar los socios a bloquear*/
-    DECLARE @SociosABloquear TABLE (id_socio INT);
+    DECLARE @socios_a_bloquear TABLE (id_socio INT);
 
     /*Insertamos los socios con facturas vencidas y sin pago*/
-    INSERT INTO @SociosABloquear (id_socio)
+    INSERT INTO @socios_a_bloquear (id_socio)
     SELECT DISTINCT S.id_socio
     FROM facturacion.Factura F
     INNER JOIN administracion.Socio S ON S.id_socio = F.id_socio
@@ -95,7 +192,7 @@ BEGIN
     UPDATE S
     SET activo = 0
     FROM administracion.Socio S
-    INNER JOIN @SociosABloquear B ON S.id_socio = B.id_socio;
+    INNER JOIN @socios_a_bloquear B ON S.id_socio = B.id_socio;
 
     /*Insertamos notificaciones*/
     INSERT INTO cobranzas.Notificacion (id_mora, mensaje, fecha, destinatario)
@@ -105,9 +202,10 @@ BEGIN
         GETDATE(),
         P.email
     FROM cobranzas.Mora M
-    INNER JOIN @SociosABloquear B ON M.id_socio = B.id_socio
+    INNER JOIN @socios_a_bloquear B ON M.id_socio = B.id_socio
     INNER JOIN administracion.Socio S ON S.id_socio = M.id_socio
-	INNER JOIN administracion.Persona P ON P.id_persona = S.id_persona;
+	INNER JOIN administracion.Persona P ON P.id_persona = S.id_persona
+	WHERE M.facturada = 0;
 END;
 GO
 

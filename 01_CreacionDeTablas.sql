@@ -10,15 +10,24 @@
 USE COM2900G13;
 GO
 
+-- =============================
+-- ELIMINAR VISTAS Y FUNCIONES
+-- =============================
+
+-- Vistas que usan administracion
+DROP VIEW IF EXISTS administracion.vwSociosConCategoria;
+DROP VIEW IF EXISTS administracion.vwSociosConObraSocial;
+
+-- Funciones y procedimientos específicos
+DROP PROCEDURE IF EXISTS cobranzas.AplicarBloqueoVencimiento;
 
 /* =============================
-   1. ELIMINAR PROCEDIMIENTOS
+   ELIMINAR PROCEDIMIENTOS
    ============================= */
 DROP PROCEDURE IF EXISTS actividades.GestionarActividad
 DROP PROCEDURE IF EXISTS actividades.GestionarActividadExtra
 DROP PROCEDURE IF EXISTS actividades.GestionarClase
 DROP PROCEDURE IF EXISTS actividades.GestionarInscripcion
-DROP PROCEDURE IF EXISTS actividades.GestionarInscriptoActividadExtra
 DROP PROCEDURE IF EXISTS actividades.GestionarPresentismoActividadExtra
 DROP PROCEDURE IF EXISTS actividades.GestionarPresentismoClase
 DROP PROCEDURE IF EXISTS administracion.ConsultarEstadoSocioyGrupo
@@ -31,6 +40,8 @@ DROP PROCEDURE IF EXISTS administracion.GestionarPersona
 DROP PROCEDURE IF EXISTS administracion.GestionarCategoriaSocio
 DROP PROCEDURE IF EXISTS administracion.GestionarGrupoFamiliar
 
+DROP PROCEDURE IF EXISTS cobranzas.GestionarMedioDePago
+DROP PROCEDURE IF EXISTS cobranzas.RegistrarMedioDePago
 DROP PROCEDURE IF EXISTS cobranzas.RegistrarCobranza
 DROP PROCEDURE IF EXISTS cobranzas.RegistrarReintegroPorLluvia
 DROP PROCEDURE IF EXISTS cobranzas.RegistrarPagoACuenta
@@ -40,8 +51,10 @@ DROP PROCEDURE IF EXISTS cobranzas.GenerarReintegroPorLluvia
 DROP PROCEDURE IF EXISTS cobranzas.GenerarReembolso
 DROP PROCEDURE IF EXISTS cobranzas.DeshabilitarDebitoAutomatico
 DROP PROCEDURE IF EXISTS cobranzas.AplicarRecargoVencimiento
+DROP PROCEDURE IF EXISTS cobranzas.MorososRecurrentes
 
 DROP PROCEDURE IF EXISTS facturacion.AnularFactura
+DROP PROCEDURE IF EXISTS facturacion.GenerarFacturaSocioActExtra
 DROP PROCEDURE IF EXISTS facturacion.GenerarFacturaSocioMensual
 DROP PROCEDURE IF EXISTS facturacion.GenerarFacturaInvitado
 DROP PROCEDURE IF EXISTS facturacion.GestionarEmisorFactura
@@ -56,6 +69,7 @@ DROP TABLE IF EXISTS cobranzas.Mora;
 DROP TABLE IF EXISTS cobranzas.NotaDeCredito;
 DROP TABLE IF EXISTS cobranzas.PagoACuenta;
 DROP TABLE IF EXISTS cobranzas.Pago;
+DROP TABLE IF EXISTS cobranzas.DebitoAutomaticoSocio;
 DROP TABLE IF EXISTS cobranzas.MedioDePago;
 
 -- FACTURACION
@@ -245,7 +259,6 @@ CREATE TABLE actividades.Actividad (
     id_actividad INT IDENTITY(1,1) PRIMARY KEY,
     nombre VARCHAR(100),
     costo DECIMAL(10,2),
-    horario VARCHAR(50),
 	vigencia DATE,
 );
 GO
@@ -257,10 +270,12 @@ GO
 CREATE TABLE actividades.Clase (
     id_clase INT IDENTITY(1,1) PRIMARY KEY,
     id_actividad INT,
-	id_profesor INT,
-	horario VARCHAR(20),
-	CONSTRAINT FK_clase_actividad_id FOREIGN KEY (id_actividad) REFERENCES actividades.Actividad(id_actividad),
-	CONSTRAINT FK_clase_profesor_id FOREIGN KEY (id_profesor) REFERENCES administracion.Profesor(id_profesor)
+    id_profesor INT,
+    id_categoria INT, 
+    horario VARCHAR(20),
+    CONSTRAINT FK_clase_actividad_id FOREIGN KEY (id_actividad) REFERENCES actividades.Actividad(id_actividad),
+    CONSTRAINT FK_clase_profesor_id FOREIGN KEY (id_profesor) REFERENCES administracion.Profesor(id_profesor),
+    CONSTRAINT FK_clase_categoria_id FOREIGN KEY (id_categoria) REFERENCES administracion.CategoriaSocio(id_categoria)
 );
 GO
 
@@ -314,11 +329,13 @@ GO
 CREATE TABLE actividades.presentismoActividadExtra (
     id_presentismo_extra INT IDENTITY(1,1) PRIMARY KEY,
     id_extra INT,
-	id_socio INT,
+	id_socio INT DEFAULT NULL,
+	id_invitado INT DEFAULT NULL,
 	fecha DATE,
 	condicion CHAR(1),
 	CONSTRAINT FK_presentismoActividadExtra_actividad_id FOREIGN KEY (id_extra) REFERENCES actividades.ActividadExtra(id_extra),
-	CONSTRAINT FK_presentismoActividadExtra_socio_id FOREIGN KEY (id_socio) REFERENCES administracion.Socio(id_socio)
+	CONSTRAINT FK_presentismoActividadExtra_socio_id FOREIGN KEY (id_socio) REFERENCES administracion.Socio(id_socio),
+	CONSTRAINT FK_presentismoActividadExtra_invitado_id FOREIGN KEY (id_invitado) REFERENCES administracion.Invitado(id_invitado)
 );
 GO
 
@@ -370,7 +387,8 @@ GO
 CREATE TABLE facturacion.Factura (
     id_factura INT IDENTITY(1,1) PRIMARY KEY,
 	id_emisor INT NOT NULL,
-    id_socio INT NOT NULL,
+    id_socio INT DEFAULT NULL,
+	id_invitado INT DEFAULT NULL,
 	leyenda CHAR(50) NOT NULL,
 	monto_total DECIMAL(10,2),
 	saldo_anterior DECIMAL(10,2),
@@ -380,7 +398,8 @@ CREATE TABLE facturacion.Factura (
 	estado CHAR(10),
     anulada BIT,
 	CONSTRAINT FK_factura_emisor_id FOREIGN KEY (id_emisor) REFERENCES facturacion.Emisorfactura (id_emisor),
-	CONSTRAINT FK_factura_socio_id FOREIGN KEY (id_socio) REFERENCES administracion.Socio (id_socio)
+	CONSTRAINT FK_factura_socio_id FOREIGN KEY (id_socio) REFERENCES administracion.Socio (id_socio),
+	CONSTRAINT FK_factura_invitado_id FOREIGN KEY (id_invitado) REFERENCES administracion.Invitado (id_invitado)
 );
 GO
 
@@ -409,6 +428,7 @@ GO
    TABLAS DEL MÓDULO COBRANZAS
    =========================== */
 
+
 IF OBJECT_ID('cobranzas.MedioDePago', 'U') IS NOT NULL
     DROP TABLE cobranzas.MedioDePago;
 GO
@@ -419,6 +439,19 @@ CREATE TABLE cobranzas.MedioDePago (
     debito_automatico BIT
 );
 GO
+
+IF OBJECT_ID('cobranzas.DebitoAutomaticoSocio', 'U') IS NOT NULL
+    DROP TABLE cobranzas.DebitoAutomaticoSocio;
+GO
+CREATE TABLE cobranzas.DebitoAutomaticoSocio (
+    id_socio INT,
+    id_medio INT,
+    habilitado BIT NOT NULL,
+    PRIMARY KEY (id_socio, id_medio),
+    CONSTRAINT FK_debito_socio FOREIGN KEY (id_socio) REFERENCES administracion.Socio(id_socio),
+    CONSTRAINT FK_debito_medio FOREIGN KEY (id_medio) REFERENCES cobranzas.MedioDePago(id_medio)
+);
+
 
 IF OBJECT_ID('cobranzas.Pago', 'U') IS NOT NULL
     DROP TABLE cobranzas.Pago;

@@ -245,7 +245,6 @@ BEGIN
     END
 END;
 GO
-
 /*____________________________________________________________________
   ____________________ GestionarCategoriaSocio _____________________
   ____________________________________________________________________*/
@@ -265,7 +264,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Verificación de operaciones válidas
+    -- Validación de operación
     IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
     BEGIN
         RAISERROR('Operación inválida. Use Insertar, Modificar o Eliminar.', 16, 1);
@@ -284,6 +283,12 @@ BEGIN
         IF @edad_desde IS NULL OR @edad_hasta IS NULL
         BEGIN
             RAISERROR('Debe especificar el rango de edad (desde/hasta).', 16, 1);
+            RETURN;
+        END
+
+        IF EXISTS (SELECT 1 FROM administracion.CategoriaSocio WHERE nombre = @nombre)
+        BEGIN
+            RAISERROR('Ya existe una categoría con ese nombre.', 16, 1);
             RETURN;
         END
 
@@ -873,4 +878,56 @@ BEGIN
       ON f.id_categoria = cs2.id_categoria
     ORDER BY fam.id_grupo, f.id_socio;
 END;
+GO
+
+
+/*____________________________________________________________________
+  _______________________ vwSociosConCategoria _______________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('administracion.vwSociosConCategoria', 'V') IS NOT NULL
+    DROP VIEW administracion.vwSociosConCategoria;
+GO
+
+CREATE VIEW administracion.vwSociosConCategoria AS
+SELECT 
+    P.dni,
+    P.nombre,
+    P.apellido,
+    P.fecha_nacimiento,
+    P.email,
+    S.id_socio,
+	s.saldo,
+    C.nombre AS categoria,
+    C.costo_membresia,
+    C.vigencia
+FROM administracion.Socio S
+JOIN administracion.Persona P ON S.id_persona = P.id_persona
+JOIN administracion.CategoriaSocio C ON S.id_categoria = C.id_categoria;
+GO
+
+
+
+/*____________________________________________________________________
+  _______________________ vwSociosConObraSocial ______________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('administracion.vwSociosConObraSocial', 'V') IS NOT NULL
+    DROP VIEW administracion.vwSociosConObraSocial;
+GO
+
+CREATE VIEW administracion.vwSociosConObraSocial AS
+SELECT 
+    P.dni,
+    P.nombre,
+    P.apellido,
+    P.email,
+	P.tel_contacto,
+	P.tel_emergencia,
+    S.id_socio,
+	S.nro_obra_social,
+	S.obra_social,
+	S.nro_socio
+FROM administracion.Socio S
+JOIN administracion.Persona P ON S.id_persona = P.id_persona
 GO

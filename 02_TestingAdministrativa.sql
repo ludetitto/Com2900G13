@@ -11,7 +11,7 @@
 USE COM2900G13;
 GO
 /*_____________________________________________________________________
-  ________________________ P_GestionarPersona ________________________
+  _______________________ PRUEBAS GestionarPersona ____________________
   _____________________________________________________________________*/
 
 -- ✅ PRUEBA 1: Inserción válida de persona
@@ -91,7 +91,7 @@ EXEC administracion.GestionarPersona
 GO
 
 /*_____________________________________________________________________
-  __________________ Pruebas GestionarCategoriaSocio __________________
+  __________________ PRUEBAS GestionarCategoriaSocio __________________
   _____________________________________________________________________*/
 
 -- ✅ PRUEBA 1: Inserción válida de categoría "Menor"
@@ -180,10 +180,8 @@ GO
 SELECT * FROM administracion.CategoriaSocio;
 
 
-
-	
 /*_____________________________________________________________________
-  ________________________ P_GestionarSocio ___________________________
+  ____________________ PRUEBAS GestionarSocio _________________________
   _____________________________________________________________________*/
 
 -- ✅ PRUEBA 1: Inserción válida de socio (persona nueva)
@@ -204,6 +202,7 @@ EXEC administracion.GestionarSocio
     @operacion = 'Insertar';
 -- Resultado esperado: Persona y socio insertados correctamente
 GO
+
 SELECT * FROM administracion.Socio
 SELECT * FROM administracion.Persona
 
@@ -236,7 +235,7 @@ EXEC administracion.GestionarSocio
 GO
 
 /*_____________________________________________________________________
-  ________________________ P_GestionarProfesor ________________________
+  __________________ PRUEBAS GestionarProfesor ________________________
   _____________________________________________________________________*/
 
 -- ✅ PRUEBA 1: Inserción válida de profesor (persona nueva)
@@ -286,47 +285,8 @@ EXEC administracion.GestionarProfesor
 GO
 
 /*_____________________________________________________________________
-  ________________________ P_GestionarInvitado ________________________
+  ______________________ PRUEBAS GestionarSocio _______________________
   _____________________________________________________________________*/
-
---insertar Socios
-EXEC administracion.GestionarSocio
-    @nombre = 'Francisco',
-    @apellido = 'Vignardel',
-    @dni = '45778667',
-    @email = 'francisco.vignardel@email.com',
-    @fecha_nacimiento = '2004-04-10',
-	@domicilio = 'Av. Gral. Mosconi 2345',
-    @tel_contacto = '1231233234',
-    @tel_emergencia = '6624324321',
-    @categoria = 'Mayor',
-    @nro_socio = 'SOC1002',
-    @obra_social = 'OSPOCE',
-    @nro_obra_social = '654321',
-    @saldo = 0,
-    @operacion = 'Insertar';
--- Resultado esperado: Persona y socio insertados correctamente
-GO
-
-EXEC administracion.GestionarSocio
-    @nombre = 'Juan',
-    @apellido = 'Perez',
-    @dni = '33444555',
-    @email = 'juan.perez@email.com',
-    @fecha_nacimiento = '2004-04-10',
-	@domicilio = 'Av. Crovara 2345',
-    @tel_contacto = '3331233234',
-    @tel_emergencia = '6624324388',
-    @categoria = 'Cadete',
-    @nro_socio = 'SOC1003',
-    @obra_social = 'VITA',
-    @nro_obra_social = '654331',
-    @saldo = 0,
-    @operacion = 'Insertar';
--- Resultado esperado: Persona y socio insertados correctamente
-GO
-SELECT * FROM administracion.Socio
-SELECT * FROM administracion.Persona
 
 -- ✅ PRUEBA 1: Inserción válida de invitado
 EXEC administracion.GestionarInvitado
@@ -340,9 +300,8 @@ EXEC administracion.GestionarInvitado
 -- Resultado esperado: Invitado insertado correctamente
 GO
 
-select * from administracion.Persona
-select * from administracion.Socio
-select * from administracion.Invitado
+SELECT * FROM administracion.Socio
+SELECT * FROM administracion.Invitado
 
 -- ✅ PRUEBA 2: Eliminación válida de invitado
 EXEC administracion.GestionarInvitado
@@ -356,9 +315,8 @@ EXEC administracion.GestionarInvitado
 -- Resultado esperado: Invitado eliminado correctamente
 GO
 
-select * from administracion.Persona
-select * from administracion.Socio
-select * from administracion.Invitado
+SELECT * FROM administracion.Socio
+SELECT * FROM administracion.Invitado
 
 -- ❌ PRUEBA 3: Insertar invitado con DNI ya existente
 EXEC administracion.GestionarInvitado
@@ -373,9 +331,8 @@ EXEC administracion.GestionarInvitado
 GO
 
 /*_____________________________________________________________________
-  _____________________ P_GestionarGrupoFamiliar ______________________
+  ___________________ PRUEBAS GestionGrupoFamiliar ____________________
   _____________________________________________________________________*/
-
 
 -- ✅ PRUEBA 1: Inserción válida de grupo familiar
 EXEC administracion.GestionarGrupoFamiliar
@@ -398,18 +355,8 @@ GO
 SELECT * FROM administracion.Socio
 SELECT * FROM administracion.GrupoFamiliar
 
--- ✅ PRUEBA 3: insertar a un socio a el mismo
-EXEC administracion.GestionarGrupoFamiliar
-    @dni_socio = '33444555',
-    @dni_socio_rp = '33444555',
-    @operacion = 'Insertar';
--- Resultado esperado: Grupo familiar insertado correctamente
-GO
-SELECT * FROM administracion.Socio
-SELECT * FROM administracion.Persona
-SELECT * FROM administracion.GrupoFamiliar
 
--- ❌ PRUEBA 4: Insertar grupo familiar con socio inexistente
+-- ❌ PRUEBA 3: Insertar grupo familiar con socio inexistente
 EXEC administracion.GestionarGrupoFamiliar
     @dni_socio = '99999999',
     @dni_socio_rp = '88888888',
@@ -417,33 +364,18 @@ EXEC administracion.GestionarGrupoFamiliar
 -- Resultado esperado: Error por FK en socio o socio_rp
 GO
 
-
-
 /*_____________________________________________________________________
-  _____________________ P_ConsultarEstadoSocioyGrupo ______________________
+  ________________ PRUEBAS ConsultarEstadoSocioyGrupo _________________
   _____________________________________________________________________*/
 
-  -- 1. Socio existente sin familiares
-EXEC administracion.ConsultarEstadoSocioyGrupo @dni = '33444555';
--- Esperado: Datos del titular, sin familiares
+-- ✅ PRUEBA 1: Consulta sobre socio sin grupo familiar
+EXEC administracion.ConsultarEstadoSocioyGrupo @dni = '40707070';
+-- Resultado esperado: Datos del titular, sin familiares
 
--- 2. Socio existente con familiares (buscar un dni real con grupo)
+-- ✅ PRUEBA 2: Consulta sobre socio con grupo familiar
 EXEC administracion.ConsultarEstadoSocioyGrupo @dni = '45778667';
--- Esperado: Titular y familiares del grupo
+-- Resultado esperado: Titular y familiares del grupo
 
--- 3. Socio sin grupo familiar 
-EXEC administracion.ConsultarEstadoSocioyGrupo @dni = '33444555';
--- Esperado: solo muestra al titular
-
--- 4. DNI inválido
-EXEC administracion.ConsultarEstadoSocioyGrupo @dni = '123';
--- Esperado: Error "El DNI debe tener exactamente 8 dígitos numéricos."
-
--- 5. Socio con mail inválido (buscar dni real con mail mal cargado)
-EXEC administracion.ConsultarEstadoSocioyGrupo @dni = '00001111';
--- Esperado: Error "El correo electrónico del socio no tiene un formato válido."
-
--- 6. Socio inexistente
+-- ❌ PRUEBA 3: Consulta sobre socio con grupo familiar inexistente
 EXEC administracion.ConsultarEstadoSocioyGrupo @dni = '99999999';
--- Esperado: Error "No existe un socio activo con el DNI especificado."
-
+-- Resultado esperado: Error "No existe un socio activo con el DNI especificado."
