@@ -1,32 +1,40 @@
 USE COM2900G13;
 GO
-
 SET NOCOUNT ON;
 GO
 
-DELETE FROM cobranzas.Pago
-DBCC CHECKIDENT ('cobranzas.Pago', RESEED, 0)WITH NO_INFOMSGS;
-DELETE FROM cobranzas.MedioDePago
-DBCC CHECKIDENT ('cobranzas.MedioDePago', RESEED, 0)WITH NO_INFOMSGS;
-DELETE FROM facturacion.DetalleFactura
-DBCC CHECKIDENT ('facturacion.DetalleFactura', RESEED, 0)WITH NO_INFOMSGS;
-DELETE FROM facturacion.Factura
-DBCC CHECKIDENT ('facturacion.Factura', RESEED, 0)WITH NO_INFOMSGS;
-DELETE FROM facturacion.EmisorFactura
-DBCC CHECKIDENT ('facturacion.EmisorFactura', RESEED, 0)WITH NO_INFOMSGS;
-DELETE FROM actividades.presentismoClase
-DBCC CHECKIDENT ('actividades.presentismoClase', RESEED, 0)WITH NO_INFOMSGS;
-DELETE FROM actividades.InscriptoClase
-DBCC CHECKIDENT ('actividades.InscriptoClase', RESEED, 0)WITH NO_INFOMSGS;
-DELETE FROM actividades.Clase
-DBCC CHECKIDENT ('actividades.Clase', RESEED, 0)WITH NO_INFOMSGS;
-DELETE FROM actividades.Actividad
-DBCC CHECKIDENT ('actividades.Actividad', RESEED, 0)WITH NO_INFOMSGS;
-DELETE FROM actividades.presentismoActividadExtra
-DBCC CHECKIDENT ('actividades.presentismoActividadExtra', RESEED, 0)WITH NO_INFOMSGS;
-DELETE FROM actividades.ActividadExtra
-DBCC CHECKIDENT ('actividades.ActividadExtra', RESEED, 0)WITH NO_INFOMSGS;
-go
+=======
+-- Borrar detalle y factura (en ese orden)
+DELETE FROM facturacion.DetalleFactura;
+DELETE FROM facturacion.Factura;
+DBCC CHECKIDENT ('facturacion.DetalleFactura', RESEED, 0) WITH NO_INFOMSGS;
+DBCC CHECKIDENT ('facturacion.Factura', RESEED, 0) WITH NO_INFOMSGS;
+
+-- Borrar emisor de factura
+DELETE FROM facturacion.EmisorFactura;
+DBCC CHECKIDENT ('facturacion.EmisorFactura', RESEED, 0) WITH NO_INFOMSGS;
+
+-- Borrar actividad extra y su presentismo
+DELETE FROM actividades.presentismoActividadExtra;
+DELETE FROM actividades.ActividadExtra;
+DBCC CHECKIDENT ('actividades.presentismoActividadExtra', RESEED, 0) WITH NO_INFOMSGS;
+DBCC CHECKIDENT ('actividades.ActividadExtra', RESEED, 0) WITH NO_INFOMSGS;
+
+-- Borrar actividad regular y sus relaciones
+DELETE FROM actividades.presentismoClase;
+DELETE FROM actividades.InscriptoClase;
+DELETE FROM actividades.Clase;
+DELETE FROM actividades.Actividad;
+DBCC CHECKIDENT ('actividades.presentismoClase', RESEED, 0) WITH NO_INFOMSGS;
+DBCC CHECKIDENT ('actividades.InscriptoClase', RESEED, 0) WITH NO_INFOMSGS;
+DBCC CHECKIDENT ('actividades.Clase', RESEED, 0) WITH NO_INFOMSGS;
+DBCC CHECKIDENT ('actividades.Actividad', RESEED, 0) WITH NO_INFOMSGS;
+
+-- Borrar pagos y medio de pago
+DELETE FROM cobranzas.Pago;
+DELETE FROM cobranzas.MedioDePago;
+DBCC CHECKIDENT ('cobranzas.Pago', RESEED, 0) WITH NO_INFOMSGS;
+DBCC CHECKIDENT ('cobranzas.MedioDePago', RESEED, 0) WITH NO_INFOMSGS;
 
 -- Insertar actividades base (sin horarios)
 EXEC actividades.GestionarActividad 'Futsal', 25000, '2025-05-31', 'Insertar';
@@ -66,7 +74,8 @@ EXEC actividades.GestionarClase 'Natación', '34567890', 'Viernes 19:00', 'Mayor'
 EXEC actividades.GestionarClase 'Ajedrez', '34567890', 'Sábado 08:00', 'Menor', 'Insertar';
 EXEC actividades.GestionarClase 'Ajedrez', '34567890', 'Sábado 14:00', 'Cadete', 'Insertar';
 EXEC actividades.GestionarClase 'Ajedrez', '34567890', 'Sábado 19:00', 'Mayor', 'Insertar';
-GO
+
+
 -- Francisco se inscribe a 3 actividades
 EXEC actividades.GestionarInscripcion '45778667', 'Ajedrez', 'Sábado 19:00', 'Mayor', '2025-06-12', 'Insertar';
 EXEC actividades.GestionarInscripcion '45778667', 'Futsal', 'Lunes 19:00', 'Mayor', '2025-06-13', 'Insertar';
@@ -107,6 +116,7 @@ EXEC actividades.GestionarPresentismoClase 'Natación', '40606060', 'Viernes 14:0
 EXEC actividades.GestionarPresentismoClase 'Vóley', '40707070', 'Martes 19:00', 'Mayor', '2025-06-12', 'P', 'Insertar';
 EXEC actividades.GestionarPresentismoClase 'Baile artístico', '40707070', 'Jueves 19:00', 'Mayor', '2025-06-13', 'P', 'Insertar';
 
+
 -- =================== CARGA DE EMISOR DE FACTURA ===================
 EXEC facturacion.GestionarEmisorFactura 'Sol del Norte S.A.', '20-12345678-4', 'Av. Presidente Perón 1234', 'Argentina', 'La Matanza', '1234', 'Insertar'
 
@@ -135,6 +145,7 @@ EXEC actividades.GestionarActividadExtra 'Pileta verano', 2000000, 'Temporada', 
 EXEC actividades.GestionarActividadExtra 'Colonia de verano', 2000000, 'Temporada', 'N', '2025-06-28', 'Insertar';
 EXEC actividades.GestionarActividadExtra 'Alquiler de SUM', 2000000, 'Temporada', 'N', '2025-06-28', 'Insertar';
 
+
 -- =================== CARGA DE PRESENTISMO DE INVITADOS ===================
 
 -- Francisco (2 actividades, 1 presencia)
@@ -150,17 +161,18 @@ EXEC actividades.GestionarPresentismoActividadExtra 'Colonia de verano', 'Tempor
 
 -- Luciano (1 actividad, 2 presencias)
 EXEC actividades.GestionarPresentismoActividadExtra 'Pileta verano', 'Mes', 'N', '40707070', '2025-06-05', 'A', 'Insertar';
-EXEC actividades.GestionarPresentismoActividadExtra 'Pileta verano', 'Mes', 'N', '40707070', '2025-06-06', 'P', 'Insertar'; -- Ausente
+EXEC actividades.GestionarPresentismoActividadExtra 'Pileta verano', 'Mes', 'N', '40707070', '2025-06-06', 'P', 'Insertar';
 EXEC actividades.GestionarPresentismoActividadExtra 'Pileta verano', 'Mes', 'N', '40707070', '2025-06-10', 'A', 'Insertar';
-EXEC actividades.GestionarPresentismoActividadExtra 'Pileta verano', 'Mes', 'N', '40707070', '2025-06-12', 'P', 'Insertar'; -- Ausente
+EXEC actividades.GestionarPresentismoActividadExtra 'Pileta verano', 'Mes', 'N', '40707070', '2025-06-12', 'P', 'Insertar';
 
 -- Lucia (2 actividades, 2 presencias)
 EXEC actividades.GestionarPresentismoActividadExtra 'Alquiler de SUM', 'Dia', 'S', '46501934', '2025-06-01', 'P', 'Insertar';
 EXEC actividades.GestionarPresentismoActividadExtra 'Pileta verano', 'Dia', 'S', '46501934', '2025-06-05', 'P', 'Insertar';
 
+
 -- =================== GENERACIÓN DE FACTURA INVITADOS ===================
 EXEC facturacion.GenerarFacturaInvitado '46501934', '20-12345678-4', 'Alquiler de SUM';
-EXEC facturacion.GenerarFacturaInvitado'46501934', '20-12345678-4', 'Pileta verano';
+EXEC facturacion.GenerarFacturaInvitado '46501934', '20-12345678-4', 'Pileta verano';
 
 -- =================== GENERACIÓN DE FACTURA SOCIOS ===================
 EXEC facturacion.GenerarFacturaSocioActExtra '45778667', '20-12345678-4', 'Alquiler de SUM';
@@ -175,6 +187,6 @@ SELECT * FROM actividades.InscriptoClase;
 SELECT * FROM actividades.presentismoClase ORDER BY fecha;
 SELECT * FROM actividades.ActividadExtra;
 SELECT * FROM actividades.presentismoActividadExtra ORDER BY fecha;
-SELECT * FROM facturacion.EmisorFactura
-SELECT * FROM facturacion.Factura
-SELECT * FROM facturacion.DetalleFactura
+SELECT * FROM facturacion.EmisorFactura;
+SELECT * FROM facturacion.Factura;
+SELECT * FROM facturacion.DetalleFactura;

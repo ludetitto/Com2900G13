@@ -3,13 +3,19 @@ GO
 SET NOCOUNT ON;
 
 /* ===================== LIMPIEZA COMPLETA ===================== */
--- 1. Hijos de Factura
-DELETE FROM facturacion.DetalleFactura;
-DBCC CHECKIDENT ('facturacion.DetalleFactura', RESEED, 0) WITH NO_INFOMSGS;
-DELETE FROM cobranzas.Mora;
-DBCC CHECKIDENT ('cobranzas.Mora', RESEED, 0) WITH NO_INFOMSGS;
-DELETE FROM cobranzas.Notificacion;
-DBCC CHECKIDENT ('cobranzas.Notificacion', RESEED, 0) WITH NO_INFOMSGS;
+
+DELETE FROM actividades.presentismoActividadExtra;
+DBCC CHECKIDENT ('actividades.presentismoActividadExtra', RESEED, 0) WITH NO_INFOMSGS;
+DELETE FROM actividades.presentismoClase;
+DBCC CHECKIDENT ('actividades.presentismoClase', RESEED, 0) WITH NO_INFOMSGS;
+
+DELETE FROM actividades.InscriptoClase;
+DBCC CHECKIDENT ('actividades.InscriptoClase', RESEED, 0) WITH NO_INFOMSGS;
+DELETE FROM actividades.Clase;
+DBCC CHECKIDENT ('actividades.Clase', RESEED, 0) WITH NO_INFOMSGS;
+
+DELETE FROM cobranzas.DebitoAutomaticoSocio;
+
 DELETE FROM cobranzas.PagoACuenta;
 DBCC CHECKIDENT ('cobranzas.PagoACuenta', RESEED, 0) WITH NO_INFOMSGS;
 DELETE FROM cobranzas.NotaDeCredito;
@@ -23,6 +29,7 @@ DELETE FROM facturacion.Recargo;
 DBCC CHECKIDENT ('facturacion.Recargo', RESEED, 0) WITH NO_INFOMSGS;
 DELETE FROM cobranzas.MedioDePago;
 DBCC CHECKIDENT ('cobranzas.MedioDePago', RESEED, 0) WITH NO_INFOMSGS;
+
 DELETE FROM facturacion.EmisorFactura;
 DBCC CHECKIDENT ('facturacion.EmisorFactura', RESEED, 0) WITH NO_INFOMSGS;
 DELETE FROM actividades.presentismoActividadExtra;

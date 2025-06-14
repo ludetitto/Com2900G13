@@ -5,7 +5,8 @@
    Fecha de Entrega: 17/06/2025
    Materia: Bases de Datos Aplicadas
    Alumnos: Vignardel Francisco 45778667
-            De Titto Lucia 46501934
+            De Titto Lucia		46501934
+			Borja Tomas			42353302
  ========================================================================= */
 USE COM2900G13;
 GO
@@ -1316,5 +1317,83 @@ BEGIN
         ROLLBACK TRANSACTION;
         THROW;
     END CATCH
+END;
+GO
+
+/*____________________________________________________________________
+  ______________________ GestionarDescuentos ______________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('facturacion.GestionarDescuentos', 'P') IS NOT NULL
+	DROP PROCEDURE facturacion.GestionarDescuentos;
+GO
+
+CREATE PROCEDURE facturacion.GestionarDescuentos
+    @id_factura INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @id_socio INT;
+
+    -- Obtener el socio
+    SELECT TOP 1 @id_socio = f.id_socio
+    FROM facturacion.Factura f
+    WHERE f.id_factura = @id_factura;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM facturacion.Factura
+        WHERE id_factura = @id_factura AND estado = 'No pagada'
+    )
+    BEGIN
+        RAISERROR('No se pueden aplicar descuentos: la factura no está en estado "No pagada".', 16, 1);
+        RETURN;
+    END
+
+    -- 1. Descuento por grupo familiar (15%) si hay más de un miembro activo
+    IF EXISTS (
+        SELECT 1
+        FROM administracion.GrupoFamiliar
+        WHERE id_socio_rp = @id_socio
+    )
+    BEGIN
+        INSERT INTO facturacion.DetalleFactura (id_factura, tipo_item, descripcion, monto, cantidad)
+        SELECT 
+            df.id_factura,
+            'Descuento',
+            'Descuento por grupo familiar (15%)',
+            ROUND(df.monto * -0.15, 2),
+            1
+        FROM facturacion.DetalleFactura df
+        WHERE df.id_factura = @id_factura AND df.tipo_item = 'Membresia';
+    END
+
+    -- 2. Descuento por múltiples actividades deportivas (10%)
+    IF (
+        SELECT COUNT(*)
+        FROM facturacion.DetalleFactura
+        WHERE id_factura = @id_factura AND tipo_item = 'Actividad'
+    ) > 1
+    BEGIN
+        INSERT INTO facturacion.DetalleFactura (id_factura, tipo_item, descripcion, monto, cantidad)
+        SELECT 
+            df.id_factura,
+            'Descuento',
+            'Descuento por múltiples actividades deportivas (10%)',
+            ROUND(df.monto * -0.10, 2),
+            1
+        FROM facturacion.DetalleFactura df
+        WHERE df.id_factura = @id_factura AND df.tipo_item = 'Actividad';
+    END
+
+    -- 3. Recalcular monto total
+    UPDATE facturacion.Factura
+    SET monto_total = (
+        SELECT SUM(monto)
+        FROM facturacion.DetalleFactura
+        WHERE id_factura = @id_factura
+    )
+    WHERE id_factura = @id_factura;
 END;
 GO

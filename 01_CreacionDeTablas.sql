@@ -5,7 +5,8 @@
    Fecha de Entrega: 17/06/2025
    Materia: Bases de Datos Aplicadas
    Alumnos: Vignardel Francisco 45778667
-            De Titto Lucia 46501934
+            De Titto Lucia		46501934
+			Borja Tomas			42353302
  ========================================================================= */
 USE COM2900G13;
 GO
@@ -57,6 +58,7 @@ DROP PROCEDURE IF EXISTS facturacion.AnularFactura
 DROP PROCEDURE IF EXISTS facturacion.GenerarFacturaSocioActExtra
 DROP PROCEDURE IF EXISTS facturacion.GenerarFacturaSocioMensual
 DROP PROCEDURE IF EXISTS facturacion.GenerarFacturaInvitado
+DROP PROCEDURE IF EXISTS facturacion.GestionarDescuentos
 DROP PROCEDURE IF EXISTS facturacion.GestionarEmisorFactura
 
 /* ============================
