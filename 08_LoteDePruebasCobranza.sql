@@ -3,11 +3,10 @@ GO
 SET NOCOUNT ON;
 GO
 
-DELETE FROM cobranzas.MedioDePago
-DBCC CHECKIDENT ('cobranzas.MedioDePago', RESEED, 0)WITH NO_INFOMSGS;
-
 DELETE FROM cobranzas.Pago
-DBCC CHECKIDENT ('cobranzas.MedioDePago', RESEED, 0)WITH NO_INFOMSGS;
+DBCC CHECKIDENT ('cobranzas.Pago', RESEED, 0) WITH NO_INFOMSGS;
+DELETE FROM cobranzas.MedioDePago
+DBCC CHECKIDENT ('cobranzas.MedioDePago', RESEED, 0) WITH NO_INFOMSGS;
 
 -- Insertar medios de pago - Tarjetas de crédito (con débito automático habilitado)
 EXEC cobranzas.GestionarMedioDePago @nombre = 'Visa',         @debito_automatico = 1, @operacion = 'Insertar';
@@ -31,6 +30,9 @@ EXEC cobranzas.RegistrarCobranza
     @id_factura = 1;
 GO
 
+-- ================= REGISTRAR COBRANZA PARA FACTURA =================
+
+
 -- ================= VERIFICAR RESULTADOS =================
 
 select * from cobranzas.MedioDePago
@@ -39,5 +41,3 @@ SELECT * FROM cobranzas.Pago WHERE id_factura = 1;
 SELECT saldo FROM administracion.Socio 
 WHERE id_persona = (SELECT id_persona FROM administracion.Persona WHERE dni = '45778667');
 select * from facturacion.factura where id_factura = 1
-
-

@@ -4,10 +4,10 @@ GO
 SET NOCOUNT ON;
 GO
 
-DELETE FROM cobranzas.MedioDePago
-DBCC CHECKIDENT ('cobranzas.MedioDePago', RESEED, 0)WITH NO_INFOMSGS;
 DELETE FROM cobranzas.Pago
 DBCC CHECKIDENT ('cobranzas.Pago', RESEED, 0)WITH NO_INFOMSGS;
+DELETE FROM cobranzas.MedioDePago
+DBCC CHECKIDENT ('cobranzas.MedioDePago', RESEED, 0)WITH NO_INFOMSGS;
 DELETE FROM facturacion.DetalleFactura
 DBCC CHECKIDENT ('facturacion.DetalleFactura', RESEED, 0)WITH NO_INFOMSGS;
 DELETE FROM facturacion.Factura

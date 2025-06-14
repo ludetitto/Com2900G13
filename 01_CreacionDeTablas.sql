@@ -40,6 +40,7 @@ DROP PROCEDURE IF EXISTS administracion.GestionarPersona
 DROP PROCEDURE IF EXISTS administracion.GestionarCategoriaSocio
 DROP PROCEDURE IF EXISTS administracion.GestionarGrupoFamiliar
 
+DROP PROCEDURE IF EXISTS cobranzas.GestionarMedioDePago
 DROP PROCEDURE IF EXISTS cobranzas.RegistrarMedioDePago
 DROP PROCEDURE IF EXISTS cobranzas.RegistrarCobranza
 DROP PROCEDURE IF EXISTS cobranzas.RegistrarReintegroPorLluvia
@@ -50,6 +51,7 @@ DROP PROCEDURE IF EXISTS cobranzas.GenerarReintegroPorLluvia
 DROP PROCEDURE IF EXISTS cobranzas.GenerarReembolso
 DROP PROCEDURE IF EXISTS cobranzas.DeshabilitarDebitoAutomatico
 DROP PROCEDURE IF EXISTS cobranzas.AplicarRecargoVencimiento
+DROP PROCEDURE IF EXISTS cobranzas.MorososRecurrentes
 
 DROP PROCEDURE IF EXISTS facturacion.AnularFactura
 DROP PROCEDURE IF EXISTS facturacion.GenerarFacturaSocioActExtra
@@ -67,8 +69,8 @@ DROP TABLE IF EXISTS cobranzas.Mora;
 DROP TABLE IF EXISTS cobranzas.NotaDeCredito;
 DROP TABLE IF EXISTS cobranzas.PagoACuenta;
 DROP TABLE IF EXISTS cobranzas.Pago;
-DROP TABLE IF EXISTS cobranzas.MedioDePago;
 DROP TABLE IF EXISTS cobranzas.DebitoAutomaticoSocio;
+DROP TABLE IF EXISTS cobranzas.MedioDePago;
 
 -- FACTURACION
 DROP TABLE IF EXISTS facturacion.Descuento;

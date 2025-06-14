@@ -594,7 +594,8 @@ BEGIN
 
     /* Se actualiza la factura cuyo id_factura está en la tabla inserted (puede ser más de uno)*/
     UPDATE F
-    SET F.estado = 'Pagado'
+    SET F.estado = '
+	'
     FROM facturacion.Factura f
     INNER JOIN inserted i ON f.id_factura = i.id_factura;
 END;
