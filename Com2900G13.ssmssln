@@ -18,6 +18,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		06_LoteDePruebasAdministrativa.sql = 06_LoteDePruebasAdministrativa.sql
 		07_LoteDePruebasFacturacion.sql = 07_LoteDePruebasFacturacion.sql
 		08_LoteDePruebasCobranza.sql = 08_LoteDePruebasCobranza.sql
+		09_LoteDePruebasMorosidad.sql = 09_LoteDePruebasMorosidad.sql
 		10_Reportes.sql = 10_Reportes.sql
 	EndProjectSection
 EndProject
@@ -26,7 +27,7 @@ Global
 		Default|Default = Default|Default
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{FF826914-C2F4-4633-8A74-4E0F87B43856}.Default|Default.ActiveCfg = Default
+		{90CE9E7A-5A50-418C-B054-D984F89E902E}.Default|Default.ActiveCfg = Default
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

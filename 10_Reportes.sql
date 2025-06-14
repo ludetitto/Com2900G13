@@ -40,24 +40,31 @@ BEGIN
 
 	WITH CantidadIncumplimientos AS (
 		SELECT
-			S.nro_socio AS [Nro de socio],
-			P.nombre + ' ' + P.apellido AS [Nombre y apellido],
-			MONTH(F.fecha_vencimiento1) AS [Mes incumplido],
-			COUNT(M.id_mora) OVER(PARTITION BY S.id_socio) AS [Cantidad de incumplimientos]
-		FROM cobranzas.Mora M
-		INNER JOIN facturacion.Factura F ON M.id_factura = F.id_factura
-		INNER JOIN administracion.Socio S ON M.id_socio = S.id_socio
+			S.nro_socio AS [Nro_de_socio],
+			P.nombre + ' ' + P.apellido AS [Nombre_y_apellido],
+			MONTH(F.fecha_vencimiento1) AS [Mes_incumplido],
+			COUNT(F.id_factura) AS [Cantidad_de_incumplimientos]
+		FROM facturacion.Factura F
+		INNER JOIN administracion.Socio S ON F.id_socio = S.id_socio
 		INNER JOIN administracion.Persona P ON S.id_persona = P.id_persona
 		WHERE F.fecha_vencimiento1 BETWEEN @fecha_inicio AND @fecha_fin
+		AND estado = 'No pagada'
+		GROUP BY S.nro_socio, P.nombre, P.apellido, MONTH(F.fecha_vencimiento1)
 	)
-	SELECT DISTINCT
-		[Nro de socio],
-		[Nombre y apellido],
-		[Mes incumplido],
-		[Cantidad de incumplimientos],
-		RANK() OVER(ORDER BY [Cantidad de incumplimientos] DESC) AS [Ranking de morosidad]
-	FROM CantidadIncumplimientos
-	FOR XML PATH(''), ROOT('MorososRecurrentes'), ELEMENTS;
+	SELECT
+        @fecha_inicio AS [Periodo/@Desde],
+        @fecha_fin AS [Periodo/@Hasta],
+        (
+            SELECT
+                [Nro_de_socio],
+                [Nombre_y_apellido],
+                [Mes_incumplido],
+                [Cantidad_de_incumplimientos],
+                RANK() OVER(ORDER BY [Cantidad_de_incumplimientos] DESC) AS [Ranking_de_morosidad]
+            FROM CantidadIncumplimientos
+            FOR XML PATH('Moroso'), TYPE
+        ) AS [Morosos]
+    FOR XML PATH('MorososRecurrentes'), ROOT('Reporte'), ELEMENTS;
 END
 
-EXEC cobranzas.MorososRecurrentes '2024-01-01', '2024-12-31';
+EXEC cobranzas.MorososRecurrentes '2025-05-01', '2025-06-30';
