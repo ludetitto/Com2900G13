@@ -5,7 +5,8 @@
    Fecha de Entrega: 17/06/2025
    Materia: Bases de Datos Aplicadas
    Alumnos: Vignardel Francisco 45778667
-            De Titto Lucia 46501934
+            De Titto Lucia		46501934
+			Borja Tomas			42353302
  ========================================================================= */
 USE COM2900G13;
 GO
@@ -552,3 +553,31 @@ EXEC facturacion.GenerarFacturaSocioActExtra
 @descripcion = 'Colonia de verano';
 -- Resultado esperado: Error lanzado por RAISERROR
 GO
+
+-- =================== APLICAR DESCUENTOS A UNA FACTURA SI CORRESPONDE ===================
+-- CASO 1: USUARIO INSCRIPTO A VARIAS ACTIVIDADES
+SELECT * from facturacion.Factura where id_factura = 3; 
+EXEC facturacion.GestionarDescuentos 3;
+SELECT * from facturacion.Factura where id_factura = 3;
+SELECT * from facturacion.DetalleFactura where id_factura = 3;
+
+-- CASO 2: USUARIO RESPONSABLE DE GRUPO FAMILIAR (2 O MAS MEMBRESIAS EN UNA FACTURA)
+SELECT * FROM facturacion.Factura
+SELECT * FROM administracion.GrupoFamiliar;
+
+
+SELECT * from facturacion.Factura where id_factura = 2; 
+EXEC facturacion.GestionarDescuentos 2;
+SELECT * from facturacion.Factura where id_factura = 2;
+SELECT * from facturacion.DetalleFactura where id_factura = 2;
+
+-- CASO 3: LA FACTURA YA ESTA PAGADA
+SELECT * from facturacion.Factura where id_factura = 1; 
+EXEC facturacion.GestionarDescuentos 1;
+SELECT * from facturacion.Factura where id_factura = 1;
+SELECT * from facturacion.DetalleFactura where id_factura = 1;
+
+ /*Resultado esperado 
+    El total (monto_total) se reduce correctamente.
+    Los descuentos se ven reflejados de forma clara y auditable en el detalle.
+    La factura sigue conservando toda su trazabilidad.*/

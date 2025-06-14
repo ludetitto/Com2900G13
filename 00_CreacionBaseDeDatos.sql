@@ -5,7 +5,8 @@
    Fecha de Entrega: 17/06/2025
    Materia: Bases de Datos Aplicadas
    Alumnos: Vignardel Francisco 45778667
-            De Titto Lucia 46501934
+            De Titto Lucia		46501934
+			Borja Tomas			42353302
    ========================================================================= */
 
 -- Descripción: Creación de la base de datos Com3900G13 con configuración ajustada y portable
