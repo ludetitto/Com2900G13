@@ -56,6 +56,7 @@ DROP PROCEDURE IF EXISTS facturacion.AnularFactura
 DROP PROCEDURE IF EXISTS facturacion.GenerarFacturaSocioActExtra
 DROP PROCEDURE IF EXISTS facturacion.GenerarFacturaSocioMensual
 DROP PROCEDURE IF EXISTS facturacion.GenerarFacturaInvitado
+DROP PROCEDURE IF EXISTS facturacion.GestionarDescuentos
 DROP PROCEDURE IF EXISTS facturacion.GestionarEmisorFactura
 
 /* ============================
