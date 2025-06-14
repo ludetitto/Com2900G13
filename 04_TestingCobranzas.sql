@@ -238,12 +238,13 @@ GO
 
 -- ✅ PRUEBA 1: Registrar reintegro por lluvia válido
 EXEC cobranzas.GenerarReintegroPorLluvia
-    @mes = '06',
-    @año = '2024',
-    @path = 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\open-meteo-buenosaires_2024.csv';
+    @mes = '02',
+    @año = '2025',
+    @path = 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\open-meteo-buenosaires_2025.csv';
 GO
 
-SELECT * FROM cobranzas.NotaDeCredito;
+SELECT * FROM cobranzas.PagoACuenta;
+SELECT * FROM administracion.vwSociosConCategoria ORDER BY apellido, nombre;
 
 -- ❌ PRUEBA 2: Registrar reintegro con fecha futura inválida
 EXEC cobranzas.GenerarReintegroPorLluvia
