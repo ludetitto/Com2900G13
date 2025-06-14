@@ -32,6 +32,14 @@ EXEC cobranzas.RegistrarCobranza
     @id_factura = 1;
 GO
 
+EXEC cobranzas.RegistrarCobranza 
+    @dni_socio = '45778667',
+    @monto = 25000,
+    @fecha = '2025-02-27',
+    @medio_pago = 'Visa',
+    @id_factura = 6;
+GO
+
 -- ================= REGISTRAR COBRANZA PARA FACTURA =================
 
 
@@ -40,8 +48,5 @@ GO
 select * from cobranzas.MedioDePago
 
 SELECT * FROM cobranzas.Pago WHERE id_factura = 1;
-SELECT saldo FROM administracion.Socio 
 
-WHERE id_persona = (SELECT id_persona FROM administracion.Persona WHERE dni = '33444555');
-select * from facturacion.factura where id_factura = 1
-
+SELECT * FROM administracion.vwSociosConCategoria ORDER BY apellido, nombre;

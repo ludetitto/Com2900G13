@@ -861,6 +861,8 @@ BEGIN
         DECLARE @id_socio INT;
         DECLARE @id_emisor INT;
 		DECLARE @monto_total DECIMAL(10, 2) = 0;
+		DECLARE @descuentoMembresias DECIMAL(10,2) = 0;
+		DECLARE @descuentoActividades DECIMAL(10,2) = 0;
 		DECLARE @id_factura INT;
 
         /*Se obtiene el id_socio asociado a su correspondiente DNI*/
@@ -910,32 +912,58 @@ BEGIN
             RAISERROR('No se encontró emisor con ese CUIL.', 16, 1);
             ROLLBACK TRANSACTION;
             RETURN;
-        END
+        END;
 
 		/*Obtener monto total a facturar*/
-		SELECT @monto_total += subtotal
-		FROM (
+		WITH subtotalMembresias AS (
 			SELECT CS.costo_membresia * COUNT(*) AS subtotal
 			FROM administracion.Socio S
 			INNER JOIN administracion.CategoriaSocio CS ON S.id_categoria = CS.id_categoria
 			WHERE S.id_socio = @id_socio
 			   OR S.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio)
 			GROUP BY CS.costo_membresia
-		) AS subtotalMembresias;
+		)
+		SELECT	@descuentoMembresias = ISNULL(SUM(subtotal) * 0.15, 0),
+				@monto_total += ISNULL(SUM(subtotal), 0)
+		FROM subtotalMembresias;
 
-		SELECT @monto_total += subtotal
-		FROM (
-			SELECT A.costo * COUNT(*) AS subtotal
+		-- Calcular descuento si corresponde (15%)
+		IF EXISTS (	SELECT 1
+					FROM administracion.GrupoFamiliar G
+					INNER JOIN administracion.Socio S ON S.id_socio = G.id_socio
+					WHERE G.id_socio_rp = @id_socio AND S.activo = 1)
+		BEGIN
+			SET @monto_total -= @descuentoMembresias;
+		END;
+
+		WITH subtotalActividades AS (
+		SELECT A.costo * COUNT(*) AS subtotal
+		FROM actividades.Actividad A
+		INNER JOIN actividades.Clase C ON A.id_actividad = C.id_actividad
+		INNER JOIN actividades.InscriptoClase I ON I.id_clase = C.id_clase
+		INNER JOIN administracion.Socio S ON I.id_socio = S.id_socio
+		WHERE S.id_socio = @id_socio 
+		   OR S.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio)
+		GROUP BY A.id_actividad, A.costo
+		)
+
+		SELECT  @descuentoActividades = ISNULL(SUM(subtotal) * 0.10, 0),
+				@monto_total += ISNULL(SUM(subtotal), 0)
+		FROM subtotalActividades;
+
+		-- Aplicar descuento 10% si hay más de una actividad
+		IF (SELECT COUNT(DISTINCT A.id_actividad)
 			FROM actividades.Actividad A
 			INNER JOIN actividades.Clase C ON A.id_actividad = C.id_actividad
 			INNER JOIN actividades.InscriptoClase I ON I.id_clase = C.id_clase
 			INNER JOIN administracion.Socio S ON I.id_socio = S.id_socio
 			WHERE S.id_socio = @id_socio 
-			   OR S.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio)
-			GROUP BY A.costo
-		) AS subtotalActividades;
+			OR S.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio)) > 1
+		BEGIN
+			SET @monto_total -= @descuentoActividades;
+		END
 
-		SELECT @monto_total += monto
+		SELECT @monto_total += ISNULL(SUM(monto), 0)
 		FROM cobranzas.Mora
 		WHERE id_socio = @id_socio
 
@@ -998,6 +1026,52 @@ BEGIN
 		WHERE S.id_socio = @id_socio OR S.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio)
 		GROUP BY C.id_actividad, A.nombre, A.costo;
 
+		-- DESCUENTO POR GRUPO FAMILIAR (15%) > 1 MIEMBRO ACTIVO
+		IF EXISTS (
+			SELECT S.id_socio
+			FROM administracion.GrupoFamiliar G
+			INNER JOIN administracion.Socio S ON S.id_socio = G.id_socio
+			WHERE id_socio_rp = @id_socio AND S.activo = 1
+		)
+		BEGIN
+			INSERT INTO facturacion.DetalleFactura (id_factura, tipo_item, descripcion, monto, cantidad)
+			SELECT DISTINCT
+				@id_factura,
+				'Descuento',
+				'Descuento por grupo familiar (15%)',
+				@descuentoMembresias,
+				1
+			FROM administracion.GrupoFamiliar G
+			INNER JOIN administracion.Socio S ON S.id_socio = G.id_socio
+			WHERE id_socio_rp = @id_socio AND S.activo = 1
+		END
+
+		-- DESCUENTO POR MÚLTIPLES ACTIVIDADES DEPORTIVAS (10%)
+		IF (
+			SELECT COUNT(*)
+			FROM facturacion.DetalleFactura D
+			INNER JOIN facturacion.Factura F ON F.id_factura = D.id_factura
+			INNER JOIN administracion.Socio S ON S.id_socio = F.id_socio
+			WHERE F.id_factura = @id_factura
+			AND D.tipo_item = 'Actividad'
+			AND (S.id_socio = @id_socio OR S.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio)
+		)) > 1
+		BEGIN
+			INSERT INTO facturacion.DetalleFactura (id_factura, tipo_item, descripcion, monto, cantidad)
+			SELECT DISTINCT 
+				@id_factura,
+				'Descuento',
+				'Descuento por múltiples actividades deportivas (10%)',
+				@descuentoActividades,
+				1
+				FROM facturacion.DetalleFactura D
+				INNER JOIN facturacion.Factura F ON F.id_factura = D.id_factura
+				INNER JOIN administracion.Socio S ON S.id_socio = F.id_socio
+				WHERE F.id_factura = @id_factura
+				AND D.tipo_item = 'Actividad'
+				AND (S.id_socio = @id_socio OR S.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio))
+		END;
+
 		-- MORA (asumiendo que el id_socio es el del responsable)
 		INSERT INTO facturacion.DetalleFactura
 				(id_factura, id_extra, tipo_item, descripcion, monto, cantidad)
@@ -1057,18 +1131,27 @@ BEGIN
 		DECLARE @fecha_vencimiento2 DATE;
 		
 		/*Se obtiene el id_socio asociado a su correspondiente DNI*/
-		SELECT @id_socio = id_socio 
-		FROM administracion.Socio s
-		INNER JOIN administracion.Persona p ON s.id_persona = p.id_persona
-		WHERE p.dni = @dni_socio;
+		SELECT @id_socio = G.id_socio_rp 
+		FROM administracion.GrupoFamiliar G
+		INNER JOIN administracion.Socio S ON S.id_socio = G.id_socio
+		INNER JOIN administracion.Persona P ON S.id_persona = P.id_persona
+		WHERE P.dni = @dni_socio;
 
 		/*Si no existe el socio o no es responsable, no se realiza la transacción*/
 		IF @id_socio IS NULL
 		BEGIN
-			RAISERROR('No se encontró socio responsable con ese DNI.', 16, 1);
-			ROLLBACK TRANSACTION;
-			RETURN;
-		END
+			SELECT @id_socio = id_socio 
+			FROM administracion.Socio s
+			INNER JOIN administracion.Persona p ON s.id_persona = p.id_persona
+			WHERE p.dni = @dni_socio;
+
+			IF @id_socio IS NULL
+			BEGIN
+				RAISERROR('No se encontró socio responsable con ese DNI.', 16, 1);
+				ROLLBACK TRANSACTION;
+				RETURN;
+			END
+		END;
 
 		IF EXISTS (
 		SELECT TOP 1 F.id_factura
@@ -1131,14 +1214,16 @@ BEGIN
 		END
 
 		/*Obtener monto total a facturar*/
-		SELECT @monto_total = MAX(AE.costo)
+		SELECT @monto_total = AE.costo
 		FROM actividades.PresentismoActividadExtra PAE
 		INNER JOIN actividades.ActividadExtra AE ON PAE.id_extra = AE.id_extra
-		WHERE PAE.id_socio = @id_socio
+		WHERE (PAE.id_socio = @id_socio OR PAE.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio))
 		AND MONTH(PAE.fecha) = MONTH(GETDATE())
 		AND YEAR(PAE.fecha) = YEAR(GETDATE())
 		AND AE.nombre = @descripcion
-		AND AE.es_invitado = 'N';
+		AND AE.es_invitado = 'N'
+		AND AE.periodo LIKE @periodo
+		AND AE.vigencia > GETDATE();
 
 		/*Generar factura per sé*/
 		INSERT INTO facturacion.Factura
@@ -1150,9 +1235,9 @@ BEGIN
 			'Consumidor final', 
 			@monto_total, 
 			(SELECT ISNULL(SUM(saldo), 0)FROM administracion.Socio WHERE id_socio = @id_socio),
-			GETDATE(), 
-			@fecha_vencimiento1,
-			@fecha_vencimiento2,
+			CAST('2025-02-27' AS DATE), --PARA TESTING 
+			CAST('2025-02-27' AS DATE), --PARA TESTING 
+			CAST('2025-02-27' AS DATE), --PARA TESTING 
 			'No pagada', 
 			0);
 
@@ -1164,17 +1249,19 @@ BEGIN
 		SELECT
 			@id_factura,
 			AE.id_extra,
-			'Actividad extra - Periodo ' + AE.periodo,
+			LEFT('Actividad extra - Periodo ' + AE.periodo, 50),
 			AE.nombre,
 			AE.costo,
 			1
 		FROM actividades.PresentismoActividadExtra PAE
 		INNER JOIN actividades.ActividadExtra AE ON PAE.id_extra = AE.id_extra
-		WHERE PAE.id_socio = @id_socio
+		WHERE (PAE.id_socio = @id_socio OR PAE.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio))
 		AND MONTH(PAE.fecha) = MONTH(GETDATE())
 		AND YEAR(PAE.fecha) = YEAR(GETDATE())
 		AND AE.nombre = @descripcion
-		AND AE.es_invitado = 'N';
+		AND AE.es_invitado = 'N'
+		AND AE.periodo LIKE @periodo
+		AND AE.vigencia > GETDATE();
 
 		/*Confirmar transacción*/
         COMMIT TRANSACTION;
@@ -1324,7 +1411,7 @@ GO
   ______________________ GestionarDescuentos ______________________
   ____________________________________________________________________*/
 
-IF OBJECT_ID('facturacion.GestionarDescuentos', 'P') IS NOT NULL
+/*IF OBJECT_ID('facturacion.GestionarDescuentos', 'P') IS NOT NULL
 	DROP PROCEDURE facturacion.GestionarDescuentos;
 GO
 
@@ -1351,42 +1438,6 @@ BEGIN
         RETURN;
     END
 
-    -- 1. Descuento por grupo familiar (15%) si hay más de un miembro activo
-    IF EXISTS (
-        SELECT 1
-        FROM administracion.GrupoFamiliar
-        WHERE id_socio_rp = @id_socio
-    )
-    BEGIN
-        INSERT INTO facturacion.DetalleFactura (id_factura, tipo_item, descripcion, monto, cantidad)
-        SELECT 
-            df.id_factura,
-            'Descuento',
-            'Descuento por grupo familiar (15%)',
-            ROUND(df.monto * -0.15, 2),
-            1
-        FROM facturacion.DetalleFactura df
-        WHERE df.id_factura = @id_factura AND df.tipo_item = 'Membresia';
-    END
-
-    -- 2. Descuento por múltiples actividades deportivas (10%)
-    IF (
-        SELECT COUNT(*)
-        FROM facturacion.DetalleFactura
-        WHERE id_factura = @id_factura AND tipo_item = 'Actividad'
-    ) > 1
-    BEGIN
-        INSERT INTO facturacion.DetalleFactura (id_factura, tipo_item, descripcion, monto, cantidad)
-        SELECT 
-            df.id_factura,
-            'Descuento',
-            'Descuento por múltiples actividades deportivas (10%)',
-            ROUND(df.monto * -0.10, 2),
-            1
-        FROM facturacion.DetalleFactura df
-        WHERE df.id_factura = @id_factura AND df.tipo_item = 'Actividad';
-    END
-
     -- 3. Recalcular monto total
     UPDATE facturacion.Factura
     SET monto_total = (
@@ -1396,4 +1447,4 @@ BEGIN
     )
     WHERE id_factura = @id_factura;
 END;
-GO
+GO*/
