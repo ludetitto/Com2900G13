@@ -180,8 +180,8 @@ EXEC facturacion.GenerarFacturaSocioActExtra '40505050', '20-12345678-4', 'Colon
 EXEC facturacion.GenerarFacturaSocioActExtra '40707070', '20-12345678-4', 'Pileta verano';
 
 -- =================== VERIFICAR ===================
-SELECT * FROM actividades.Clase;
 SELECT * FROM actividades.Actividad;
+SELECT * FROM actividades.Clase;
 SELECT * FROM actividades.InscriptoClase;
 SELECT * FROM actividades.presentismoClase ORDER BY fecha;
 SELECT * FROM actividades.ActividadExtra;

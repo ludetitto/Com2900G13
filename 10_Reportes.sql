@@ -68,3 +68,57 @@ BEGIN
 END
 
 EXEC cobranzas.MorososRecurrentes '2025-05-01', '2025-06-30';
+
+
+
+/*____________________________________________________________________
+  _____________________________ Reporte 4 ____________________________
+  ____________________________________________________________________*/
+/*
+Reporte 4
+Reporte que contenga a los socios que no han asistido a alguna clase de la actividad que
+realizan. El reporte debe contener: Nombre, Apellido, edad, categoría y la actividad
+*/
+IF OBJECT_ID('actividades.SociosQueFaltaron', 'P') IS NOT NULL
+    DROP PROCEDURE actividades.SociosQueFaltaron;
+GO
+
+CREATE PROCEDURE actividades.SociosQueFaltaron
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    WITH FaltasPorSocio AS (
+        SELECT
+            p.nombre,
+            p.apellido,
+            DATEDIFF(YEAR, p.fecha_nacimiento, GETDATE()) AS edad,
+            cs.nombre AS categoria,
+            a.nombre AS actividad
+        FROM actividades.presentismoClase pc
+        INNER JOIN administracion.Socio s ON pc.id_socio = s.id_socio
+        INNER JOIN administracion.Persona p ON s.id_persona = p.id_persona
+        INNER JOIN administracion.CategoriaSocio cs ON s.id_categoria = cs.id_categoria
+        INNER JOIN actividades.Clase c ON pc.id_clase = c.id_clase
+        INNER JOIN actividades.Actividad a ON c.id_actividad = a.id_actividad
+        WHERE pc.condicion IN ('A', 'J')
+        GROUP BY p.nombre, p.apellido, p.fecha_nacimiento, cs.nombre, a.nombre
+    )
+
+    SELECT
+        (
+            SELECT
+                nombre AS [Nombre],
+                apellido AS [Apellido],
+                edad AS [Edad],
+                categoria AS [Categoria],
+                actividad AS [Actividad]
+            FROM FaltasPorSocio
+            FOR XML PATH('Socio'), TYPE
+        ) AS [Socios]
+    FOR XML PATH('SociosQueFaltaron'), ROOT('Reporte'), ELEMENTS;
+END;
+GO
+
+
+EXEC actividades.SociosQueFaltaron;
