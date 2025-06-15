@@ -433,153 +433,6 @@ END;
 GO
 
 /*____________________________________________________________________
-  _________________________ GenerarReembolso _________________________
-  ____________________________________________________________________*/
-
-IF OBJECT_ID('cobranzas.GenerarReembolso', 'P') IS NOT NULL
-    DROP PROCEDURE cobranzas.GenerarReembolso;
-GO
-
-CREATE PROCEDURE cobranzas.GenerarReembolso
-    @id_pago INT,
-    @monto DECIMAL(10,2),
-    @motivo NVARCHAR(255)
-AS
-BEGIN
-    SET NOCOUNT ON;
-    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
-
-    BEGIN TRY
-        BEGIN TRANSACTION;
-		
-		DECLARE @monto_pago DECIMAL(10,2);
-		DECLARE @fecha_actual DATE = GETDATE();
-		DECLARE @id_socio INT;
-
-        -- Validar existencia del pago
-        IF NOT EXISTS (
-            SELECT monto = @monto_pago FROM cobranzas.Pago WHERE id_pago = @id_pago
-        )
-        BEGIN
-            RAISERROR('No existe un pago con el ID especificado.', 16, 1);
-            ROLLBACK TRANSACTION;
-            RETURN;
-        END;
-
-		IF @monto > @monto_pago
-		BEGIN
-			RAISERROR('El monto del reembolso no puede superar el monto del pago original.', 16, 1);
-			RETURN;
-		END;
-
-        SET @id_socio = (
-            SELECT f.id_socio
-            FROM cobranzas.Pago p
-            JOIN facturacion.Factura f ON f.id_factura = p.id_factura
-            WHERE p.id_pago = @id_pago
-        );
-
-		-- Insertar nota de crédito (reembolso)
-		EXEC cobranzas.RegistrarNotaDeCredito
-			@monto = @monto,
-			@fecha_emision = @fecha_actual,
-			@estado = NULL,
-			@motivo = @motivo,
-			@id_pago = @id_pago
-
-        -- Actualiza el saldo del socio
-        UPDATE administracion.Socio
-        SET saldo = saldo + @monto
-        WHERE id_socio = @id_socio;
-
-        COMMIT TRANSACTION;
-    END TRY
-    BEGIN CATCH
-		IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
-		DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
-		DECLARE @ErrSeverity INT = ERROR_SEVERITY();
-		RAISERROR(@ErrMsg, @ErrSeverity, 1);
-	END CATCH
-END;
-GO
-
-/*____________________________________________________________________
-  _______________________ RegistrarPagoACuenta _______________________
-  ____________________________________________________________________*/
-
-IF OBJECT_ID('cobranzas.RegistrarPagoACuenta', 'P') IS NOT NULL
-    DROP PROCEDURE cobranzas.RegistrarPagoACuenta;
-GO
-
-CREATE PROCEDURE cobranzas.RegistrarPagoACuenta
-    @id_socio INT,
-    @monto DECIMAL(10,2),
-    @fecha DATE,
-    @medio_pago VARCHAR(50),
-    @motivo VARCHAR(100) = 'Pago a cuenta sin factura'
-AS
-BEGIN
-    SET NOCOUNT ON;
-    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
-
-    BEGIN TRY
-        BEGIN TRANSACTION;
-
-		DECLARE @id_medio INT;
-
-        -- Validar socio activo
-        IF NOT EXISTS (
-            SELECT 1 FROM administracion.Socio WHERE id_socio = @id_socio AND activo = 1
-        )
-        BEGIN
-            RAISERROR('El socio no existe o no está activo.', 16, 1);
-            ROLLBACK TRANSACTION;
-            RETURN;
-        END;
-
-        -- Validar medio de pago
-        SELECT @id_medio = id_medio FROM cobranzas.MedioDePago WHERE nombre = @medio_pago;
-
-        IF @id_medio IS NULL
-        BEGIN
-            RAISERROR('Medio de pago inválido o no registrado.', 16, 1);
-            ROLLBACK TRANSACTION;
-            RETURN;
-        END;
-
-        -- Insertar en tabla Pago (sin factura)
-        INSERT INTO cobranzas.Pago (
-            id_factura, id_medio, monto, fecha_emision, fecha_vencimiento, estado
-        ) VALUES (
-            NULL, @id_medio, @monto, GETDATE(), @fecha, 'ACuenta'
-        );
-
-        DECLARE @idPagoGenerado INT = SCOPE_IDENTITY();
-
-        -- Insertar en PagoACuenta
-        INSERT INTO cobranzas.PagoACuenta (
-            id_pago, id_socio, monto, fecha, motivo
-        ) VALUES (
-            @idPagoGenerado, @id_socio, @monto, @fecha, @motivo
-        );
-
-        -- Acreditar monto al saldo del socio
-        UPDATE administracion.Socio
-        SET saldo += @monto
-        WHERE id_socio = @id_socio;
-
-        COMMIT TRANSACTION;
-    END TRY
-    BEGIN CATCH
-        IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
-        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
-        DECLARE @ErrSeverity INT = ERROR_SEVERITY();
-        RAISERROR(@ErrMsg, @ErrSeverity, 1);
-    END CATCH
-END;
-GO
-
-/*____________________________________________________________________
   _______________________ ActualizarFacturaAPaga _____________________
   ____________________________________________________________________*/
 
@@ -807,4 +660,134 @@ BEGIN
 		SET anulada = 1
 		WHERE id_factura = @id_factura
 END;
+GO
+
+
+IF OBJECT_ID('cobranzas.GenerarReembolsoPorPago', 'P') IS NOT NULL
+    DROP PROCEDURE cobranzas.GenerarReembolsoPorPago;
+GO
+
+CREATE PROCEDURE cobranzas.GenerarReembolsoPorPago
+    @id_pago INT,
+    @motivo VARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        DECLARE @id_factura INT, @monto DECIMAL(10,2), @medio VARCHAR(100);
+
+        -- Validar pago existente y obtener datos
+        SELECT 
+            @id_factura = p.id_factura,
+            @monto = p.monto
+        FROM cobranzas.Pago p
+        WHERE p.id_pago = @id_pago;
+
+        IF @id_factura IS NULL OR @monto IS NULL
+        BEGIN
+            RAISERROR('El pago no existe o está incompleto.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END
+
+        -- Insertar Nota de Crédito
+        INSERT INTO cobranzas.NotaDeCredito (
+            id_factura, monto, fecha_emision, estado, motivo
+        ) VALUES (
+            @id_factura, @monto, GETDATE(), 'Emitida', @motivo
+        );
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+        DECLARE @Err NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR(@Err, 16, 1);
+    END CATCH
+END;
+GO
+
+
+IF OBJECT_ID('cobranzas.GenerarPagoACuentaPorReembolso', 'P') IS NOT NULL
+    DROP PROCEDURE cobranzas.GenerarPagoACuentaPorReembolso;
+GO
+
+CREATE PROCEDURE cobranzas.GenerarPagoACuentaPorReembolso
+    @id_pago INT,
+    @motivo VARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        DECLARE @id_factura INT, @id_socio INT, @monto DECIMAL(10,2);
+
+        -- Obtener factura y monto del pago
+        SELECT 
+            @id_factura = p.id_factura,
+            @monto = p.monto
+        FROM cobranzas.Pago p
+        WHERE p.id_pago = @id_pago;
+
+        IF @id_factura IS NULL OR @monto IS NULL
+        BEGIN
+            RAISERROR('El pago no existe o no tiene factura asociada.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END
+
+        -- Obtener socio asociado a la factura
+        SELECT @id_socio = f.id_socio
+        FROM facturacion.Factura f
+        WHERE f.id_factura = @id_factura AND f.id_socio IS NOT NULL;
+
+        IF @id_socio IS NULL
+        BEGIN
+            RAISERROR('La factura no está asociada a un socio.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END
+
+        -- Insertar registro en PagoACuenta
+        INSERT INTO cobranzas.PagoACuenta (
+            id_pago, id_socio, monto, fecha, motivo
+        ) VALUES (
+            @id_pago, @id_socio, @monto, GETDATE(), @motivo
+        );
+
+        -- Actualizar saldo del socio
+        UPDATE administracion.Socio
+        SET saldo = saldo + @monto
+        WHERE id_socio = @id_socio;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+        DECLARE @Err NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR(@Err, 16, 1);
+    END CATCH
+END;
+GO
+
+
+CREATE OR ALTER VIEW cobranzas.vwNotasConMedioDePago AS
+SELECT 
+    nc.id_nota,
+    nc.id_factura,
+    nc.monto,
+    nc.fecha_emision,
+    nc.estado,
+    nc.motivo,
+    mp.nombre AS medio_pago
+FROM cobranzas.NotaDeCredito nc
+JOIN cobranzas.Pago p ON p.id_factura = nc.id_factura
+JOIN cobranzas.MedioDePago mp ON mp.id_medio = p.id_medio;
 GO

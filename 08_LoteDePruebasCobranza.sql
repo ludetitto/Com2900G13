@@ -26,7 +26,7 @@ GO
 -- Supone que la factura con ID 1 está asociada al socio '45778667'
 EXEC cobranzas.RegistrarCobranza 
     @dni_socio = '45778667',
-    @monto = 122000,
+    @monto = 107800,
     @fecha = '2025-06-14',
     @medio_pago = 'Visa',
     @id_factura = 1;
