@@ -41,9 +41,23 @@ GO
 	   * Usuarios administrativos de socios → rol 'socios'
 	   * Presidente, vicepresidente, secretario y vocal → rol 'autoridades'
 	------------------------------------------------------*/
-CREATE LOGIN jefe_tesoreria WITH PASSWORD = 'jefe_tesoreria' MUST_CHANGE, CHECK_EXPIRATION = ON;GOCREATE USER jefe_tesoreria FOR LOGIN jefe_tesoreria;GOALTER ROLE tesoreria ADD MEMBER jefe_tesoreria;GO--///////////////////////////////////////////////////CREATE LOGIN admin_cobranza WITH PASSWORD = 'admin_cobranza' MUST_CHANGE, CHECK_EXPIRATION = ON;
+
+CREATE LOGIN jefe_tesoreria WITH PASSWORD = 'jefe_tesoreria' MUST_CHANGE, CHECK_EXPIRATION = ON;
 GO
-CREATE USER admin_cobranza FOR LOGIN admin_cobranza;GO
+
+CREATE USER jefe_tesoreria FOR LOGIN jefe_tesoreria;
+GO
+
+ALTER ROLE tesoreria ADD MEMBER jefe_tesoreria;
+GO
+
+--///////////////////////////////////////////////////
+
+CREATE LOGIN admin_cobranza WITH PASSWORD = 'admin_cobranza' MUST_CHANGE, CHECK_EXPIRATION = ON;
+GO
+
+CREATE USER admin_cobranza FOR LOGIN admin_cobranza;
+GO
 
 ALTER ROLE tesoreria ADD MEMBER admin_cobranza;
 GO
@@ -57,9 +71,11 @@ GO
 
 --///////////////////////////////////////////////////
 
-CREATE LOGIN admin_facturacion WITH PASSWORD = 'admin_facturacion' MUST_CHANGE, CHECK_EXPIRATION = ON;GO
+CREATE LOGIN admin_facturacion WITH PASSWORD = 'admin_facturacion' MUST_CHANGE, CHECK_EXPIRATION = ON;
+GO
 
-CREATE USER admin_facturacion FOR LOGIN admin_facturacion;GO
+CREATE USER admin_facturacion FOR LOGIN admin_facturacion;
+GO
 
 ALTER ROLE tesoreria ADD MEMBER admin_facturacion;
 GO
@@ -165,3 +181,109 @@ GRANT SELECT, INSERT, UPDATE ON SCHEMA::cobranzas TO autoridades
 
 DENY INSERT, UPDATE ON SCHEMA::facturacion TO secretario
 DENY INSERT, UPDATE ON SCHEMA::facturacion TO vocal
+
+/* ------------------------------------------------------
+   4) CIFRADO DE DATOS SENSIBLES EN TABLAS CRÍTICAS
+   ------------------------------------------------------
+   - Se agregan columnas VARBINARY para guardar los datos cifrados.
+   - Se usa EncryptByPassPhrase() para cifrar campos sensibles.
+   - El passphrase debería venir desde la capa de aplicación segura.
+   ------------------------------------------------------*/
+
+USE COM2900G13;
+GO
+
+-- Paso 1: Asegurar que las columnas no estén duplicadas
+
+IF COL_LENGTH('administracion.Persona', 'dni_cifrado') IS NULL
+ALTER TABLE administracion.Persona
+ADD dni_cifrado VARBINARY(256),
+    fecha_nacimiento_cifrado VARBINARY(256),
+    email_cifrado VARBINARY(256),
+    tel_contacto_cifrado VARBINARY(256),
+    tel_emergencia_cifrado VARBINARY(256);
+GO
+
+IF COL_LENGTH('administracion.Socio', 'obra_social_cifrada') IS NULL
+ALTER TABLE administracion.Socio
+ADD obra_social_cifrada VARBINARY(256),
+    nro_obra_social_cifrada VARBINARY(256),
+    saldo_cifrado VARBINARY(256);
+GO
+
+IF COL_LENGTH('administracion.Invitado', 'dni_cifrado') IS NULL
+ALTER TABLE administracion.Invitado
+ADD dni_cifrado VARBINARY(256);
+GO
+
+IF COL_LENGTH('facturacion.Factura', 'monto_total_cifrado') IS NULL
+ALTER TABLE facturacion.Factura
+ADD monto_total_cifrado VARBINARY(256);
+GO
+
+IF COL_LENGTH('cobranzas.Pago', 'monto_cifrado') IS NULL
+ALTER TABLE cobranzas.Pago
+ADD monto_cifrado VARBINARY(256);
+GO
+
+IF COL_LENGTH('cobranzas.PagoACuenta', 'monto_cifrado') IS NULL
+ALTER TABLE cobranzas.PagoACuenta
+ADD monto_cifrado VARBINARY(256);
+GO
+
+IF COL_LENGTH('cobranzas.NotaDeCredito', 'monto_cifrado') IS NULL
+ALTER TABLE cobranzas.NotaDeCredito
+ADD monto_cifrado VARBINARY(256),
+    motivo_cifrado VARBINARY(256);
+GO
+
+-- Paso 2: Cifrado por tabla
+
+-- Persona
+DECLARE @passphrase NVARCHAR(128) = 'SolNorteClaveSegura';
+UPDATE administracion.Persona
+SET dni_cifrado = EncryptByPassPhrase(@passphrase, CAST(dni AS NVARCHAR(20)), 1, CONVERT(VARBINARY, id_persona)),
+    fecha_nacimiento_cifrado = EncryptByPassPhrase(@passphrase, CAST(fecha_nacimiento AS NVARCHAR(20)), 1, CONVERT(VARBINARY, id_persona)),
+    email_cifrado = EncryptByPassPhrase(@passphrase, email, 1, CONVERT(VARBINARY, id_persona)),
+    tel_contacto_cifrado = EncryptByPassPhrase(@passphrase, tel_contacto, 1, CONVERT(VARBINARY, id_persona)),
+    tel_emergencia_cifrado = EncryptByPassPhrase(@passphrase, tel_emergencia, 1, CONVERT(VARBINARY, id_persona));
+GO
+
+-- Socio
+DECLARE @passphrase NVARCHAR(128) = 'SolNorteClaveSegura';
+UPDATE administracion.Socio
+SET obra_social_cifrada = EncryptByPassPhrase(@passphrase, obra_social, 1, CONVERT(VARBINARY, id_socio)),
+    nro_obra_social_cifrada = EncryptByPassPhrase(@passphrase, nro_obra_social, 1, CONVERT(VARBINARY, id_socio)),
+    saldo_cifrado = EncryptByPassPhrase(@passphrase, CAST(saldo AS NVARCHAR(30)), 1, CONVERT(VARBINARY, id_socio));
+GO
+
+-- Invitado
+DECLARE @passphrase NVARCHAR(128) = 'SolNorteClaveSegura';
+UPDATE administracion.Invitado
+SET dni_cifrado = EncryptByPassPhrase(@passphrase, CAST(dni AS NVARCHAR(20)), 1, CONVERT(VARBINARY, id_invitado));
+GO
+
+-- Factura
+DECLARE @passphrase NVARCHAR(128) = 'SolNorteClaveSegura';
+UPDATE facturacion.Factura
+SET monto_total_cifrado = EncryptByPassPhrase(@passphrase, CAST(monto_total AS NVARCHAR(30)), 1, CONVERT(VARBINARY, id_factura));
+GO
+
+-- Pago
+DECLARE @passphrase NVARCHAR(128) = 'SolNorteClaveSegura';
+UPDATE cobranzas.Pago
+SET monto_cifrado = EncryptByPassPhrase(@passphrase, CAST(monto AS NVARCHAR(30)), 1, CONVERT(VARBINARY, id_pago));
+GO
+
+-- PagoACuenta
+DECLARE @passphrase NVARCHAR(128) = 'SolNorteClaveSegura';
+UPDATE cobranzas.PagoACuenta
+SET monto_cifrado = EncryptByPassPhrase(@passphrase, CAST(monto AS NVARCHAR(30)), 1, CONVERT(VARBINARY, id_pago_cuenta));
+GO
+
+-- NotaDeCredito
+DECLARE @passphrase NVARCHAR(128) = 'SolNorteClaveSegura';
+UPDATE cobranzas.NotaDeCredito
+SET monto_cifrado = EncryptByPassPhrase(@passphrase, CAST(monto AS NVARCHAR(30)), 1, CONVERT(VARBINARY, id_nota)),
+    motivo_cifrado = EncryptByPassPhrase(@passphrase, motivo, 1, CONVERT(VARBINARY, id_nota));
+GO
