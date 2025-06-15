@@ -5,7 +5,8 @@
    Fecha de Entrega: 17/06/2025
    Materia: Bases de Datos Aplicadas
    Alumnos: Vignardel Francisco 45778667
-            De Titto Lucia 46501934
+            De Titto Lucia		46501934
+			Borja Tomas			42353302
  ========================================================================= */
 USE COM2900G13;
 GO
@@ -13,7 +14,10 @@ GO
 /*____________________________________________________________________
   ____________________ AplicarRecargoVencimiento _____________________
   ____________________________________________________________________*/
-
+select * from facturacion.Factura
+EXEC cobranzas.AplicarRecargoVencimiento 'Mora'
+SELECT * FROM cobranzas.Mora
+GO
 /*____________________________________________________________________
   ____________________ AplicarBloqueoVencimiento _____________________
   ____________________________________________________________________*/

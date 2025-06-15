@@ -68,3 +68,100 @@ BEGIN
 END
 
 EXEC cobranzas.MorososRecurrentes '2025-05-01', '2025-06-30';
+
+
+
+/*____________________________________________________________________
+  _____________________________ Reporte 2 ____________________________
+  ____________________________________________________________________*/
+
+
+
+/*____________________________________________________________________
+  _____________________________ Reporte 3 ____________________________
+  ____________________________________________________________________
+Reporte de la cantidad de socios que han realizado alguna actividad de forma alternada
+(inasistencias) por categoría de socios y actividad, ordenado según cantidad de inasistencias
+ordenadas de mayor a menor
+  */
+
+IF OBJECT_ID('cobranzas.MorososRecurrentes', 'P') IS NOT NULL
+    DROP PROCEDURE cobranzas.Reporte3;
+GO
+CREATE or ALTER PROCEDURE  cobranzas.Reporte3 AS
+begin
+WITH AsistenciasConRanking AS (
+    SELECT 
+        pc.id_socio,
+        c.id_actividad,
+        s.id_categoria,
+        pc.fecha,
+        pc.condicion,
+        ROW_NUMBER() OVER (PARTITION BY pc.id_socio, c.id_actividad ORDER BY pc.fecha) AS orden
+    FROM actividades.presentismoClase pc
+    INNER JOIN actividades.Clase c ON c.id_clase = pc.id_clase
+    INNER JOIN administracion.Socio s ON s.id_socio = pc.id_socio
+),
+PatronesAlternados AS (
+    SELECT 
+        a1.id_socio,
+        a1.id_actividad,
+        a1.id_categoria,
+        COUNT(*) AS inasistencias_alternadas
+    FROM AsistenciasConRanking a1
+    JOIN AsistenciasConRanking a2 
+      ON a1.id_socio = a2.id_socio 
+     AND a1.id_actividad = a2.id_actividad 
+     AND a1.orden = a2.orden - 1
+    WHERE a1.condicion IN ('A', 'J') AND a2.condicion = 'P'
+    GROUP BY a1.id_socio, a1.id_actividad, a1.id_categoria
+)
+SELECT 
+    CONCAT(p.nombre, ' ', p.apellido) AS nombre_socio,
+    a.nombre AS nombre_actividad,
+    c.nombre AS nombre_categoria,
+    pa.inasistencias_alternadas
+FROM PatronesAlternados pa
+INNER JOIN administracion.Socio s ON s.id_socio = pa.id_socio
+INNER JOIN administracion.Persona p ON p.id_persona = s.id_persona
+INNER JOIN actividades.Actividad a ON a.id_actividad = pa.id_actividad
+INNER JOIN administracion.CategoriaSocio c ON c.id_categoria = pa.id_categoria
+ORDER BY pa.inasistencias_alternadas DESC
+FOR XML PATH('Socio'), ROOT('Socios');
+END
+
+EXEC cobranzas.Reporte3
+
+
+SELECT * 
+FROM actividades.presentismoClase
+ORDER BY id_socio, fecha;
+
+
+-- Presentismo (alternancia: A ? P ? A ? P)
+INSERT INTO actividades.presentismoClase (id_clase, id_socio, fecha, condicion)
+VALUES 
+(3, 1, '2025-05-01', 'A'),
+(3, 1, '2025-05-02', 'P'), -- alternada 1
+(3, 1, '2025-05-03', 'A'),
+(3, 1, '2025-05-04', 'P'), -- alternada 2
+(3, 1, '2025-05-05', 'P'); -- no cuenta
+INSERT INTO actividades.presentismoClase (id_clase, id_socio, fecha, condicion) VALUES
+(3, 5, '2025-06-01', 'A'),
+(3, 5, '2025-06-02', 'P'),  -- alternada 1
+(3, 5, '2025-06-03', 'J'),
+(3, 5, '2025-06-04', 'P'),  -- alternada 2
+(3, 5, '2025-06-05', 'A'),
+(3, 5, '2025-06-06', 'P');  -- alternada 3
+INSERT INTO actividades.presentismoClase (id_clase, id_socio, fecha, condicion) VALUES
+(1, 1, '2025-06-01', 'A'),
+(1, 1, '2025-06-02', 'P'),  -- alternada 1
+(1, 1, '2025-06-03', 'A'),
+(1, 1, '2025-06-04', 'P');  -- alternada 2
+INSERT INTO actividades.presentismoClase (id_clase, id_socio, fecha, condicion) VALUES
+(2, 2, '2025-06-01', 'J'),
+(2, 2, '2025-06-02', 'P');  -- alternada 1
+INSERT INTO actividades.presentismoClase (id_clase, id_socio, fecha, condicion) VALUES
+(1, 3, '2025-06-01', 'P'),
+(1, 3, '2025-06-02', 'P'),
+(1, 3, '2025-06-03', 'P');
