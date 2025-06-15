@@ -581,3 +581,5 @@ SELECT * from facturacion.DetalleFactura where id_factura = 1;
     El total (monto_total) se reduce correctamente.
     Los descuentos se ven reflejados de forma clara y auditable en el detalle.
     La factura sigue conservando toda su trazabilidad.*/
+
+SELECT * FROM facturacion.vwResponsablesDeFactura ORDER BY fecha_emision DESC;

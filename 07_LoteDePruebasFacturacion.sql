@@ -189,5 +189,5 @@ SELECT * FROM actividades.presentismoActividadExtra ORDER BY fecha;
 SELECT * FROM facturacion.EmisorFactura;
 SELECT * FROM facturacion.Factura;
 SELECT * FROM facturacion.DetalleFactura;
-
+SELECT * FROM facturacion.vwResponsablesDeFactura ORDER BY fecha_emision DESC;
 SELECT * FROM administracion.vwSociosConCategoria ORDER BY apellido, nombre;

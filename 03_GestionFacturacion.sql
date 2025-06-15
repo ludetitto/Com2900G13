@@ -1407,6 +1407,28 @@ BEGIN
 END;
 GO
 
+
+CREATE OR ALTER VIEW facturacion.vwResponsablesDeFactura AS
+SELECT
+    f.id_factura,
+    f.id_socio                           AS socio_facturado,
+    COALESCE(gf.id_socio_rp, f.id_socio) AS id_socio_responsable,
+    p_res.dni                            AS dni_responsable,
+    p_res.nombre                         AS nombre_responsable,
+    p_res.apellido                       AS apellido_responsable,
+    f.monto_total,
+    f.estado,
+    f.fecha_emision,
+    f.fecha_vencimiento1,
+    f.fecha_vencimiento2
+FROM facturacion.Factura f
+JOIN administracion.Socio s_f ON s_f.id_socio = f.id_socio
+LEFT JOIN administracion.GrupoFamiliar gf ON gf.id_socio = f.id_socio
+LEFT JOIN administracion.Socio s_res ON s_res.id_socio = COALESCE(gf.id_socio_rp, f.id_socio)
+LEFT JOIN administracion.Persona p_res ON p_res.id_persona = s_res.id_persona;
+GO
+
+
 /*____________________________________________________________________
   ______________________ GestionarDescuentos ______________________
   ____________________________________________________________________*/
