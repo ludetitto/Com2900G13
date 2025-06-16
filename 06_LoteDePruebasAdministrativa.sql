@@ -96,7 +96,7 @@ EXEC administracion.GestionarProfesor 'Ana', 'García', '34567890', 'ana.garcia@e
 GO
 
 /* ===================== INSERTAR INVITADO ===================== */
-EXEC administracion.GestionarInvitado '45778667', '46501934', 'Lucia', 'De Titto', 'ldetitto10@email.com', 'Av. Crovara 2345', 'Insertar';
+EXEC administracion.GestionarInvitado '45778667', '46501934', 'Lucia', 'De Titto', 'Mayor', 'ldetitto10@email.com', 'Av. Crovara 2345', 'Insertar';
 GO
 
 /* ===================== GRUPOS FAMILIARES ===================== */

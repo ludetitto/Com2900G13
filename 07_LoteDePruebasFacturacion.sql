@@ -137,22 +137,44 @@ GO
 -- =================== CARGA DE ACTIVIDADES EXTRA ===================
 
 -- Insertar actividades extra para invitados
-EXEC actividades.GestionarActividadExtra 'Pileta verano', 30000, 'Dia', 'S', '2025-06-28', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Colonia de verano', 30000, 'Dia', 'S', '2025-06-28', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Alquiler de SUM', 30000, 'Dia', 'S', '2025-06-28', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Pileta verano', 30000, 'Dia', 'S', '2025-06-28', 'Mayor', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Colonia de verano', 30000, 'Dia', 'S', '2025-06-28', 'Mayor', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Alquiler de SUM', 30000, 'Dia', 'S', '2025-06-28', 'Mayor', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Pileta verano', 20000, 'Dia', 'S', '2025-06-28', 'Menor', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Colonia de verano', 20000, 'Dia', 'S', '2025-06-28', 'Menor', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Alquiler de SUM', 20000, 'Dia', 'S', '2025-06-28', 'Menor', 'Insertar';
 GO
 -- Insertar actividades extra para socios
-EXEC actividades.GestionarActividadExtra 'Pileta verano', 25000, 'Dia', 'N', '2025-06-28', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Colonia de verano', 25000, 'Dia', 'N', '2025-06-28', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Alquiler de SUM', 25000, 'Dia', 'N', '2025-06-28', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Pileta verano', 25000, 'Dia', 'N', '2025-06-28', 'Mayor', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Colonia de verano', 25000, 'Dia', 'N', '2025-06-28', 'Mayor', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Alquiler de SUM', 25000, 'Dia', 'N', '2025-06-28', 'Mayor', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Pileta verano', 25000, 'Dia', 'N', '2025-06-28', 'Cadete', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Colonia de verano', 25000, 'Dia', 'N', '2025-06-28', 'Cadete', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Alquiler de SUM', 25000, 'Dia', 'N', '2025-06-28', 'Cadete', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Pileta verano', 15000, 'Dia', 'N', '2025-06-28', 'Menor', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Colonia de verano', 15000, 'Dia', 'N', '2025-06-28', 'Menor', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Alquiler de SUM', 15000, 'Dia', 'N', '2025-06-28', 'Menor', 'Insertar';
 GO
-EXEC actividades.GestionarActividadExtra 'Pileta verano', 625000, 'Mes', 'N', '2025-06-28', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Colonia de verano', 625000, 'Mes', 'N', '2025-06-28', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Alquiler de SUM', 625000, 'Mes', 'N', '2025-06-28', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Pileta verano', 625000, 'Mes', 'N', '2025-06-28', 'Mayor', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Colonia de verano', 625000, 'Mes', 'N', '2025-06-28', 'Mayor', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Alquiler de SUM', 625000, 'Mes', 'N', '2025-06-28', 'Mayor', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Pileta verano', 625000, 'Mes', 'N', '2025-06-28', 'Cadete', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Colonia de verano', 625000, 'Mes', 'N', '2025-06-28', 'Cadete', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Alquiler de SUM', 625000, 'Mes', 'N', '2025-06-28', 'Cadete', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Pileta verano', 375000, 'Mes', 'N', '2025-06-28', 'Menor', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Colonia de verano', 375000, 'Mes', 'N', '2025-06-28', 'Menor', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Alquiler de SUM', 375000, 'Mes', 'N', '2025-06-28', 'Menor', 'Insertar';
+
 GO
-EXEC actividades.GestionarActividadExtra 'Pileta verano', 2000000, 'Temporada', 'N', '2025-06-28', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Colonia de verano', 2000000, 'Temporada', 'N', '2025-06-28', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Alquiler de SUM', 2000000, 'Temporada', 'N', '2025-06-28', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Pileta verano', 2000000, 'Temporada', 'N', '2025-06-28', 'Mayor', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Colonia de verano', 2000000, 'Temporada', 'N', '2025-06-28', 'Mayor', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Alquiler de SUM', 2000000, 'Temporada', 'N', '2025-06-28', 'Mayor', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Pileta verano', 2000000, 'Temporada', 'N', '2025-06-28', 'Cadete', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Colonia de verano', 2000000, 'Temporada', 'N', '2025-06-28', 'Cadete', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Alquiler de SUM', 2000000, 'Temporada', 'N', '2025-06-28', 'Cadete', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Pileta verano', 1200000, 'Temporada', 'N', '2025-06-28', 'Menor', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Colonia de verano', 1200000, 'Temporada', 'N', '2025-06-28', 'Menor', 'Insertar';
+EXEC actividades.GestionarActividadExtra 'Alquiler de SUM', 1200000, 'Temporada', 'N', '2025-06-28', 'Menor', 'Insertar';
 GO
 
 -- =================== CARGA DE PRESENTISMO DE INVITADOS ===================
@@ -182,15 +204,15 @@ GO
 -- =================== GENERACI�N DE FACTURA INVITADOS ===================
 EXEC facturacion.GenerarFacturaInvitado '46501934', '20-12345678-4', 'Alquiler de SUM', '2025-06-01';
 EXEC facturacion.GenerarFacturaInvitado '46501934', '20-12345678-4', 'Pileta verano', '2025-06-05';
-
 GO
--- =================== GENERACION DE FACTURA SOCIOS ===================
+
+-- =================== GENERACI�N DE FACTURA SOCIOS ===================
 EXEC facturacion.GenerarFacturaSocioActExtra '45778667', '20-12345678-4', 'Alquiler de SUM', '2025-06-01';
-EXEC facturacion.GenerarFacturaSocioActExtra '45778667', '20-12345678-4', 'Pileta verano', '2025-06-05';
+EXEC facturacion.GenerarFacturaSocioActExtra '45778667', '20-12345678-4', 'Pileta verano', '2025-06-01';
 EXEC facturacion.GenerarFacturaSocioActExtra '40505050', '20-12345678-4', 'Colonia de verano', '2025-06-01';
-EXEC facturacion.GenerarFacturaSocioActExtra '40707070', '20-12345678-4', 'Pileta verano', '2025-06-06';
-
+EXEC facturacion.GenerarFacturaSocioActExtra '40707070', '20-12345678-4', 'Pileta verano', '2025-06-01';
 GO
+
 -- =================== VERIFICAR ===================
 SELECT * FROM actividades.Actividad;
 SELECT * FROM actividades.Clase;
