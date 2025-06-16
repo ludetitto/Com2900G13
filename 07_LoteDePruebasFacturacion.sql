@@ -180,14 +180,16 @@ EXEC actividades.GestionarPresentismoActividadExtra 'Pileta verano', 'Dia', 'S',
 GO
 
 -- =================== GENERACI�N DE FACTURA INVITADOS ===================
-EXEC facturacion.GenerarFacturaInvitado '46501934', '20-12345678-4', 'Alquiler de SUM';
-EXEC facturacion.GenerarFacturaInvitado '46501934', '20-12345678-4', 'Pileta verano';
+EXEC facturacion.GenerarFacturaInvitado '46501934', '20-12345678-4', 'Alquiler de SUM', '2025-06-01';
+EXEC facturacion.GenerarFacturaInvitado '46501934', '20-12345678-4', 'Pileta verano', '2025-06-05';
+
 GO
--- =================== GENERACI�N DE FACTURA SOCIOS ===================
-EXEC facturacion.GenerarFacturaSocioActExtra '45778667', '20-12345678-4', 'Alquiler de SUM';
-EXEC facturacion.GenerarFacturaSocioActExtra '45778667', '20-12345678-4', 'Pileta verano';
-EXEC facturacion.GenerarFacturaSocioActExtra '40505050', '20-12345678-4', 'Colonia de verano';
-EXEC facturacion.GenerarFacturaSocioActExtra '40707070', '20-12345678-4', 'Pileta verano';
+-- =================== GENERACION DE FACTURA SOCIOS ===================
+EXEC facturacion.GenerarFacturaSocioActExtra '45778667', '20-12345678-4', 'Alquiler de SUM', '2025-06-01';
+EXEC facturacion.GenerarFacturaSocioActExtra '45778667', '20-12345678-4', 'Pileta verano', '2025-06-05';
+EXEC facturacion.GenerarFacturaSocioActExtra '40505050', '20-12345678-4', 'Colonia de verano', '2025-06-01';
+EXEC facturacion.GenerarFacturaSocioActExtra '40707070', '20-12345678-4', 'Pileta verano', '2025-06-06';
+
 GO
 -- =================== VERIFICAR ===================
 SELECT * FROM actividades.Actividad;
