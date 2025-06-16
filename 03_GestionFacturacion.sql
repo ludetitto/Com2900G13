@@ -366,6 +366,10 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
+	DECLARE @id_clase INT;
+	DECLARE @id_socio INT;
+	DECLARE @id_presentismo INT;
+
     -- Validación de operación
     IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
     BEGIN
@@ -374,7 +378,7 @@ BEGIN
     END
 
     -- Obtener ID de clase considerando también la categoría
-    DECLARE @id_clase INT = (
+    SET @id_clase = (
         SELECT C.id_clase
         FROM actividades.Clase C
         JOIN actividades.Actividad A ON A.id_actividad = C.id_actividad
@@ -385,7 +389,7 @@ BEGIN
     );
 
     -- Obtener ID del socio
-    DECLARE @id_socio INT = (
+    SET @id_socio = (
         SELECT S.id_socio
         FROM administracion.Socio S
         JOIN administracion.Persona P ON S.id_persona = P.id_persona
@@ -393,7 +397,7 @@ BEGIN
     );
 
     -- Buscar presentismo existente
-    DECLARE @id_presentismo INT = (
+    SET @id_presentismo = (
         SELECT TOP 1 id_presentismo
         FROM actividades.presentismoClase
         WHERE id_clase = @id_clase AND id_socio = @id_socio AND fecha = COALESCE(@fecha, CONVERT(date, GETDATE()))
@@ -488,6 +492,7 @@ CREATE PROCEDURE actividades.GestionarActividadExtra
     @periodo     CHAR(10),
     @es_invitado CHAR(1),
     @vigencia    DATE,
+	@categoria	 VARCHAR(50),
     @operacion   CHAR(10)
 AS
 BEGIN
@@ -509,6 +514,7 @@ BEGIN
     FROM actividades.ActividadExtra
     WHERE nombre      = @nombre
       AND periodo     = @periodo
+	  AND categoria	  = @categoria
       AND es_invitado = @es_invitado;
 
     -- 3) Eliminar
@@ -557,6 +563,7 @@ BEGIN
             nombre      = COALESCE(@nombre,      nombre),
             costo       = COALESCE(@costo,       costo),
             periodo     = COALESCE(@periodo,     periodo),
+			categoria	= COALESCE(@categoria,	 categoria),
             es_invitado = COALESCE(@es_invitado, es_invitado),
             vigencia    = COALESCE(@vigencia,    vigencia)
         WHERE id_extra = @id_extra;
@@ -583,9 +590,9 @@ BEGIN
         END
 
         INSERT INTO actividades.ActividadExtra
-            (nombre, costo, periodo, es_invitado, vigencia)
+            (nombre, costo, periodo, categoria, es_invitado, vigencia)
         VALUES
-            (@nombre, @costo, @periodo, @es_invitado, @vigencia);
+            (@nombre, @costo, @periodo, @categoria, @es_invitado, @vigencia);
     END
 END;
 GO
@@ -593,7 +600,7 @@ GO
 /*____________________________________________________________________
   _______________ GestionarPresentismoActividadExtra _________________
   ____________________________________________________________________*/
-  IF OBJECT_ID('actividades.GestionarPresentismoActividadExtra', 'P') IS NOT NULL
+IF OBJECT_ID('actividades.GestionarPresentismoActividadExtra', 'P') IS NOT NULL
     DROP PROCEDURE actividades.GestionarPresentismoActividadExtra;
 GO
 
@@ -609,148 +616,149 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-	 -- Validación de operación
+    DECLARE @id_presentismo INT;
+    DECLARE @categoria VARCHAR(50);
+    DECLARE @id_socio INT;
+    DECLARE @id_invitado INT;
+    DECLARE @id_extra INT;
+
+    -- Validar operación
     IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
     BEGIN
         RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
         RETURN;
     END
 
-    -- Normalizar es_invitado
     SET @es_invitado = UPPER(@es_invitado);
-
-    -- Validación según tipo de participante e INSERT
-    IF @operacion = 'Insertar'
+    IF @es_invitado NOT IN ('S', 'N')
     BEGIN
-        IF @nombre_actividad_extra IS NULL
+        RAISERROR('El campo es_invitado solo puede ser S o N.', 16, 1);
+        RETURN;
+    END
+
+    IF @fecha IS NULL
+        SET @fecha = CAST(GETDATE() AS DATE);
+    IF @condicion IS NULL
+        SET @condicion = 'P';
+
+    -- Obtener datos del participante
+    IF @es_invitado = 'N'
+    BEGIN
+        -- SOCIO
+        IF @dni IS NULL OR LTRIM(RTRIM(@dni)) = ''
         BEGIN
-            RAISERROR('El nombre de la actividad extra es obligatorio.', 16, 1);
+            RAISERROR('El DNI del socio es obligatorio.', 16, 1);
             RETURN;
         END
 
-        IF @es_invitado NOT IN ('N', 'S')
+        SELECT 
+            @id_socio = S.id_socio,
+            @categoria = C.nombre
+        FROM administracion.Socio S
+        INNER JOIN administracion.Persona P ON P.id_persona = S.id_persona
+        INNER JOIN administracion.CategoriaSocio C ON C.id_categoria = S.id_categoria
+        WHERE P.dni = @dni AND S.activo = 1;
+
+        IF @id_socio IS NULL OR @categoria IS NULL
         BEGIN
-            RAISERROR('El campo es_invitado solo puede ser N o S.', 16, 1);
+            RAISERROR('No se encontró un socio activo con ese DNI.', 16, 1);
             RETURN;
         END
+    END
+    ELSE
+    BEGIN
+        -- INVITADO
+        IF @dni IS NOT NULL
+        BEGIN
+            SELECT 
+                @id_invitado = id_invitado,
+                @categoria = categoria
+            FROM administracion.Invitado
+            WHERE dni = @dni;
 
-        IF @es_invitado = 'N'
-        BEGIN
-            -- Socio: el dni es obligatorio y debe existir
-            IF @dni IS NULL OR LEN(LTRIM(RTRIM(@dni))) = 0
-            BEGIN
-                RAISERROR('El dni del socio es obligatorio para participantes socios.', 16, 1);
-                RETURN;
-            END
-            IF NOT EXISTS (
-                SELECT 1
-                FROM administracion.Persona Pe
-                INNER JOIN administracion.Socio S ON Pe.id_persona = S.id_persona
-                WHERE Pe.dni = @dni AND S.activo = 1
-            )
-            BEGIN
-                RAISERROR('No existe un socio activo con ese DNI.', 16, 1);
-                RETURN;
-            END
-        END
-        ELSE IF @es_invitado = 'S'
-        BEGIN
-            IF @dni IS NOT NULL AND NOT EXISTS (
-                SELECT id_invitado
-                FROM administracion.Invitado
-                WHERE dni = @dni
-            )
+            IF @id_invitado IS NULL
             BEGIN
                 RAISERROR('No existe un invitado con ese DNI.', 16, 1);
                 RETURN;
             END
         END
+    END
 
-        IF @fecha IS NULL
-            SET @fecha = GETDATE();
+    -- Obtener ID de la actividad extra
+    SELECT TOP 1 @id_extra = id_extra
+    FROM actividades.ActividadExtra
+    WHERE nombre = @nombre_actividad_extra
+        AND periodo = @periodo
+        AND categoria = @categoria
+        AND es_invitado = @es_invitado
+    ORDER BY vigencia DESC;
 
-        IF @condicion IS NULL
-            SET @condicion = 'P';
-
-        INSERT INTO actividades.presentismoActividadExtra (id_extra, id_socio, id_invitado, fecha, condicion)
-        VALUES (
-            (SELECT id_extra
-                FROM actividades.ActividadExtra
-                WHERE nombre = @nombre_actividad_extra
-                    AND periodo = @periodo
-                    AND es_invitado = @es_invitado
-            ),
-            (SELECT S.id_socio
-                FROM administracion.Socio S
-                INNER JOIN administracion.Persona Pe ON S.id_persona = Pe.id_persona
-                WHERE Pe.dni = @dni),
-			(SELECT id_invitado
-                FROM administracion.Invitado
-                WHERE dni = @dni),
-            @fecha,
-            @condicion
-        );
+    IF @id_extra IS NULL
+    BEGIN
+        RAISERROR('No existe una actividad extra para los datos proporcionados.', 16, 1);
         RETURN;
     END
 
-    -- Buscar id_presentismo
-    DECLARE @id_presentismo INT = (
-        SELECT TOP 1 P.id_presentismo_extra
-        FROM actividades.presentismoActividadExtra P
-        INNER JOIN actividades.ActividadExtra AE ON P.id_extra = AE.id_extra
-        LEFT JOIN administracion.Socio S ON P.id_socio = S.id_socio
-        LEFT JOIN administracion.Persona Pe ON S.id_persona = Pe.id_persona
-        WHERE AE.nombre = @nombre_actividad_extra
-            AND AE.periodo = @periodo
-            AND AE.es_invitado = @es_invitado
-            AND (@dni IS NULL OR Pe.dni = @dni)
-            AND P.fecha = ISNULL(@fecha, CAST(GETDATE() AS DATE))
-    );
+    -- Verificar existencia del presentismo
+    SELECT TOP 1 @id_presentismo = P.id_presentismo_extra
+    FROM actividades.presentismoActividadExtra P
+    WHERE P.id_extra = @id_extra
+        AND P.fecha = @fecha
+        AND (
+            (@es_invitado = 'N' AND P.id_socio = @id_socio)
+            OR (@es_invitado = 'S' AND P.id_invitado = @id_invitado)
+        );
 
-    -- CASO ELIMINAR
+    -- OPERACIÓN: INSERTAR
+    IF @operacion = 'Insertar'
+    BEGIN
+        IF @id_presentismo IS NOT NULL
+        BEGIN
+            RAISERROR('Ya se registró el presentismo para ese participante en esa fecha.', 16, 1);
+            RETURN;
+        END
+
+        INSERT INTO actividades.presentismoActividadExtra (id_extra, id_socio, id_invitado, fecha, condicion)
+        VALUES (@id_extra, @id_socio, @id_invitado, @fecha, @condicion);
+        RETURN;
+    END
+
+    -- OPERACIÓN: ELIMINAR
     IF @operacion = 'Eliminar'
     BEGIN
         IF @id_presentismo IS NULL
         BEGIN
-            RAISERROR('No existe el presentismo para eliminar.', 16, 1);
+            RAISERROR('No se encontró el presentismo para eliminar.', 16, 1);
             RETURN;
         END
 
-        DELETE FROM actividades.presentismoActividadExtra WHERE id_presentismo_extra = @id_presentismo;
+        DELETE FROM actividades.presentismoActividadExtra
+        WHERE id_presentismo_extra = @id_presentismo;
         RETURN;
     END
 
-    -- CASO MODIFICAR
+    -- OPERACIÓN: MODIFICAR
     IF @operacion = 'Modificar'
     BEGIN
         IF @id_presentismo IS NULL
         BEGIN
-            RAISERROR('No existe el presentismo para modificar.', 16, 1);
+            RAISERROR('No se encontró el presentismo para modificar.', 16, 1);
             RETURN;
         END
 
         UPDATE actividades.presentismoActividadExtra
         SET
-            id_extra = COALESCE((
-                SELECT id_extra
-                FROM actividades.ActividadExtra
-                WHERE nombre = @nombre_actividad_extra
-                    AND periodo = @periodo
-                    AND es_invitado = @es_invitado
-            ), id_extra),
-            id_socio = COALESCE((
-                SELECT S.id_socio
-                FROM administracion.Socio S
-                INNER JOIN administracion.Persona Pe ON S.id_persona = Pe.id_persona
-                WHERE Pe.dni = @dni
-            ), id_socio),
-            fecha = COALESCE(@fecha, fecha),
-            condicion = COALESCE(@condicion, condicion)
+            id_extra = @id_extra,
+            id_socio = @id_socio,
+            id_invitado = @id_invitado,
+            fecha = @fecha,
+            condicion = @condicion
         WHERE id_presentismo_extra = @id_presentismo;
         RETURN;
     END
 END;
 GO
+
 
 /*____________________________________________________________________
   ______________________ GestionarEmisorFactura ______________________
@@ -1178,7 +1186,8 @@ BEGIN
 							WHERE (PAE.id_socio = @id_socio_origen OR PAE.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio))
 							AND AE.nombre = @descripcion
 							AND MONTH(PAE.fecha) = MONTH(@fecha_referencia) 
-							AND YEAR(PAE.fecha) = YEAR(@fecha_referencia)  
+							AND YEAR(PAE.fecha) = YEAR(@fecha_referencia)
+							AND AE.categoria = (SELECT TOP 1 categoria FROM administracion.Socio WHERE id_socio = @id_socio_origen)
 							AND AE.nombre = @descripcion
 							AND AE.es_invitado = 'N')
 		BEGIN
@@ -1207,6 +1216,7 @@ BEGIN
 						WHERE (PAE.id_socio = @id_socio_origen OR PAE.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio))
 						AND MONTH(PAE.fecha) = MONTH(@fecha_referencia)
 						AND YEAR(PAE.fecha) = YEAR(@fecha_referencia)
+						AND AE.categoria = (SELECT TOP 1 categoria FROM administracion.Socio WHERE id_socio = @id_socio_origen)
 						AND AE.nombre = @descripcion
 						AND AE.es_invitado = 'N');
 		
@@ -1224,11 +1234,10 @@ BEGIN
 		AND MONTH(PAE.fecha) = MONTH(@fecha_referencia)
 		AND YEAR(PAE.fecha) = YEAR(@fecha_referencia)
 		AND AE.nombre = @descripcion
+		AND AE.categoria = (SELECT TOP 1 categoria FROM administracion.Socio WHERE id_socio = @id_socio_origen)
 		AND AE.es_invitado = 'N'
 		AND AE.periodo = @periodo
 		ORDER BY AE.vigencia DESC;
-
-		PRINT @monto_total;
 
 		/*Generar factura per sé*/
 		INSERT INTO facturacion.Factura
@@ -1264,6 +1273,7 @@ BEGIN
 		AND MONTH(PAE.fecha) = MONTH(@fecha_referencia) 
 		AND YEAR(PAE.fecha) = YEAR(@fecha_referencia) 
 		AND AE.nombre = @descripcion
+		AND AE.categoria = (SELECT TOP 1 categoria FROM administracion.Socio WHERE id_socio = @id_socio_origen)
 		AND AE.es_invitado = 'N'
 		AND AE.periodo = @periodo
 		ORDER BY AE.vigencia DESC;
@@ -1304,6 +1314,7 @@ BEGIN
         DECLARE @id_invitado INT;
         DECLARE @id_emisor INT;
 		DECLARE @id_factura INT;
+		DECLARE @categoria VARCHAR(50);
 
         /*Se obtiene el id_invitado asociado a su correspondiente DNI*/
         SELECT @id_invitado = id_invitado
@@ -1372,6 +1383,7 @@ BEGIN
 				 FROM actividades.ActividadExtra 
 				 WHERE nombre = @descripcion 
 				 AND es_invitado = 'S' 
+				 AND categoria = (SELECT TOP 1 categoria FROM administracion.Invitado WHERE id_invitado = @id_invitado)
 				 AND vigencia > GETDATE() 
 				 ORDER BY vigencia DESC),
 				0,
@@ -1398,7 +1410,8 @@ BEGIN
 		INNER JOIN actividades.ActividadExtra AE ON PAE.id_extra = AE.id_extra
 		WHERE PAE.id_invitado = @id_invitado 
 		AND AE.periodo LIKE 'Dia' 
-		AND AE.es_invitado = 'S' 
+		AND AE.es_invitado = 'S'
+		AND AE.categoria = (SELECT TOP 1 categoria FROM administracion.Invitado WHERE id_invitado = @id_invitado)
 		AND AE.nombre = @descripcion
 		AND MONTH(PAE.fecha) = MONTH(@fecha_referencia)
 		AND YEAR(PAE.fecha) = YEAR(@fecha_referencia)

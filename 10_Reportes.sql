@@ -65,12 +65,60 @@ BEGIN
             FOR XML PATH('Moroso'), TYPE
         ) AS [Morosos]
     FOR XML PATH('MorososRecurrentes'), ROOT('Reporte'), ELEMENTS;
-END
+END;
+GO
 
 EXEC cobranzas.MorososRecurrentes '2025-05-01', '2025-06-30';
 
+/*____________________________________________________________________
+  _____________________________ Reporte 2 ____________________________
+  ____________________________________________________________________*/
 
+/*Reporte 2
+Reporte acumulado mensual de ingresos por actividad deportiva al momento en que se saca
+el reporte tomando como inicio enero.*/
 
+IF OBJECT_ID('cobranzas.IngresosMensualesPorActividad', 'P') IS NOT NULL
+    DROP PROCEDURE cobranzas.IngresosMensualesPorActividad;
+GO
+
+CREATE PROCEDURE cobranzas.IngresosMensualesPorActividad
+AS
+BEGIN
+
+	SET LANGUAGE Spanish;
+	
+	WITH IngresoMensualDesdeEnero AS (
+		SELECT
+			A.nombre AS [Actividad],
+			DATENAME(MONTH, P.fecha_emision) AS [Mes],
+			D.monto AS [Ingreso]
+		FROM cobranzas.Pago P
+		INNER JOIN facturacion.Factura F ON F.id_factura = P.id_factura
+		INNER JOIN facturacion.DetalleFactura D ON F.id_factura = D.id_factura
+		INNER JOIN actividades.Actividad A ON A.id_actividad = D.id_actividad
+		WHERE P.fecha_emision <= EOMONTH(GETDATE()))
+		
+	SELECT
+		Actividad,
+		[Enero], [Febrero], [Marzo],
+		[Abril], [Mayo], [Junio],
+		[Julio], [Agosto], [Septiembre],
+		[Octubre], [Noviembre], [Diciembre]
+	FROM IngresoMensualDesdeEnero
+	PIVOT(
+		SUM(Ingreso)
+		FOR Mes
+		IN ([Enero], [Febrero], [Marzo],
+			[Abril], [Mayo], [Junio],
+			[Julio], [Agosto], [Septiembre],
+			[Octubre], [Noviembre], [Diciembre])
+	) AS IngresoMensual
+	FOR XML PATH('IngresosMensualesPorActividad'), ROOT('Reporte'), ELEMENTS;
+END;
+GO
+
+EXEC cobranzas.IngresosMensualesPorActividad;
 /*____________________________________________________________________
   _____________________________ Reporte 2 ____________________________
   ____________________________________________________________________*/

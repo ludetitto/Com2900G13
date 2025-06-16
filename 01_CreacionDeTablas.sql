@@ -55,6 +55,8 @@ DROP PROCEDURE IF EXISTS cobranzas.AplicarRecargoVencimiento
 DROP PROCEDURE IF EXISTS cobranzas.MorososRecurrentes
 DROP PROCEDURE IF EXISTS cobranzas.GenerarReembolsoPorPago
 DROP PROCEDURE IF EXISTS cobranzas.GenerarPagoACuentaPorReembolso
+DROP PROCEDURE IF EXISTS cobranzas.GestionarRecargo
+DROP VIEW IF EXISTS cobranzas.vwNotasConMedioDePago
 
 DROP PROCEDURE IF EXISTS facturacion.AnularFactura
 DROP PROCEDURE IF EXISTS facturacion.GenerarFacturaSocioActExtra
@@ -62,6 +64,7 @@ DROP PROCEDURE IF EXISTS facturacion.GenerarFacturaSocioMensual
 DROP PROCEDURE IF EXISTS facturacion.GenerarFacturaInvitado
 DROP PROCEDURE IF EXISTS facturacion.GestionarDescuentos
 DROP PROCEDURE IF EXISTS facturacion.GestionarEmisorFactura
+DROP VIEW IF EXISTS facturacion.vwResponsablesDeFactura
 
 /* ============================
    BORRADO DE OBJETOS DE LA BD
@@ -242,6 +245,7 @@ CREATE TABLE administracion.Invitado (
 	dni VARCHAR(10) UNIQUE NOT NULL,
 	nombre CHAR(50) NOT NULL,
 	apellido CHAR(50) NOT NULL,
+	categoria VARCHAR(50) NOT NULL,
 	email VARCHAR(70) NOT NULL,
 	domicilio VARCHAR(200) NOT NULL,
 	CONSTRAINT FK_invitado_socio_id FOREIGN KEY (id_socio) REFERENCES administracion.Socio(id_socio),
@@ -321,6 +325,7 @@ CREATE TABLE actividades.ActividadExtra (
     nombre VARCHAR(100),
     costo DECIMAL(10,2),
     periodo CHAR(10),
+	categoria VARCHAR(50),
 	es_invitado CHAR(1),
 	vigencia DATE
 );

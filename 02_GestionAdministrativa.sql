@@ -577,6 +577,7 @@ CREATE PROCEDURE administracion.GestionarInvitado
     @dni_invitado  CHAR(10),
 	@nombre CHAR(50),
 	@apellido CHAR(50),
+	@categoria VARCHAR(50),
 	@email VARCHAR(70),
 	@domicilio VARCHAR(200),
     @operacion     CHAR(10)
@@ -621,6 +622,12 @@ BEGIN
             RETURN;
         END
 
+		IF @categoria IS NULL OR LTRIM(RTRIM(@categoria)) = '' OR @categoria NOT IN ('Mayor','Menor')
+        BEGIN
+            RAISERROR('La categoria es obligatoria.', 16, 1);
+            RETURN;
+        END
+	
         IF @dni_invitado IS NULL OR LEN(LTRIM(RTRIM(@dni_invitado))) > 10
         BEGIN
             RAISERROR('El DNI debe tener hasta 10 caracteres.', 16, 1);
@@ -650,8 +657,8 @@ BEGIN
             RETURN;
         END
 
-        INSERT INTO administracion.Invitado (id_socio, dni, nombre, apellido, email, domicilio)
-        VALUES (@id_socio, @dni_invitado, @nombre, @apellido, @email, @domicilio);
+        INSERT INTO administracion.Invitado (id_socio, dni, nombre, apellido, categoria, email, domicilio)
+        VALUES (@id_socio, @dni_invitado, @nombre, @apellido, @categoria, @email, @domicilio);
     END
 
     -- ======== ELIMINAR ========
