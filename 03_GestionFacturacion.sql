@@ -1451,24 +1451,17 @@ GO
 /*____________________________________________________________________
   ______________________ GestionarDescuentos ______________________
   ____________________________________________________________________*/
-
-/*IF OBJECT_ID('facturacion.GestionarDescuentos', 'P') IS NOT NULL
-	DROP PROCEDURE facturacion.GestionarDescuentos;
+IF OBJECT_ID('facturacion.GestionarDescuentos', 'P') IS NOT NULL
+    DROP PROCEDURE facturacion.GestionarDescuentos;
 GO
 
-CREATE PROCEDURE facturacion.GestionarDescuentos
+CREATE OR ALTER PROCEDURE facturacion.GestionarDescuentos
     @id_factura INT
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    DECLARE @id_socio INT;
-
-    -- Obtener el socio
-    SELECT TOP 1 @id_socio = f.id_socio
-    FROM facturacion.Factura f
-    WHERE f.id_factura = @id_factura;
-
+    -- 1. Verificar existencia y estado de factura
     IF NOT EXISTS (
         SELECT 1
         FROM facturacion.Factura
@@ -1479,7 +1472,73 @@ BEGIN
         RETURN;
     END
 
-    -- 3. Recalcular monto total
+    DECLARE @id_socio INT, @total_membresia MONEY, @total_actividades MONEY;
+
+    -- Obtener socio de la factura
+    SELECT @id_socio = id_socio
+    FROM facturacion.Factura
+    WHERE id_factura = @id_factura;
+
+    -- 2. Descuento por grupo familiar (15% sobre total de membresías)
+    IF EXISTS (
+        SELECT 1
+        FROM administracion.GrupoFamiliar
+        WHERE id_socio_rp = @id_socio
+    ) AND NOT EXISTS (
+        SELECT 1
+        FROM facturacion.DetalleFactura
+        WHERE id_factura = @id_factura
+          AND tipo_item = 'Descuento'
+          AND descripcion = 'Descuento por grupo familiar (15%)'
+    )
+    BEGIN
+        SELECT @total_membresia = SUM(monto)
+        FROM facturacion.DetalleFactura
+        WHERE id_factura = @id_factura AND tipo_item = 'Membresia';
+
+        IF @total_membresia IS NOT NULL AND @total_membresia > 0
+        BEGIN
+            INSERT INTO facturacion.DetalleFactura (
+                id_factura, tipo_item, descripcion, monto, cantidad
+            )
+            VALUES (
+                @id_factura, 'Descuento', 'Descuento por grupo familiar (15%)',
+                ROUND(@total_membresia * -0.15, 2), 1
+            );
+        END
+    END
+
+    -- 3. Descuento por múltiples actividades deportivas (10% sobre total de actividades)
+    IF (
+        SELECT COUNT(*)
+        FROM facturacion.DetalleFactura
+        WHERE id_factura = @id_factura AND tipo_item = 'Actividad'
+    ) > 1
+    AND NOT EXISTS (
+        SELECT 1
+        FROM facturacion.DetalleFactura
+        WHERE id_factura = @id_factura
+          AND tipo_item = 'Descuento'
+          AND descripcion = 'Descuento por múltiples actividades deportivas (10%)'
+    )
+    BEGIN
+        SELECT @total_actividades = SUM(monto)
+        FROM facturacion.DetalleFactura
+        WHERE id_factura = @id_factura AND tipo_item = 'Actividad';
+
+        IF @total_actividades IS NOT NULL AND @total_actividades > 0
+        BEGIN
+            INSERT INTO facturacion.DetalleFactura (
+                id_factura, tipo_item, descripcion, monto, cantidad
+            )
+            VALUES (
+                @id_factura, 'Descuento', 'Descuento por múltiples actividades deportivas (10%)',
+                ROUND(@total_actividades * -0.10, 2), 1
+            );
+        END
+    END
+
+    -- 4. Recalcular monto total de factura
     UPDATE facturacion.Factura
     SET monto_total = (
         SELECT SUM(monto)
@@ -1488,4 +1547,4 @@ BEGIN
     )
     WHERE id_factura = @id_factura;
 END;
-GO*/
+GO
