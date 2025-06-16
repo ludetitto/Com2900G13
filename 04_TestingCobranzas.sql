@@ -12,7 +12,7 @@ USE COM2900G13;
 GO
 
 /*_____________________________________________________________________
-  ______________________ test gestionarMedioDePago ____________________________
+  ___________________ PRUEBAS gestionarMedioDePago ____________________
   _____________________________________________________________________*/
 
 -- Insertar un nuevo medio de pago
@@ -42,7 +42,7 @@ SELECT * FROM cobranzas.MedioDePago;
 GO
 
 /*_____________________________________________________________________
-  ______________________ test RegistrarCobranza ________________________
+  ____________________ PRUEBAS RegistrarCobranza ______________________
   _____________________________________________________________________*/
 
 USE COM2900G13;
@@ -155,7 +155,7 @@ SELECT saldo FROM administracion.Socio WHERE id_persona IN (
 GO
 
 /*_____________________________________________________________________
-  ________________ HabilitarDebitoAutomatico __________________________
+  ________________ PRUEBAS HabilitarDebitoAutomatico __________________
   _____________________________________________________________________*/
   
 -- Precondición: Tener socio activo con DNI = '45778667'
@@ -191,7 +191,7 @@ EXEC cobranzas.HabilitarDebitoAutomatico
 -- Esperado: Error 'El socio especificado no existe o no está activo.'
 GO
 /*_____________________________________________________________________
-  ________________ DeshabilitarDebitoAutomatico _______________________
+  _______________ PRUEBAS DeshabilitarDebitoAutomatico ________________
   _____________________________________________________________________*/
 
   
@@ -237,7 +237,7 @@ SELECT * FROM cobranzas.Pago
 
 
 /*_____________________________________________________________________
-  ____________________ GenerarReembolso _______________________________
+  ____________________ PRUEBAS GenerarReembolso _______________________
   _____________________________________________________________________*/
 EXEC cobranzas.GenerarReembolsoPorPago
     @id_pago = 3,
@@ -249,7 +249,7 @@ select * from cobranzas.NotaDeCredito
 select * from cobranzas.vwNotasConMedioDePago
 
 /*_____________________________________________________________________
-  ___________________ GenerarPagoCuenta _____________________________
+  ___________________ PRUEBAS GenerarPagoCuenta _______________________
   _____________________________________________________________________*/
 
   EXEC cobranzas.GenerarPagoACuentaPorReembolso
@@ -268,8 +268,12 @@ WHERE p.dni = '33444555';
 GO
 
 /*_____________________________________________________________________
-  ________________ RegistrarReintegroLluvia ___________________________
-  _____________________________________________________________________*/
+  ________________ PRUEBAS RegistrarReintegroLluvia ___________________
+  _____________________________________________________________________
+  
+  ACLARACIONES: Modificar el path a la ruta donde fue clonado el proyecto,
+  o en su defecto, donde esté guardada esta solución SQL. Tenga en cuenta
+  que para los procesos ETL fue creada una carpeta dentro del repo.*/
 
 -- ✅ PRUEBA 1: Registrar reintegro por lluvia válido
 EXEC cobranzas.GenerarReintegroPorLluvia
@@ -284,6 +288,6 @@ SELECT * FROM administracion.vwSociosConCategoria ORDER BY apellido, nombre;
 -- ❌ PRUEBA 2: Registrar reintegro con fecha futura inválida
 EXEC cobranzas.GenerarReintegroPorLluvia
     @mes = '05',
-    @año = '2000',
-    @path = 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\open-meteo-buenosaires_2024.csv';
+    @año = '2027',
+    @path = 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\open-meteo-buenosaires_2025.csv';
 GO
