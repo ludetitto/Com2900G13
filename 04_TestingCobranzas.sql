@@ -220,17 +220,52 @@ EXEC cobranzas.DeshabilitarDebitoAutomatico
 -- Esperado: Error 'El socio no tiene habilitado el débito automático con ese medio de pago.'
 GO
   
+--Preset datos
 
+select * from facturacion.Factura
 
-/*_____________________________________________________________________
-  ___________________ RegistrarPagoCuenta _____________________________
-  _____________________________________________________________________*/
+EXEC cobranzas.RegistrarCobranza
+    @dni_socio = '33444555',          -- DNI de Juan Pérez
+    @monto = 90300,                   -- Monto total de la factura
+    @fecha = '2025-06-15',            -- Fecha actual de pago
+    @medio_pago = 'Visa',            -- Medio válido (asegurate de que existe)
+    @nombre_actividad_extra = NULL,  -- No es actividad extra
+    @id_factura = 2;                 -- ID de la factura
+GO
+
+SELECT * FROM cobranzas.Pago 
 
 
 /*_____________________________________________________________________
   ____________________ GenerarReembolso _______________________________
   _____________________________________________________________________*/
+EXEC cobranzas.GenerarReembolsoPorPago
+    @id_pago = 3,
+    @motivo = 'Suspensión de actividades por mantenimiento';
+GO
 
+select * from cobranzas.NotaDeCredito
+
+select * from cobranzas.vwNotasConMedioDePago
+
+/*_____________________________________________________________________
+  ___________________ GenerarPagoCuenta _____________________________
+  _____________________________________________________________________*/
+
+  EXEC cobranzas.GenerarPagoACuentaPorReembolso
+    @id_pago = 3,
+    @motivo = 'Primer Mes de Regalo se carga en su cuenta el saldo equivalente';
+GO
+
+-- Verificar el registro del pago a cuenta
+SELECT * FROM cobranzas.PagoACuenta WHERE id_pago = 3;
+
+-- Verificar el nuevo saldo del socio
+SELECT s.id_socio, p.dni, p.nombre, p.apellido, s.saldo
+FROM administracion.Socio s
+JOIN administracion.Persona p ON s.id_persona = p.id_persona
+WHERE p.dni = '33444555';
+GO
 
 /*_____________________________________________________________________
   ________________ RegistrarReintegroLluvia ___________________________
@@ -238,12 +273,13 @@ GO
 
 -- ✅ PRUEBA 1: Registrar reintegro por lluvia válido
 EXEC cobranzas.GenerarReintegroPorLluvia
-    @mes = '06',
-    @año = '2024',
-    @path = 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\open-meteo-buenosaires_2024.csv';
+    @mes = '02',
+    @año = '2025',
+    @path = 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\open-meteo-buenosaires_2025.csv';
 GO
 
-SELECT * FROM cobranzas.NotaDeCredito;
+SELECT * FROM cobranzas.PagoACuenta;
+SELECT * FROM administracion.vwSociosConCategoria ORDER BY apellido, nombre;
 
 -- ❌ PRUEBA 2: Registrar reintegro con fecha futura inválida
 EXEC cobranzas.GenerarReintegroPorLluvia

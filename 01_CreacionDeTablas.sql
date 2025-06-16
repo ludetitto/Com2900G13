@@ -53,6 +53,8 @@ DROP PROCEDURE IF EXISTS cobranzas.GenerarReembolso
 DROP PROCEDURE IF EXISTS cobranzas.DeshabilitarDebitoAutomatico
 DROP PROCEDURE IF EXISTS cobranzas.AplicarRecargoVencimiento
 DROP PROCEDURE IF EXISTS cobranzas.MorososRecurrentes
+DROP PROCEDURE IF EXISTS cobranzas.GenerarReembolsoPorPago
+DROP PROCEDURE IF EXISTS cobranzas.GenerarPagoACuentaPorReembolso
 
 DROP PROCEDURE IF EXISTS facturacion.AnularFactura
 DROP PROCEDURE IF EXISTS facturacion.GenerarFacturaSocioActExtra

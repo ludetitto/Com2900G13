@@ -497,7 +497,8 @@ GO
 EXEC facturacion.GenerarFacturaInvitado
 @dni_invitado = '46501934',
 @cuil_emisor = '20-12345678-4',
-@descripcion = 'Pileta verano';
+@descripcion = 'Pileta verano',
+@fecha_referencia = '2025-02-28';
 -- Resultado esperado: Factura generada sin errores
 GO
 
@@ -509,7 +510,8 @@ SELECT * FROM facturacion.DetalleFactura
 EXEC facturacion.GenerarFacturaInvitado
 @dni_invitado = '46501934',
 @cuil_emisor = '20-12345678-4',
-@descripcion = 'Colonia de verano';
+@descripcion = 'Colonia de verano',
+@fecha_referencia = '2025-02-28';
 -- Resultado esperado: Error lanzado por RAISERROR
 GO
 
@@ -517,7 +519,8 @@ GO
 EXEC facturacion.GenerarFacturaInvitado
 @dni_invitado = '11111111',
 @cuil_emisor = '20-12345678-4',
-@descripcion = 'Colonia de verano';
+@descripcion = 'Colonia de verano',
+@fecha_referencia = '2025-02-28';
 -- Resultado esperado: Error lanzado por RAISERROR
 GO
 
@@ -530,7 +533,8 @@ GO
 EXEC facturacion.GenerarFacturaSocioActExtra
 @dni_socio = '45778667',
 @cuil_emisor = '20-12345678-4',
-@descripcion = 'Pileta verano';
+@descripcion = 'Pileta verano',
+@fecha_referencia = '2025-02-28';
 -- Resultado esperado: Factura generada sin errores
 GO
 
@@ -542,7 +546,8 @@ SELECT * FROM facturacion.DetalleFactura
 EXEC facturacion.GenerarFacturaSocioActExtra
 @dni_socio = '40707070',
 @cuil_emisor = '20-12345678-4',
-@descripcion = 'Colonia de verano';
+@descripcion = 'Colonia de verano',
+@fecha_referencia = '2025-02-28';
 -- Resultado esperado: Error lanzado por RAISERROR
 GO
 
@@ -550,7 +555,8 @@ GO
 EXEC facturacion.GenerarFacturaSocioActExtra
 @dni_socio = '11111111',
 @cuil_emisor = '20-12345678-4',
-@descripcion = 'Colonia de verano';
+@descripcion = 'Colonia de verano',
+@fecha_referencia = '2025-02-28';
 -- Resultado esperado: Error lanzado por RAISERROR
 GO
 
@@ -581,3 +587,5 @@ SELECT * from facturacion.DetalleFactura where id_factura = 1;
     El total (monto_total) se reduce correctamente.
     Los descuentos se ven reflejados de forma clara y auditable en el detalle.
     La factura sigue conservando toda su trazabilidad.*/
+
+SELECT * FROM facturacion.vwResponsablesDeFactura ORDER BY fecha_emision DESC;
