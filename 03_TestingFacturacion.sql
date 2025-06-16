@@ -279,6 +279,7 @@ EXEC actividades.GestionarActividadExtra
 @periodo = '2025-06',
 @es_invitado = 'N',
 @vigencia = '2025-06-01',
+@categoria = 'Menor',
 @operacion = 'Insertar';
 -- Resultado esperado: Actividad insertada sin errores
 GO
@@ -292,6 +293,7 @@ EXEC actividades.GestionarActividadExtra
 @periodo = '2025-06',
 @es_invitado = 'N',
 @vigencia = '2025-06-10',
+@categoria = 'Cadete',
 @operacion = 'Modificar';
 -- Resultado esperado: Actividad modificada correctamente
 GO
@@ -304,6 +306,7 @@ EXEC actividades.GestionarActividadExtra
 @periodo = '2025-06',
 @es_invitado = 'N',
 @vigencia = NULL,
+@categoria = 'Cadete',
 @operacion = 'Eliminar';
 -- Resultado esperado: Actividad eliminada sin errores
 GO
@@ -316,6 +319,7 @@ EXEC actividades.GestionarActividadExtra
 @periodo = '2024-01',
 @es_invitado = 'N',
 @vigencia = '2024-01-01',
+@categoria = 'Cadete',
 @operacion = 'Modificar';
 -- Resultado esperado: Error de no existencia
 GO
@@ -327,6 +331,7 @@ EXEC actividades.GestionarActividadExtra
 @periodo = '2025-06',
 @es_invitado = 'N',
 @vigencia = '2025-06-01',
+@categoria = 'Mayor',
 @operacion = 'Actualizar';
 -- Resultado esperado: Error de operación no válida
 GO
@@ -339,8 +344,8 @@ select * from administracion.Socio
 select * from administracion.Persona
 -- ✅ PRUEBA 1: Inserción válida
 EXEC actividades.GestionarPresentismoActividadExtra
-@nombre_actividad_extra = 'Pileta',
-@periodo = '2025-06',
+@nombre_actividad_extra = 'Pileta verano',
+@periodo = 'Dia',
 @es_invitado = 'N',
 @dni = '45778667',
 @fecha = '2025-06-08',
@@ -354,8 +359,8 @@ SELECT * FROM actividades.presentismoActividadExtra;
 
 -- ✅ PRUEBA 2: Modificación válida
 EXEC actividades.GestionarPresentismoActividadExtra
-@nombre_actividad_extra = 'Pileta',
-@periodo = '2025-06',
+@nombre_actividad_extra = 'Pileta verano',
+@periodo = 'Dia',
 @es_invitado = 'N',
 @dni = '45778667',
 @fecha = '2025-06-08',
@@ -368,8 +373,8 @@ SELECT * FROM actividades.presentismoActividadExtra;
 
 -- ✅ PRUEBA 3: Eliminación válida
 EXEC actividades.GestionarPresentismoActividadExtra
-@nombre_actividad_extra = 'Pileta',
-@periodo = '2025-06',
+@nombre_actividad_extra = 'Pileta verano',
+@periodo = 'Dia',
 @es_invitado = 'N',
 @dni = '45778667',
 @fecha = '2025-06-08',
@@ -383,7 +388,7 @@ SELECT * FROM actividades.presentismoActividadExtra;
 -- ❌ PRUEBA 4: Insertar sin nombre de actividad
 EXEC actividades.GestionarPresentismoActividadExtra
 @nombre_actividad_extra = NULL,
-@periodo = '2025-06',
+@periodo = 'Dia',
 @es_invitado = 'N',
 @dni = '0012345678',
 @fecha = NULL,
@@ -394,8 +399,8 @@ GO
 
 -- ❌ PRUEBA 5: Operación inválida
 EXEC actividades.GestionarPresentismoActividadExtra
-@nombre_actividad_extra = 'Pileta',
-@periodo = '2025-06',
+@nombre_actividad_extra = 'Pileta verano',
+@periodo = 'Mes',
 @es_invitado = 'N',
 @dni = '0012345678',
 @fecha = NULL,
@@ -559,7 +564,7 @@ EXEC facturacion.GenerarFacturaSocioActExtra
 @fecha_referencia = '2025-02-28';
 -- Resultado esperado: Error lanzado por RAISERROR
 GO
-
+/*
 -- =================== APLICAR DESCUENTOS A UNA FACTURA SI CORRESPONDE ===================
 -- CASO 1: USUARIO INSCRIPTO A VARIAS ACTIVIDADES
 SELECT * from facturacion.Factura where id_factura = 3; 
@@ -588,4 +593,4 @@ SELECT * from facturacion.DetalleFactura where id_factura = 1;
     Los descuentos se ven reflejados de forma clara y auditable en el detalle.
     La factura sigue conservando toda su trazabilidad.*/
 
-SELECT * FROM facturacion.vwResponsablesDeFactura ORDER BY fecha_emision DESC;
+SELECT * FROM facturacion.vwResponsablesDeFactura ORDER BY fecha_emision DESC;*/
