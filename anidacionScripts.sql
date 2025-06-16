@@ -7,23 +7,23 @@
 -- ============================================================================
 
 --  CAMBIAR LA RUTA SI ES NECESARIO SEGÚN TU SISTEMA
-:r "C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\00_CreacionBaseDeDatos.sql"
+:r "C:\Users\Cisco\Desktop\Unlam\Tercer Año\BDA\Com2900G13\00_CreacionBaseDeDatos.sql"
 GO
-:r "C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\01_CreacionDeTablas.sql"
+:r "C:\Users\Cisco\Desktop\Unlam\Tercer Año\BDA\Com2900G13\01_CreacionDeTablas.sql"
 GO
-:r "C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\02_GestionAdministrativa.sql"
+:r "C:\Users\Cisco\Desktop\Unlam\Tercer Año\BDA\Com2900G13\02_GestionAdministrativa.sql"
 GO
-:r "C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\03_GestionFacturacion.sql"
+:r "C:\Users\Cisco\Desktop\Unlam\Tercer Año\BDA\Com2900G13\03_GestionFacturacion.sql"
 GO
-:r "C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\04_GestionCobranzas.sql"
+:r "C:\Users\Cisco\Desktop\Unlam\Tercer Año\BDA\Com2900G13\04_GestionCobranzas.sql"
 GO
-:r "C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\05_GestionMorosidad.sql"
+:r "C:\Users\Cisco\Desktop\Unlam\Tercer Año\BDA\Com2900G13\05_GestionMorosidad.sql"
 GO
-:r "C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\06_LoteDePruebasAdministrativa.sql"
+:r "C:\Users\Cisco\Desktop\Unlam\Tercer Año\BDA\Com2900G13\06_LoteDePruebasAdministrativa.sql"
 GO
-:r "C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\07_LoteDePruebasFacturacion.sql"
+:r "C:\Users\Cisco\Desktop\Unlam\Tercer Año\BDA\Com2900G13\07_LoteDePruebasFacturacion.sql"
 GO
-:r "C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\08_LoteDePruebasCobranza.sql"
+:r "C:\Users\Cisco\Desktop\Unlam\Tercer Año\BDA\Com2900G13\08_LoteDePruebasCobranza.sql"
 GO
-:r "C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\09_LoteDePruebasMorosidad.sql"
+:r "C:\C:\Users\Cisco\Desktop\Unlam\Tercer Año\BDA\Com2900G13\09_LoteDePruebasMorosidad.sql"
 GO

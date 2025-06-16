@@ -171,16 +171,14 @@ INNER JOIN administracion.Persona p ON p.id_persona = s.id_persona
 INNER JOIN actividades.Actividad a ON a.id_actividad = pa.id_actividad
 INNER JOIN administracion.CategoriaSocio c ON c.id_categoria = pa.id_categoria
 ORDER BY pa.inasistencias_alternadas DESC
-FOR XML PATH('Socio'), ROOT('Socios');
+FOR XML PATH('Socio'), ROOT('Socios'), ELEMENTS;
 END
 
 EXEC cobranzas.Reporte3
 
 select * from administracion.Socio
 select * from administracion.Persona
-SELECT * 
-FROM actividades.presentismoClase
-ORDER BY id_socio, fecha;
+SELECT * FROM actividades.presentismoClase ORDER BY id_socio, fecha;
 
 
 /*____________________________________________________________________
