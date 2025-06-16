@@ -11,6 +11,10 @@
 USE COM2900G13
 GO
 
+/*____________________________________________________________________
+  ________________________ ASIGNACIÓN DE ROLES _______________________
+  ____________________________________________________________________*/
+
 /*	------------------------------------------------------
 	1) CREACIÓN DE ROLES
 	------------------------------------------------------
@@ -193,7 +197,15 @@ DENY INSERT, UPDATE ON SCHEMA::facturacion TO vocal
 USE COM2900G13;
 GO
 
--- Paso 1: Asegurar que las columnas no estén duplicadas
+/*____________________________________________________________________
+  _______________________ ENCRIPTACIÓN DE DATOS ______________________
+  ____________________________________________________________________*/
+
+/*	------------------------------------------------------
+	1) REVISIÓN DE DUPLICIDAD
+	------------------------------------------------------
+	Asegurar que las columnas no estén duplicadas
+	------------------------------------------------------*/
 
 IF COL_LENGTH('administracion.Persona', 'dni_cifrado') IS NULL
 ALTER TABLE administracion.Persona
@@ -237,7 +249,12 @@ ADD monto_cifrado VARBINARY(256),
     motivo_cifrado VARBINARY(256);
 GO
 
--- Paso 2: Cifrado por tabla
+/*	------------------------------------------------------
+	2) CIFRADO POR TABLA
+	------------------------------------------------------
+	Cifrar los campos de todas las tablas que contienen 
+	datos sensibles.
+	------------------------------------------------------*/
 
 -- Persona
 DECLARE @passphrase NVARCHAR(128) = 'SolNorteClaveSegura';

@@ -456,59 +456,9 @@ END;
 GO
 
 /*____________________________________________________________________
-  ____________________ RegistrarReintegroPorLluvia ___________________
-  ____________________________________________________________________*/
-
-/*IF OBJECT_ID('cobranzas.RegistrarReintegroPorLluvia', 'P') IS NOT NULL
-    DROP PROCEDURE cobranzas.RegistrarReintegroPorLluvia;
-GO
-
-CREATE PROCEDURE cobranzas.RegistrarReintegroPorLluvia
-    @id_factura INT,
-	@id_socio INT,
-    @monto DECIMAL(10,2),
-    @fecha DATE,
-    @medio_pago VARCHAR(50)
-AS
-BEGIN
-    SET NOCOUNT ON;
-    BEGIN TRY
-        BEGIN TRANSACTION;
-
-        IF @id_socio IS NOT NULL
-        BEGIN
-            EXEC cobranzas.RegistrarPagoACuenta
-                @id_socio = @id_socio,
-                @monto = @monto,
-                @fecha = @fecha,
-                @medio_pago = @medio_pago,
-                @motivo = 'Reintegro por lluvia';
-        END
-        ELSE
-        BEGIN
-			DECLARE @id_pago INT = (SELECT TOP 1 id_pago 
-									FROM cobranzas.Pago 
-									WHERE id_factura = @id_Factura)
-
-            EXEC cobranzas.RegistrarNotaDeCredito
-                @monto = @monto,
-                @fecha_emision = @fecha,
-				@estado = 'A cobrar',
-                @motivo = 'Reintegro por lluvia',
-				@id_pago = @id_pago;
-        END
-
-        COMMIT TRANSACTION;
-    END TRY
-    BEGIN CATCH
-        IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
-        THROW;
-    END CATCH
-END;
-GO*/
-/*____________________________________________________________________
   ______________________ GenerarReintegroPorLluvia ___________________
   ____________________________________________________________________*/
+
 IF OBJECT_ID('cobranzas.GenerarReintegroPorLluvia', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.GenerarReintegroPorLluvia;
 GO
@@ -537,16 +487,14 @@ BEGIN
         DECLARE @sql NVARCHAR(MAX);
         SET @sql = N'
             BULK INSERT #clima
-            FROM @paramPath
+            FROM ''' + @path + '''
             WITH (
                 FIELDTERMINATOR = '','',
                 ROWTERMINATOR = ''\n'',
                 FIRSTROW = 5,
                 CODEPAGE = ''65001''
             );';
-        EXEC sp_executesql @sql, N'@paramPath NVARCHAR(100)', @paramPath = @path;
-
-        SELECT * FROM #clima;
+        EXEC sp_executesql @sql;
 
         /* Tabla variable para las facturas con reintegro */
         DECLARE @Facturas TABLE (
@@ -584,8 +532,6 @@ BEGIN
         AND DF.tipo_item COLLATE Latin1_General_CI_AI LIKE '%actividad extra%'
         AND F.fecha_emision BETWEEN CAST(CONCAT(@año, '-', @mes, '-01') AS DATE)
                                 AND EOMONTH(CAST(CONCAT(@año, '-', @mes, '-01') AS DATE));
-
-        SELECT * FROM @Facturas;
 
         -- Insertar NotaDeCredito para invitados
         INSERT INTO cobranzas.NotaDeCredito (id_factura, monto, fecha_emision, estado, motivo)
@@ -733,6 +679,9 @@ BEGIN
 END;
 GO
 
+/*____________________________________________________________________
+  _____________________ GenerarReembolsoPorPago ______________________
+  ____________________________________________________________________*/
 
 IF OBJECT_ID('cobranzas.GenerarReembolsoPorPago', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.GenerarReembolsoPorPago;
@@ -782,6 +731,9 @@ BEGIN
 END;
 GO
 
+/*____________________________________________________________________
+  __________________ GenerarPagoACuentaPorReembolso __________________
+  ____________________________________________________________________*/
 
 IF OBJECT_ID('cobranzas.GenerarPagoACuentaPorReembolso', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.GenerarPagoACuentaPorReembolso;
@@ -848,6 +800,9 @@ BEGIN
 END;
 GO
 
+/*____________________________________________________________________
+  ______________________ vwNotasConMedioDePago _______________________
+  ____________________________________________________________________*/
 
 CREATE OR ALTER VIEW cobranzas.vwNotasConMedioDePago AS
 SELECT 

@@ -1239,8 +1239,6 @@ BEGIN
 		AND AE.periodo = @periodo
 		ORDER BY AE.vigencia DESC;
 
-		PRINT @monto_total;
-
 		/*Generar factura per sé*/
 		INSERT INTO facturacion.Factura
 		(id_emisor, id_socio, leyenda, monto_total, saldo_anterior, fecha_emision, fecha_vencimiento1, fecha_vencimiento2, estado, anulada)
