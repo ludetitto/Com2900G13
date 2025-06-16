@@ -203,14 +203,16 @@ GO
 
 -- =================== GENERACI�N DE FACTURA INVITADOS ===================
 EXEC facturacion.GenerarFacturaInvitado '46501934', '20-12345678-4', 'Alquiler de SUM', '2025-06-01';
-EXEC facturacion.GenerarFacturaInvitado '46501934', '20-12345678-4', 'Pileta verano', '2025-06-01';
+EXEC facturacion.GenerarFacturaInvitado '46501934', '20-12345678-4', 'Pileta verano', '2025-06-05';
 GO
+
 -- =================== GENERACI�N DE FACTURA SOCIOS ===================
 EXEC facturacion.GenerarFacturaSocioActExtra '45778667', '20-12345678-4', 'Alquiler de SUM', '2025-06-01';
 EXEC facturacion.GenerarFacturaSocioActExtra '45778667', '20-12345678-4', 'Pileta verano', '2025-06-01';
 EXEC facturacion.GenerarFacturaSocioActExtra '40505050', '20-12345678-4', 'Colonia de verano', '2025-06-01';
 EXEC facturacion.GenerarFacturaSocioActExtra '40707070', '20-12345678-4', 'Pileta verano', '2025-06-01';
 GO
+
 -- =================== VERIFICAR ===================
 SELECT * FROM actividades.Actividad;
 SELECT * FROM actividades.Clase;
