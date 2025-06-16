@@ -85,7 +85,7 @@ Reporte de la cantidad de socios que han realizado alguna actividad de forma alt
 ordenadas de mayor a menor
   */
 
-IF OBJECT_ID('cobranzas.MorososRecurrentes', 'P') IS NOT NULL
+IF OBJECT_ID('cobranzas.Reporte3', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.Reporte3;
 GO
 CREATE or ALTER PROCEDURE  cobranzas.Reporte3 AS
@@ -132,36 +132,9 @@ END
 
 EXEC cobranzas.Reporte3
 
-
+select * from administracion.Socio
+select * from administracion.Persona
 SELECT * 
 FROM actividades.presentismoClase
 ORDER BY id_socio, fecha;
 
-
--- Presentismo (alternancia: A ? P ? A ? P)
-INSERT INTO actividades.presentismoClase (id_clase, id_socio, fecha, condicion)
-VALUES 
-(3, 1, '2025-05-01', 'A'),
-(3, 1, '2025-05-02', 'P'), -- alternada 1
-(3, 1, '2025-05-03', 'A'),
-(3, 1, '2025-05-04', 'P'), -- alternada 2
-(3, 1, '2025-05-05', 'P'); -- no cuenta
-INSERT INTO actividades.presentismoClase (id_clase, id_socio, fecha, condicion) VALUES
-(3, 5, '2025-06-01', 'A'),
-(3, 5, '2025-06-02', 'P'),  -- alternada 1
-(3, 5, '2025-06-03', 'J'),
-(3, 5, '2025-06-04', 'P'),  -- alternada 2
-(3, 5, '2025-06-05', 'A'),
-(3, 5, '2025-06-06', 'P');  -- alternada 3
-INSERT INTO actividades.presentismoClase (id_clase, id_socio, fecha, condicion) VALUES
-(1, 1, '2025-06-01', 'A'),
-(1, 1, '2025-06-02', 'P'),  -- alternada 1
-(1, 1, '2025-06-03', 'A'),
-(1, 1, '2025-06-04', 'P');  -- alternada 2
-INSERT INTO actividades.presentismoClase (id_clase, id_socio, fecha, condicion) VALUES
-(2, 2, '2025-06-01', 'J'),
-(2, 2, '2025-06-02', 'P');  -- alternada 1
-INSERT INTO actividades.presentismoClase (id_clase, id_socio, fecha, condicion) VALUES
-(1, 3, '2025-06-01', 'P'),
-(1, 3, '2025-06-02', 'P'),
-(1, 3, '2025-06-03', 'P');
