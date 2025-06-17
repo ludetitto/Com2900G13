@@ -1,7 +1,14 @@
 /* =========================================================================
-   Archivo 13 - Optimización de Estadísticas
-   Proyecto: COM2900G13 - Sol Norte
-   Descripción: Inspección, actualización y análisis de estadísticas
+   Trabajo Práctico Integrador - Bases de Datos Aplicadas
+   Grupo N°: 13
+   Comisión: 2900
+   Fecha de Entrega: 17/06/2025
+   Materia: Bases de Datos Aplicadas
+   Alumnos: Vignardel Francisco 45778667
+            De Titto Lucia		46501934
+			Borja Tomas			42353302
+
+   Objetivo: Inspección, actualización y análisis de estadísticas.
    ========================================================================= */
 
 USE COM2900G13;

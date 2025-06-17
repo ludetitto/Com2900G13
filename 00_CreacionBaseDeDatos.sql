@@ -7,6 +7,8 @@
    Alumnos: Vignardel Francisco 45778667
             De Titto Lucia		46501934
             Borja Tomas			42353302
+
+   Consigna: Cree la base de datos.
    ========================================================================= */
 
 -- Descripción: Elimina y recrea la base de datos COM2900G13 con configuración controlada

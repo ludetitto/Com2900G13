@@ -7,6 +7,9 @@
    Alumnos: Vignardel Francisco 45778667
             De Titto Lucia		46501934
 			Borja Tomas			42353302
+
+   Consigna: Genere store procedures para manejar la inserción, modificado, borrado (si corresponde,
+también debe decidir si determinadas entidades solo admitirán borrado lógico) de cada tabla.
  ========================================================================= */
 USE COM2900G13;
 GO
@@ -894,7 +897,7 @@ BEGIN
             ROLLBACK TRANSACTION;
             RETURN;
         END
-
+		-- Si la actividad/membresía ya fue facturada, no se genera un duplicado
 		IF EXISTS (
 		SELECT TOP 1 id_factura
 		FROM facturacion.Factura
@@ -974,11 +977,6 @@ BEGIN
 		SELECT @monto_total += ISNULL(SUM(monto), 0)
 		FROM cobranzas.Mora
 		WHERE id_socio = @id_socio
-
-		/*Sumar montos*/
-		/* - 1000 + 500		--> -500 y saldo 0	*/
-		/* - 1000 + 0		-->	-1000 y saldo 0	*/
-		/* - 1000 - 2000	--> -3000 y saldo 0 */
 
 		/*Generar factura per sé*/
         INSERT INTO facturacion.Factura
@@ -1164,7 +1162,7 @@ BEGIN
 				RETURN;
 			END
 		END;
-
+		-- Si la actividad/membresía ya fue facturada, no se genera un duplicado
 		IF EXISTS (
 		SELECT TOP 1 F.id_factura
 		FROM facturacion.Factura F
@@ -1180,6 +1178,7 @@ BEGIN
 			ROLLBACK TRANSACTION;
 			RETURN;
 		END
+		-- Si el socio no asisitó a la actividad, no se genera la factura
 		ELSE IF NOT EXISTS (SELECT TOP 1 PAE.id_socio
 							FROM actividades.presentismoActividadExtra PAE
 							INNER JOIN actividades.ActividadExtra AE ON AE.id_extra = PAE.id_extra
@@ -1220,6 +1219,7 @@ BEGIN
 						AND AE.nombre = @descripcion
 						AND AE.es_invitado = 'N');
 		
+		-- En caso de ser diaria, se propone el vencimiento al mismo dia
 		IF @periodo NOT LIKE 'Dia'
 		BEGIN
 			SET @fecha_vencimiento1 = DATEADD(DAY, 5, @fecha_vencimiento1);
@@ -1445,106 +1445,4 @@ JOIN administracion.Socio s_f ON s_f.id_socio = f.id_socio
 LEFT JOIN administracion.GrupoFamiliar gf ON gf.id_socio = f.id_socio
 LEFT JOIN administracion.Socio s_res ON s_res.id_socio = COALESCE(gf.id_socio_rp, f.id_socio)
 LEFT JOIN administracion.Persona p_res ON p_res.id_persona = s_res.id_persona;
-GO
-
-
-/*____________________________________________________________________
-  ______________________ GestionarDescuentos ______________________
-  ____________________________________________________________________*/
-IF OBJECT_ID('facturacion.GestionarDescuentos', 'P') IS NOT NULL
-    DROP PROCEDURE facturacion.GestionarDescuentos;
-GO
-
-CREATE OR ALTER PROCEDURE facturacion.GestionarDescuentos
-    @id_factura INT
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    -- 1. Verificar existencia y estado de factura
-    IF NOT EXISTS (
-        SELECT 1
-        FROM facturacion.Factura
-        WHERE id_factura = @id_factura AND estado = 'No pagada'
-    )
-    BEGIN
-        RAISERROR('No se pueden aplicar descuentos: la factura no está en estado "No pagada".', 16, 1);
-        RETURN;
-    END
-
-    DECLARE @id_socio INT, @total_membresia MONEY, @total_actividades MONEY;
-
-    -- Obtener socio de la factura
-    SELECT @id_socio = id_socio
-    FROM facturacion.Factura
-    WHERE id_factura = @id_factura;
-
-    -- 2. Descuento por grupo familiar (15% sobre total de membresías)
-    IF EXISTS (
-        SELECT 1
-        FROM administracion.GrupoFamiliar
-        WHERE id_socio_rp = @id_socio
-    ) AND NOT EXISTS (
-        SELECT 1
-        FROM facturacion.DetalleFactura
-        WHERE id_factura = @id_factura
-          AND tipo_item = 'Descuento'
-          AND descripcion = 'Descuento por grupo familiar (15%)'
-    )
-    BEGIN
-        SELECT @total_membresia = SUM(monto)
-        FROM facturacion.DetalleFactura
-        WHERE id_factura = @id_factura AND tipo_item = 'Membresia';
-
-        IF @total_membresia IS NOT NULL AND @total_membresia > 0
-        BEGIN
-            INSERT INTO facturacion.DetalleFactura (
-                id_factura, tipo_item, descripcion, monto, cantidad
-            )
-            VALUES (
-                @id_factura, 'Descuento', 'Descuento por grupo familiar (15%)',
-                ROUND(@total_membresia * -0.15, 2), 1
-            );
-        END
-    END
-
-    -- 3. Descuento por múltiples actividades deportivas (10% sobre total de actividades)
-    IF (
-        SELECT COUNT(*)
-        FROM facturacion.DetalleFactura
-        WHERE id_factura = @id_factura AND tipo_item = 'Actividad'
-    ) > 1
-    AND NOT EXISTS (
-        SELECT 1
-        FROM facturacion.DetalleFactura
-        WHERE id_factura = @id_factura
-          AND tipo_item = 'Descuento'
-          AND descripcion = 'Descuento por múltiples actividades deportivas (10%)'
-    )
-    BEGIN
-        SELECT @total_actividades = SUM(monto)
-        FROM facturacion.DetalleFactura
-        WHERE id_factura = @id_factura AND tipo_item = 'Actividad';
-
-        IF @total_actividades IS NOT NULL AND @total_actividades > 0
-        BEGIN
-            INSERT INTO facturacion.DetalleFactura (
-                id_factura, tipo_item, descripcion, monto, cantidad
-            )
-            VALUES (
-                @id_factura, 'Descuento', 'Descuento por múltiples actividades deportivas (10%)',
-                ROUND(@total_actividades * -0.10, 2), 1
-            );
-        END
-    END
-
-    -- 4. Recalcular monto total de factura
-    UPDATE facturacion.Factura
-    SET monto_total = (
-        SELECT SUM(monto)
-        FROM facturacion.DetalleFactura
-        WHERE id_factura = @id_factura
-    )
-    WHERE id_factura = @id_factura;
-END;
 GO

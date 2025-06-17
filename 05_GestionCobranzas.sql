@@ -7,6 +7,10 @@
    Alumnos: Vignardel Francisco 45778667
             De Titto Lucia		46501934
 			Borja Tomas			42353302
+
+   Consigna: Genere store procedures para manejar la inserción, modificado, borrado (si corresponde,
+también debe decidir si determinadas entidades solo admitirán borrado lógico) de cada tabla.
+Los nombres de los store procedures NO deben comenzar con “SP”
 ========================================================================= */
 USE COM2900G13
 GO
@@ -609,12 +613,13 @@ BEGIN
             RETURN;
         END;
 
+		-- Validar monto no excedido del pagado
 		IF @monto > @monto_pago
 		BEGIN
 			RAISERROR('El monto del reembolso no puede superar el monto del pago original.', 16, 1);
 			RETURN;
 		END;
-
+		-- Hallar el id_socio correspondiente al pago de dicha factura
         SET @id_socio = (
             SELECT f.id_socio
             FROM cobranzas.Pago p
@@ -622,7 +627,7 @@ BEGIN
             WHERE p.id_pago = @id_pago
         );
 
-		-- Insertar nota de cr�dito (reembolso)
+		-- Insertar nota de crédito (reembolso)
 		EXEC cobranzas.RegistrarNotaDeCredito
 			@monto = @monto,
 			@fecha_emision = @fecha_actual,
@@ -663,7 +668,16 @@ BEGIN
 
 	DECLARE @id_pago INT;
 	DECLARE @monto DECIMAL(10, 2) = (SELECT TOP 1 monto_total FROM facturacion.Factura WHERE id_factura = @id_factura);
+	
+	-- Validar motivo
+	if @monto IS NULL
+	BEGIN
+        RAISERROR('Motivo ingresado no válido.', 16, 1);
+        ROLLBACK TRANSACTION;
+        RETURN;
+    END;
 
+	-- Hallar factura a anular, que en caso de tener pago se realice el reembolso
 	IF @id_factura IN (SELECT id_factura FROM facturacion.Factura WHERE estado = 'Pagada')
 	BEGIN
 		SET @id_pago = (SELECT TOP 1 id_pago FROM cobranzas.Pago WHERE id_factura = @id_factura);
@@ -673,10 +687,19 @@ BEGIN
 			@monto = @monto,
 			@motivo = @motivo;
 	END
-	ELSE
+	ELSE IF @id_factura IN (SELECT id_factura FROM facturacion.Factura)
+	BEGIN
 		UPDATE facturacion.Factura
 		SET anulada = 1
 		WHERE id_factura = @id_factura
+	END
+	ELSE
+	-- Validar factura ingresada
+	BEGIN
+        RAISERROR('Factura ingresada no existente', 16, 1);
+        ROLLBACK TRANSACTION;
+        RETURN;
+    END;
 END;
 GO
 
@@ -806,6 +829,7 @@ GO
   ____________________________________________________________________*/
 
 CREATE OR ALTER VIEW cobranzas.vwNotasConMedioDePago AS
+-- Vista meramente visual, a fines prácticos de testing
 SELECT 
     nc.id_nota,
     nc.id_factura,

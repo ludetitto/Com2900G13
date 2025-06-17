@@ -7,20 +7,22 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 	ProjectSection(SolutionItems) = preProject
 		00_CreacionBaseDeDatos.sql = 00_CreacionBaseDeDatos.sql
 		01_CreacionDeTablas.sql = 01_CreacionDeTablas.sql
-		02_GestionAdministrativa.sql = 02_GestionAdministrativa.sql
-		02_TestingAdministrativa.sql = 02_TestingAdministrativa.sql
-		03_GestionFacturacion.sql = 03_GestionFacturacion.sql
-		03_TestingFacturacion.sql = 03_TestingFacturacion.sql
-		04_GestionCobranzas.sql = 04_GestionCobranzas.sql
-		04_TestingCobranzas.sql = 04_TestingCobranzas.sql
-		05_GestionMorosidad.sql = 05_GestionMorosidad.sql
-		05_TestingMorosidad.sql = 05_TestingMorosidad.sql
-		06_LoteDePruebasAdministrativa.sql = 06_LoteDePruebasAdministrativa.sql
-		07_LoteDePruebasFacturacion.sql = 07_LoteDePruebasFacturacion.sql
-		08_LoteDePruebasCobranza.sql = 08_LoteDePruebasCobranza.sql
-		09_LoteDePruebasMorosidad.sql = 09_LoteDePruebasMorosidad.sql
-		10_Reportes.sql = 10_Reportes.sql
-		11_RequisitosSeguridad.sql = 11_RequisitosSeguridad.sql
+		02_IndicesNoCluster.sql = 02_IndicesNoCluster.sql
+		03_GestionAdministrativa.sql = 03_GestionAdministrativa.sql
+		03_TestingAdministrativa.sql = 03_TestingAdministrativa.sql
+		04_GestionFacturacion.sql = 04_GestionFacturacion.sql
+		04_TestingFacturacion.sql = 04_TestingFacturacion.sql
+		05_GestionCobranzas.sql = 05_GestionCobranzas.sql
+		05_TestingCobranzas.sql = 05_TestingCobranzas.sql
+		06_GestionMorosidad.sql = 06_GestionMorosidad.sql
+		06_TestingMorosidad.sql = 06_TestingMorosidad.sql
+		07_LoteDePruebasAdministrativa.sql = 07_LoteDePruebasAdministrativa.sql
+		08_LoteDePruebasFacturacion.sql = 08_LoteDePruebasFacturacion.sql
+		09_LoteDePruebasCobranza.sql = 09_LoteDePruebasCobranza.sql
+		10_LoteDePruebasMorosidad.sql = 10_LoteDePruebasMorosidad.sql
+		11_Reportes.sql = 11_Reportes.sql
+		12_RequisitosSeguridad.sql = 12_RequisitosSeguridad.sql
+		13_OptimizarEstadisticas.sql = 13_OptimizarEstadisticas.sql
 	EndProjectSection
 EndProject
 Global
@@ -28,7 +30,7 @@ Global
 		Default|Default = Default|Default
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{502EACF0-7122-4EA9-8571-919E5D22793F}.Default|Default.ActiveCfg = Default
+		{B035B82B-009F-466D-BE5A-A40994FA4BF1}.Default|Default.ActiveCfg = Default
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

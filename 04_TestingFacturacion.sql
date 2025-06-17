@@ -7,6 +7,10 @@
    Alumnos: Vignardel Francisco 45778667
             De Titto Lucia		46501934
 			Borja Tomas			42353302
+
+   Consigna: Todos los SP creados deben estar acompañados de juegos de prueba. Se espera que
+realicen validaciones básicas en los SP (p/e cantidad mayor a cero, CUIT válido, etc.) y que
+en los juegos de prueba demuestren la correcta aplicación de las validaciones
  ========================================================================= */
 USE COM2900G13;
 GO
@@ -564,80 +568,3 @@ EXEC facturacion.GenerarFacturaSocioActExtra
 @fecha_referencia = '2025-02-28';
 -- Resultado esperado: Error lanzado por RAISERROR
 GO
-
--- =================== APLICAR DESCUENTOS A UNA FACTURA SI CORRESPONDE ===================
-use COM2900G13
-SELECT * FROM administracion.GrupoFamiliar;
-
-SELECT id_factura, id_socio, estado, monto_total, fecha_emision
-FROM facturacion.Factura
-ORDER BY id_factura;
-
-SELECT id_factura, tipo_item, descripcion, monto, cantidad
-FROM facturacion.DetalleFactura
-ORDER BY id_factura;
-
-SELECT id_grupo, id_socio_rp AS id_socio_responsable
-FROM administracion.GrupoFamiliar;
-
-SELECT s.id_socio, p.dni, p.nombre, p.apellido
-FROM administracion.Socio s
-JOIN administracion.Persona p ON s.id_persona = p.id_persona;
-
--- Facturas con 2 o más actividades
-SELECT id_factura
-FROM facturacion.DetalleFactura
-WHERE tipo_item = 'Actividad'
-GROUP BY id_factura
-HAVING COUNT(*) > 1;
-
--- Facturas con membresía
-SELECT id_factura
-FROM facturacion.DetalleFactura
-WHERE tipo_item = 'Membresia';
-
--- Facturas asociadas a socios responsables de grupo familiar
-SELECT f.id_factura
-FROM facturacion.Factura f
-JOIN administracion.GrupoFamiliar gf ON f.id_socio = gf.id_socio_rp;
-
-/* =========================================================================
-   Testing - Aplicación de Descuentos a Facturas (GestionarDescuentos)
-   ========================================================================= */
-DELETE FROM facturacion.DetalleFactura
-WHERE id_factura = 2
-  AND tipo_item = 'Descuento'
-  AND monto > 0; -- eliminar descuentos que sean positivos (error)
-  
-  -- ✅ CASO 1: USUARIO INSCRIPTO A VARIAS ACTIVIDADES
--- Condiciones: Factura con 2 o más ítems tipo 'Actividad'
--- Factura válida: id_factura = 2
-
-SELECT * FROM facturacion.Factura WHERE id_factura = 2;
-EXEC facturacion.GestionarDescuentos 2;
-SELECT * FROM facturacion.Factura WHERE id_factura = 2;
-SELECT * FROM facturacion.DetalleFactura WHERE id_factura = 2;
-
--- ✅ CASO 2: USUARIO RESPONSABLE DE GRUPO FAMILIAR con MEMBRESÍA
--- Condiciones: id_socio en GrupoFamiliar.id_socio_rp + factura tiene ítems 'Membresia'
--- Factura válida: id_factura = 0
-
-SELECT * FROM facturacion.Factura WHERE id_factura = 0;
-SELECT * FROM administracion.GrupoFamiliar WHERE id_socio_rp = (
-    SELECT id_socio FROM facturacion.Factura WHERE id_factura = 0
-);
-EXEC facturacion.GestionarDescuentos 0;
-SELECT * FROM facturacion.Factura WHERE id_factura = 0;
-SELECT * FROM facturacion.DetalleFactura WHERE id_factura = 0;
-
--- ❌ CASO 3: LA FACTURA YA ESTÁ PAGADA
--- Condiciones: Factura con estado = 'Pagada'
--- Factura inválida para aplicar descuento: id_factura = 1
-
-SELECT * FROM facturacion.Factura WHERE id_factura = 1;
-EXEC facturacion.GestionarDescuentos 1; -- Debe lanzar error
-SELECT * FROM facturacion.Factura WHERE id_factura = 1;
-SELECT * FROM facturacion.DetalleFactura WHERE id_factura = 1;
-
--- Vista resumen para verificar trazabilidad y responsable
-SELECT * FROM facturacion.vwResponsablesDeFactura ORDER BY fecha_emision DESC;
