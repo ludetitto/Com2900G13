@@ -7,6 +7,9 @@
    Alumnos: Vignardel Francisco 45778667
             De Titto Lucia		46501934
 			Borja Tomas			42353302
+   
+   Consigna: Genere store procedures para manejar la inserción, modificado, borrado (si corresponde,
+también debe decidir si determinadas entidades solo admitirán borrado lógico) de cada tabla.
  ========================================================================= */
 USE COM2900G13;
 GO
@@ -265,47 +268,49 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Validación de operación
+    -- 1) Validar que la operación sea válida.
     IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
     BEGIN
         RAISERROR('Operación inválida. Use Insertar, Modificar o Eliminar.', 16, 1);
         RETURN;
     END
 
-    -- Insertar categoría
+    -- CASO 1: INSERTAR
     IF @operacion = 'Insertar'
     BEGIN
+		-- 1.1) Se verifica que la categoría no sea inválida.
         IF LTRIM(RTRIM(@nombre)) = ''
         BEGIN
             RAISERROR('El nombre de la categoría es obligatorio.', 16, 1);
             RETURN;
         END
-
+		-- 1.2) Se verifica que el rango de edad no sea inválido.
         IF @edad_desde IS NULL OR @edad_hasta IS NULL
         BEGIN
             RAISERROR('Debe especificar el rango de edad (desde/hasta).', 16, 1);
             RETURN;
         END
-
+		-- 1.3) Se verifica que la categoría no haya sido creada.
         IF EXISTS (SELECT 1 FROM administracion.CategoriaSocio WHERE nombre = @nombre)
         BEGIN
             RAISERROR('Ya existe una categoría con ese nombre.', 16, 1);
             RETURN;
         END
-
+		-- 1.4) Se inserta el registro en CategoriaSocio.
         INSERT INTO administracion.CategoriaSocio (nombre, edad_desde, edad_hasta, costo_membresia, vigencia)
         VALUES (@nombre, @edad_desde, @edad_hasta, @costo_membresia, @vigencia);
     END
 
-    -- Modificar categoría
+    -- CASO 2: Modificar
     ELSE IF @operacion = 'Modificar'
     BEGIN
+		-- 2.1) Se verifica que exista la categoría.
         IF NOT EXISTS (SELECT 1 FROM administracion.CategoriaSocio WHERE nombre = @nombre)
         BEGIN
             RAISERROR('Categoría no encontrada.', 16, 1);
             RETURN;
         END
-
+		--2.2) Se modifican los campos que no sean nulos de dicha categoría.
         UPDATE administracion.CategoriaSocio
         SET 
             edad_desde = COALESCE(@edad_desde, edad_desde),
@@ -315,15 +320,16 @@ BEGIN
         WHERE nombre = @nombre;
     END
 
-    -- Eliminar categoría
+    -- CASO 3: ELIMINAR
     ELSE IF @operacion = 'Eliminar'
     BEGIN
+		-- 3.1) Se verifica que exista la categoría.
         IF NOT EXISTS (SELECT 1 FROM administracion.CategoriaSocio WHERE nombre = @nombre)
         BEGIN
             RAISERROR('No se encontró una categoría con ese nombre para eliminar.', 16, 1);
             RETURN;
         END
-
+		-- 3.2) Se elimina físicamente la fila que corresponde a dicha categoría.
         DELETE FROM administracion.CategoriaSocio
         WHERE nombre = @nombre;
     END
@@ -710,7 +716,7 @@ CREATE PROCEDURE administracion.VerCuotasPagasGrupoFamiliar
 AS
 BEGIN
     SET NOCOUNT ON;
-	
+	-- Se almacenan mediante CTE las cuotas pagas para el socio ingresado y sus familiares.
 	WITH CuotasPagas AS
 	(
 		SELECT
@@ -763,7 +769,7 @@ AFTER UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
-
+	-- Al darse de baja un socio, automáticamente las facturas pendientes se anulan.
     UPDATE F
     SET F.anulada = 1
     FROM facturacion.Factura f
@@ -898,6 +904,7 @@ IF OBJECT_ID('administracion.vwSociosConCategoria', 'V') IS NOT NULL
 GO
 
 CREATE VIEW administracion.vwSociosConCategoria AS
+-- Vista meramente visual, a fines prácticos para el testing
 SELECT 
     P.dni,
     P.nombre,
@@ -925,6 +932,8 @@ IF OBJECT_ID('administracion.vwSociosConObraSocial', 'V') IS NOT NULL
 GO
 
 CREATE VIEW administracion.vwSociosConObraSocial AS
+-- Vista meramente visual, a fines prácticos para el testing
+
 SELECT 
     P.dni,
     P.nombre,

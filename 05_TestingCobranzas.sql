@@ -7,6 +7,10 @@
    Alumnos: Vignardel Francisco 45778667
             De Titto Lucia		46501934
 			Borja Tomas			42353302
+
+  Consigna: Todos los SP creados deben estar acompañados de juegos de prueba. Se espera que
+realicen validaciones básicas en los SP (p/e cantidad mayor a cero, CUIT válido, etc.) y que
+en los juegos de prueba demuestren la correcta aplicación de las validaciones.
  ========================================================================= */
 USE COM2900G13;
 GO
@@ -15,29 +19,29 @@ GO
   ___________________ PRUEBAS gestionarMedioDePago ____________________
   _____________________________________________________________________*/
 
--- Insertar un nuevo medio de pago
+/* ✅ PRUEBA 1: Insertar un nuevo medio de pago */
 EXEC cobranzas.GestionarMedioDePago 
     @nombre = 'Tarjeta Naranja',
     @debito_automatico = 1,
     @operacion = 'Insertar';
-
+-- Resultado esperado: Inserta correctamente el medio de pago.
 SELECT * FROM cobranzas.MedioDePago;
 GO
 
--- Modificar debito_automatico a 0
+/* ✅ PRUEBA 2: Modificar debito_automatico a 0 */
 EXEC cobranzas.GestionarMedioDePago 
     @nombre = 'Tarjeta Naranja',
     @debito_automatico = 0,
     @operacion = 'Modificar';
-
+-- Resultado esperado: Modifica correctamente el medio de pago.
 SELECT * FROM cobranzas.MedioDePago;
 GO
 
--- Eliminar el medio de pago
+/* ✅ PRUEBA 3: Eliminar el medio de pago */
 EXEC cobranzas.GestionarMedioDePago 
     @nombre = 'Tarjeta Naranja',
     @operacion = 'Eliminar';
-
+-- Resultado esperado: Elimina correctamente el medio de pago.
 SELECT * FROM cobranzas.MedioDePago;
 GO
 
@@ -239,9 +243,18 @@ SELECT * FROM cobranzas.Pago
 /*_____________________________________________________________________
   ____________________ PRUEBAS GenerarReembolso _______________________
   _____________________________________________________________________*/
+-- ✅ PRUEBA 1: Generar un reembolso mediante pago a cuenta
 EXEC cobranzas.GenerarReembolsoPorPago
     @id_pago = 3,
     @motivo = 'Suspensión de actividades por mantenimiento';
+-- Resultado esperado: Reembolso efectuado y pago a cuenta insertado.
+GO
+
+-- ❌ PRUEBA 2: Pago no existe
+EXEC cobranzas.GenerarReembolsoPorPago
+    @id_pago = 50,
+    @motivo = 'Suspensión de actividades por mantenimiento';
+-- Resultado esperado: 'El pago no existe o está incompleto.'.
 GO
 
 select * from cobranzas.NotaDeCredito
@@ -251,10 +264,18 @@ select * from cobranzas.vwNotasConMedioDePago
 /*_____________________________________________________________________
   ___________________ PRUEBAS GenerarPagoCuenta _______________________
   _____________________________________________________________________*/
-
+-- ✅ PRUEBA 1: Generar un reembolso mediante pago a cuenta
   EXEC cobranzas.GenerarPagoACuentaPorReembolso
     @id_pago = 3,
     @motivo = 'Primer Mes de Regalo se carga en su cuenta el saldo equivalente';
+-- Resultado esperado: Reembolso efectuado y pago a cuenta insertado.
+GO
+
+-- ❌ PRUEBA 2: Pago no existe
+EXEC cobranzas.GenerarPagoACuentaPorReembolso
+    @id_pago = 50,
+    @motivo = 'Suspensión de actividades por mantenimiento';
+-- Resultado esperado: 'El pago no existe o está incompleto.'.
 GO
 
 -- Verificar el registro del pago a cuenta

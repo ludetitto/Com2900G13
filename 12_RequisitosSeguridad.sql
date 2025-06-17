@@ -7,6 +7,18 @@
    Alumnos: Vignardel Francisco 45778667
             De Titto Lucia		46501934
 			Borja Tomas			42353302
+
+   Consgina: Asigne los roles correspondientes para poder cumplir con este requisito, según el área a la
+cual pertenece.
+Por otra parte, se requiere que los datos de los empleados se encuentren encriptados, dado
+que los mismos contienen información personal.
+La información de las cuotas pagadas y adeudadas es de vital importancia para el negocio,
+por ello se requiere que se establezcan políticas de respaldo tanto en las ventas diarias
+generadas como en los reportes generados.
+Plantee una política de respaldo adecuada para cumplir con este requisito y justifique la
+misma. No es necesario que incluya el código de creación de los respaldos.
+Debe documentar la programación (Schedule) de los backups por día/semana/mes (de
+acuerdo a lo que decidan) e indicar el RPO.
    ========================================================================= */
 
 USE COM2900G13

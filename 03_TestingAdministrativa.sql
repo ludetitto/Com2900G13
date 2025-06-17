@@ -6,6 +6,9 @@
    Materia: Bases de Datos Aplicadas
    Alumnos: Vignardel Francisco 45778667
             De Titto Lucia 46501934
+   Consigna: Todos los SP creados deben estar acompañados de juegos de prueba. Se espera que
+realicen validaciones básicas en los SP (p/e cantidad mayor a cero, CUIT válido, etc.) y que
+en los juegos de prueba demuestren la correcta aplicación de las validaciones.
  ========================================================================= */
 
 USE COM2900G13;

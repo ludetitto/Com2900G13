@@ -7,10 +7,13 @@
    Alumnos: Vignardel Francisco 45778667
             De Titto Lucia		46501934
 			Borja Tomas			42353302
+
+     Consigna: Genere store procedures para manejar la inserción, modificado, borrado (si corresponde,
+también debe decidir si determinadas entidades solo admitirán borrado lógico) de cada tabla.
+Los nombres de los store procedures NO deben comenzar con “SP”
 ========================================================================= */
 USE COM2900G13
 GO
-
 
 /*____________________________________________________________________
   ________________________ GestionarRecargo __________________________
@@ -122,21 +125,10 @@ BEGIN
       AND vigencia > GETDATE();
 
     -- Verificar si se encontró el recargo
-    IF @porcentaje_recargo IS NOT NULL
-    BEGIN
-        SELECT id_factura
-		FROM facturacion.Factura
-        WHERE anulada = 0 
-        AND id_factura IN (SELECT F.id_factura
-						   FROM facturacion.Factura F
-						   INNER JOIN facturacion.DetalleFactura D ON D.id_factura = F.id_factura
-						   WHERE D.tipo_item <> 'Actividad Extra'
-						   AND GETDATE() BETWEEN F.fecha_vencimiento1 AND F.fecha_vencimiento2
-						   );
-    END
-    ELSE
+    IF @porcentaje_recargo IS NULL
     BEGIN
         RAISERROR('No se encontró un recargo válido con la descripción proporcionada.', 16, 1);
+		RETURN;
     END
 
 	/*Genera la mora a cobrar al mes siguiente*/
@@ -148,6 +140,7 @@ BEGIN
 		monto_total * @porcentaje_recargo
 	FROM facturacion.Factura
 	WHERE fecha_vencimiento1 < CAST(GETDATE() AS DATE)
+	AND id_socio IS NOT NULL
 
 	SET @id_mora = SCOPE_IDENTITY();
 
