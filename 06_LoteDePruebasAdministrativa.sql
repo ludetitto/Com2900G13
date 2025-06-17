@@ -104,13 +104,37 @@ EXEC administracion.GestionarGrupoFamiliar '40505050', '45778667', 'Insertar';
 EXEC administracion.GestionarGrupoFamiliar '40606060', '33444555', 'Insertar';
 GO
 
-/* ===================== VERIFICACIÓN FINAL ===================== */
-SELECT * FROM administracion.Persona;
-SELECT * FROM administracion.Socio;
-SELECT * FROM administracion.CategoriaSocio;
-SELECT * FROM administracion.Profesor;
-SELECT * FROM administracion.Invitado;
-SELECT * FROM administracion.GrupoFamiliar;
 
-SELECT * FROM administracion.vwSociosConCategoria ORDER BY apellido, nombre;
-SELECT * FROM administracion.vwSociosConObraSocial ORDER BY apellido, nombre;
+/* ===================== VERIFICACIÓN FINAL ===================== */
+
+-- Tablas
+SELECT id_persona, nombre, apellido, dni, email, fecha_nacimiento, domicilio, tel_contacto, tel_emergencia, borrado
+FROM administracion.Persona;
+
+SELECT id_socio, id_persona, id_categoria, nro_socio, obra_social, nro_obra_social, saldo, activo
+FROM administracion.Socio;
+
+SELECT id_categoria, nombre, edad_desde, edad_hasta, costo_membresia, vigencia
+FROM administracion.CategoriaSocio;
+
+SELECT id_profesor, id_persona
+FROM administracion.Profesor;
+
+SELECT id_invitado, id_socio, dni, nombre, apellido, categoria, email, domicilio
+FROM administracion.Invitado;
+
+SELECT id_grupo, id_socio, id_socio_rp
+FROM administracion.GrupoFamiliar;
+
+-- Vistas
+SELECT 
+    dni, nombre, apellido, fecha_nacimiento, email, id_socio, saldo, 
+    categoria, costo_membresia, vigencia
+FROM administracion.vwSociosConCategoria
+ORDER BY apellido, nombre;
+
+SELECT 
+    dni, nombre, apellido, email, tel_contacto, tel_emergencia, id_socio, 
+    nro_obra_social, obra_social, nro_socio
+FROM administracion.vwSociosConObraSocial
+ORDER BY apellido, nombre;

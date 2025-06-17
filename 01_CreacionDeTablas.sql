@@ -1,7 +1,7 @@
 /* =========================================================================
    Trabajo Pr�ctico Integrador - Bases de Datos Aplicadas
    Grupo N�: 13
-   Comisi�n: 2900
+   Comisión: 2900
    Fecha de Entrega: 17/06/2025
    Materia: Bases de Datos Aplicadas
    Alumnos: Vignardel Francisco 45778667
@@ -19,7 +19,7 @@ GO
 DROP VIEW IF EXISTS administracion.vwSociosConCategoria;
 DROP VIEW IF EXISTS administracion.vwSociosConObraSocial;
 
--- Funciones y procedimientos espec�ficos
+-- Funciones y procedimientos específicos
 DROP PROCEDURE IF EXISTS cobranzas.AplicarBloqueoVencimiento;
 
 /* =============================
@@ -133,7 +133,7 @@ CREATE SCHEMA facturacion;
 GO
 
 /* ================================
-   TABLAS DEL M�DULO ADMINISTRACION
+   TABLAS DEL MÓDULO ADMINISTRACION
    ================================ */
 
 IF OBJECT_ID('administracion.Persona', 'U') IS NOT NULL
@@ -256,7 +256,7 @@ CREATE TABLE administracion.Invitado (
 GO
 
 /* ==============================
-   TABLAS DEL M�DULO ACTIVIDADES
+   TABLAS DEL MÓDULO ACTIVIDADES
    ============================== */
 
 IF OBJECT_ID('actividades.Actividad', 'U') IS NOT NULL
@@ -349,7 +349,7 @@ CREATE TABLE actividades.presentismoActividadExtra (
 GO
 
 /* =============================
-   TABLAS DEL M�DULO FACTURACION
+   TABLAS DEL MÓDULO FACTURACION
    ============================= */
 
 IF OBJECT_ID('facturacion.Recargo', 'U') IS NOT NULL
@@ -423,7 +423,7 @@ CREATE TABLE facturacion.DetalleFactura (
 GO
 
 /* ===========================
-   TABLAS DEL M�DULO COBRANZAS
+   TABLAS DEL MÓDULO COBRANZAS
    =========================== */
 
 

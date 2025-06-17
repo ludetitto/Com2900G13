@@ -238,16 +238,58 @@ EXEC facturacion.GenerarFacturaSocioActExtra '45778667', '20-12345678-4', 'Pilet
 EXEC facturacion.GenerarFacturaSocioActExtra '40505050', '20-12345678-4', 'Colonia de verano', '2025-06-01';
 EXEC facturacion.GenerarFacturaSocioActExtra '40707070', '20-12345678-4', 'Pileta verano', '2025-06-01';
 GO
-
 -- =================== VERIFICAR ===================
-SELECT * FROM actividades.Actividad;
-SELECT * FROM actividades.Clase;
-SELECT * FROM actividades.InscriptoClase;
-SELECT * FROM actividades.presentismoClase ORDER BY fecha;
-SELECT * FROM actividades.ActividadExtra;
-SELECT * FROM actividades.presentismoActividadExtra ORDER BY fecha;
-SELECT * FROM facturacion.EmisorFactura;
-SELECT * FROM facturacion.Factura;
-SELECT * FROM facturacion.DetalleFactura;
-SELECT * FROM facturacion.vwResponsablesDeFactura ORDER BY fecha_emision DESC;
-SELECT * FROM administracion.vwSociosConCategoria ORDER BY apellido, nombre;
+
+-- ACTIVIDADES
+SELECT id_actividad, nombre, costo, vigencia
+FROM actividades.Actividad;
+
+SELECT id_clase, id_actividad, id_profesor, id_categoria, horario
+FROM actividades.Clase;
+
+SELECT id_socio, id_clase, fecha_inscripcion
+FROM actividades.InscriptoClase;
+
+SELECT id_clase, id_socio, fecha, condicion
+FROM actividades.presentismoClase
+ORDER BY fecha;
+
+SELECT id_extra, nombre, costo, periodo, categoria, es_invitado, vigencia
+FROM actividades.ActividadExtra;
+
+SELECT id_extra, id_socio, id_invitado, fecha, condicion
+FROM actividades.presentismoActividadExtra
+ORDER BY fecha;
+
+-- FACTURACIÓN
+SELECT id_emisor, razon_social, cuil, direccion, pais, localidad, codigo_postal
+FROM facturacion.EmisorFactura;
+
+SELECT id_factura, id_emisor, id_socio, id_invitado, leyenda, monto_total, saldo_anterior, fecha_emision, fecha_vencimiento1, fecha_vencimiento2, estado, anulada
+FROM facturacion.Factura;
+
+SELECT id_detalle, id_factura, id_actividad, id_extra, id_categoria, tipo_item, descripcion, monto, cantidad
+FROM facturacion.DetalleFactura;
+
+-- Vista
+SELECT 
+    id_factura,
+    socio_facturado,
+    id_socio_responsable,
+    dni_responsable,
+    nombre_responsable,
+    apellido_responsable,
+    monto_total,
+    estado,
+    fecha_emision,
+    fecha_vencimiento1,
+    fecha_vencimiento2
+FROM facturacion.vwResponsablesDeFactura
+ORDER BY fecha_emision DESC;
+
+-- ADMINISTRACIÓN (vista ya detallada antes)
+SELECT 
+    dni, nombre, apellido, fecha_nacimiento, email, id_socio, saldo, 
+    categoria, costo_membresia, vigencia
+FROM administracion.vwSociosConCategoria
+ORDER BY apellido, nombre;

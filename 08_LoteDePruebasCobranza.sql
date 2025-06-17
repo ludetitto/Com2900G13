@@ -64,9 +64,56 @@ EXEC cobranzas.RegistrarCobranza
     @id_factura = @facturaFrancisco2;
 GO
 
--- ================= VERIFICAR RESULTADOS =================
 
-SELECT * FROM cobranzas.MedioDePago;
-SELECT * FROM cobranzas.Pago ORDER BY fecha_emision DESC;
-SELECT * FROM facturacion.Factura ORDER BY fecha_emision DESC;
-SELECT * FROM administracion.vwSociosConCategoria ORDER BY apellido, nombre;
+-- ================= VERIFICAR RESULTADOS =================
+-- cobranzas.MedioDePago
+SELECT 
+    id_medio,
+    nombre,
+    debito_automatico
+FROM cobranzas.MedioDePago;
+
+-- cobranzas.Pago
+SELECT 
+    id_pago,
+    id_factura,
+    id_medio,
+    nro_transaccion,
+    monto,
+    fecha_emision,
+    fecha_vencimiento,
+    estado
+FROM cobranzas.Pago
+ORDER BY fecha_emision DESC;
+
+-- facturacion.Factura
+SELECT 
+    id_factura,
+    id_emisor,
+    id_socio,
+    id_invitado,
+    leyenda,
+    monto_total,
+    saldo_anterior,
+    fecha_emision,
+    fecha_vencimiento1,
+    fecha_vencimiento2,
+    estado,
+    anulada
+FROM facturacion.Factura
+ORDER BY fecha_emision DESC;
+
+-- administracion.vwSociosConCategoria
+SELECT 
+    dni,
+    nombre,
+    apellido,
+    fecha_nacimiento,
+    email,
+    id_socio,
+    saldo,
+    categoria,
+    costo_membresia,
+    vigencia
+FROM administracion.vwSociosConCategoria
+ORDER BY apellido, nombre;
