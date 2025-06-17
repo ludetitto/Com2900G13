@@ -4,9 +4,10 @@
    Comisión: 2900
    Fecha de Entrega: 17/06/2025
    Materia: Bases de Datos Aplicadas
-   Alumnos: Vignardel Francisco 45778667
-            De Titto Lucia		46501934
-			Borja Tomas			42353302
+   Alumnos: Vignardel Francisco				45778667
+            De Titto Lucia					46501934
+			Borja Tomas						42353302
+			Rodriguez Sebastián Ezequiel	41691928
    
    Consigna: Genere store procedures para manejar la inserción, modificado, borrado (si corresponde,
 también debe decidir si determinadas entidades solo admitirán borrado lógico) de cada tabla.
