@@ -11,7 +11,7 @@
 USE COM2900G13;
 GO
 /*_____________________________________________________________________
-  ________________________ P_GestionarPersona ________________________
+  _______________________ PRUEBAS GestionarPersona ____________________
   _____________________________________________________________________*/
 
 -- ✅ PRUEBA 1: Inserción válida de persona
@@ -22,6 +22,7 @@ EXEC administracion.GestionarPersona
     @dni = '12345678',
     @email = 'juan.perez@email.com',
     @fecha_nacimiento = '2024-10-25',
+	@domicilio = 'Av. San Martin 3492',
     @tel_contacto = '1234567890',
     @tel_emergencia = '0987654321',
     @operacion = 'Insertar';
@@ -36,6 +37,7 @@ EXEC administracion.GestionarPersona
     @dni = '12345678',
     @email = NULL,
     @fecha_nacimiento = '1985-12-25',
+	@domicilio = 'Av. San Martin 3889',
     @tel_contacto = NULL,
     @tel_emergencia = NULL,
     @operacion = 'Modificar';
@@ -52,6 +54,7 @@ EXEC administracion.GestionarPersona
     @dni = '12345678',
     @email = NULL,
     @fecha_nacimiento = NULL,
+	@domicilio = NULL,
     @tel_contacto = NULL,
     @tel_emergencia = NULL,
     @operacion = 'Eliminar';
@@ -65,6 +68,7 @@ EXEC administracion.GestionarPersona
     @dni = '99999999',
     @email = 'noexiste@email.com',
     @fecha_nacimiento = '2000-01-01',
+	@domicilio = 'Av. San Martin 1234',
     @tel_contacto = '0000000000',
     @tel_emergencia = '0000000000',
     @operacion = 'Modificar';
@@ -79,6 +83,7 @@ EXEC administracion.GestionarPersona
     @dni = '12345678',
     @email = NULL,
     @fecha_nacimiento = NULL,
+	@domicilio = NULL,
     @tel_contacto = NULL,
     @tel_emergencia = NULL,
     @operacion = 'Actualizar';
@@ -86,45 +91,97 @@ EXEC administracion.GestionarPersona
 GO
 
 /*_____________________________________________________________________
-  __________________ P_GestionarCategoriaSocio ________________________
+  __________________ PRUEBAS GestionarCategoriaSocio __________________
   _____________________________________________________________________*/
 
--- ✅ PRUEBA 1: Inserción válida de categoría
+-- ✅ PRUEBA 1: Inserción válida de categoría "Menor"
 EXEC administracion.GestionarCategoriaSocio
-    @nombre = 'Adulto',
-    @años = 18,
+    @nombre = 'Menor',
+    @edad_desde = 0,
+    @edad_hasta = 12,
+    @costo_membresia = 700.00,
+    @vigencia = '2025-12-31',
+    @operacion = 'Insertar';
+-- Resultado esperado: Categoría "Menor" insertada correctamente
+GO
+SELECT * FROM administracion.CategoriaSocio;
+
+-- ✅ PRUEBA 2: Inserción válida de categoría "Cadete"
+EXEC administracion.GestionarCategoriaSocio
+    @nombre = 'Cadete',
+    @edad_desde = 13,
+    @edad_hasta = 17,
+    @costo_membresia = 800.00,
+    @vigencia = '2025-12-31',
+    @operacion = 'Insertar';
+-- Resultado esperado: Categoría "Cadete" insertada correctamente
+GO
+SELECT * FROM administracion.CategoriaSocio;
+
+-- ✅ PRUEBA 3: Inserción válida de categoría "Mayor" (sin límite superior)
+EXEC administracion.GestionarCategoriaSocio
+    @nombre = 'Mayor',
+    @edad_desde = 18,
+    @edad_hasta = 150, --la persona mas longeva verificada vivio 122 años y 164 dias
     @costo_membresia = 1000.00,
     @vigencia = '2025-12-31',
     @operacion = 'Insertar';
--- Resultado esperado: Categoría insertada correctamente
+-- Resultado esperado: Categoría "Mayor" insertada correctamente
 GO
-SELECT TOP 10 * FROM administracion.CategoriaSocio
+SELECT * FROM administracion.CategoriaSocio;
 
-
--- ✅ PRUEBA 2: Eliminación válida de categoría
+-- ❌ PRUEBA 4: Insertar categoría sin nombre
 EXEC administracion.GestionarCategoriaSocio
-    @nombre = 'Adulto',
-    @años = NULL,
-    @costo_membresia = NULL,
-    @vigencia = NULL,
+    @nombre = '',
+    @edad_desde = 0,
+    @edad_hasta = 10,
+    @costo_membresia = 600.00,
+    @vigencia = '2025-06-01',
+    @operacion = 'Insertar';
+-- Resultado esperado: Error "El nombre de la categoría es obligatorio."
+GO
+SELECT * FROM administracion.CategoriaSocio;
+
+-- ❌ PRUEBA 5: Insertar categoría sin rango de edad
+EXEC administracion.GestionarCategoriaSocio
+    @nombre = 'Senior',
+    @edad_desde = NULL,
+    @edad_hasta = NULL,
+    @costo_membresia = 1200.00,
+    @vigencia = '2025-12-31',
+    @operacion = 'Insertar';
+-- Resultado esperado: Error por falta de rango de edad
+GO
+SELECT * FROM administracion.CategoriaSocio;
+
+-- ✅ PRUEBA 6: Modificar vigencia de la categoría "Menor"
+EXEC administracion.GestionarCategoriaSocio
+    @nombre = 'Menor',
+    @vigencia = '2026-12-31',
+    @operacion = 'Modificar';
+-- Resultado esperado: Vigencia actualizada para "Menor"
+GO
+SELECT * FROM administracion.CategoriaSocio;
+
+-- ✅ PRUEBA 7: Eliminar categoría "Cadete"
+EXEC administracion.GestionarCategoriaSocio
+    @nombre = 'Cadete',
     @operacion = 'Eliminar';
 -- Resultado esperado: Categoría eliminada correctamente
 GO
+SELECT * FROM administracion.CategoriaSocio;
 
--- ❌ PRUEBA 3: Insertar categoría sin nombre
+-- ❌ PRUEBA 8: Eliminar categoría inexistente
 EXEC administracion.GestionarCategoriaSocio
-    @nombre = '',
-    @años = 10,
-    @costo_membresia = 500.00,
-    @vigencia = '2025-06-01',
-    @operacion = 'Insertar';
--- Resultado esperado: Error por nombre obligatorio
+    @nombre = 'Inexistente',
+    @operacion = 'Eliminar';
+-- Resultado esperado: Error "No se encontró una categoría con ese nombre para eliminar."
 GO
+SELECT * FROM administracion.CategoriaSocio;
 
-SELECT TOP 10 * FROM administracion.CategoriaSocio
 
 /*_____________________________________________________________________
-  ________________________ P_GestionarSocio ___________________________
+  ____________________ PRUEBAS GestionarSocio _________________________
   _____________________________________________________________________*/
 
 -- ✅ PRUEBA 1: Inserción válida de socio (persona nueva)
@@ -134,9 +191,10 @@ EXEC administracion.GestionarSocio
     @dni = '23456789',
     @email = 'lucas.martinez@email.com',
     @fecha_nacimiento = '1992-03-10',
+	@domicilio = 'Av. San Martin 3492',
     @tel_contacto = '1231231234',
     @tel_emergencia = '4324324321',
-    @categoria = 'Adulto',
+    @categoria = 'Mayor',
     @nro_socio = 'SOC1001',
     @obra_social = 'OSDE',
     @nro_obra_social = '123456',
@@ -144,12 +202,13 @@ EXEC administracion.GestionarSocio
     @operacion = 'Insertar';
 -- Resultado esperado: Persona y socio insertados correctamente
 GO
+
 SELECT * FROM administracion.Socio
 SELECT * FROM administracion.Persona
 
 -- ✅ PRUEBA 2: Eliminación válida de socio
 EXEC administracion.GestionarSocio
-    @dni = '34567890',
+    @dni = '23456789',
     @operacion = 'Eliminar';
 
 SELECT * FROM administracion.Socio;
@@ -163,29 +222,30 @@ EXEC administracion.GestionarSocio
     @dni = '9999999999',
     @email = NULL,
     @fecha_nacimiento = NULL,
+	@domicilio = NULL,
     @tel_contacto = NULL,
     @tel_emergencia = NULL,
-    @id_categoria = NULL,
+    @categoria = NULL,
     @nro_socio = NULL,
     @obra_social = NULL,
     @nro_obra_social = NULL,
     @saldo = NULL,
-    @activo = NULL,
     @operacion = 'Eliminar';
 -- Resultado esperado: Error por DNI no encontrado
 GO
 
 /*_____________________________________________________________________
-  ________________________ P_GestionarProfesor ________________________
+  __________________ PRUEBAS GestionarProfesor ________________________
   _____________________________________________________________________*/
 
 -- ✅ PRUEBA 1: Inserción válida de profesor (persona nueva)
 EXEC administracion.GestionarProfesor
     @nombre = 'Ana',
     @apellido = 'García',
-    @dni = '23456789',
+    @dni = '34567890',
     @email = 'ana.garcia@email.com',
     @fecha_nacimiento = '1990-08-15',
+	@domicilio = 'Av. Urquiza 8392',
     @tel_contacto = '1112223333',
     @tel_emergencia = '3332221111',
     @operacion = 'Insertar';
@@ -194,20 +254,21 @@ GO
 SELECT * FROM administracion.Profesor
 SELECT * FROM administracion.Persona
 
-
 -- ✅ PRUEBA 2: Eliminación válida de profesor
 EXEC administracion.GestionarProfesor
     @nombre = NULL,
     @apellido = NULL,
-    @dni = '23456789',
+    @dni = '34567890',
     @email = NULL,
     @fecha_nacimiento = NULL,
+	@domicilio = NULL,
     @tel_contacto = NULL,
     @tel_emergencia = NULL,
     @operacion = 'Eliminar';
 -- Resultado esperado: Profesor eliminado, persona no borrada
 GO
 SELECT * FROM administracion.Profesor
+SELECT * FROM administracion.Persona
 
 
 -- ❌ PRUEBA 3: Eliminación de profesor inexistente
@@ -224,82 +285,54 @@ EXEC administracion.GestionarProfesor
 GO
 
 /*_____________________________________________________________________
-  ________________________ P_GestionarInvitado ________________________
+  ______________________ PRUEBAS GestionarSocio _______________________
   _____________________________________________________________________*/
-
---insertar Socios
-EXEC administracion.GestionarSocio
-    @nombre = 'Francisco',
-    @apellido = 'Vignardel',
-    @dni = '45778667',
-    @email = 'francisco.vignardel@email.com',
-    @fecha_nacimiento = '2004-04-10',
-    @tel_contacto = '1231233234',
-    @tel_emergencia = '6624324321',
-    @categoria = 'Adulto',
-    @nro_socio = 'SOC1002',
-    @obra_social = 'OSPOCE',
-    @nro_obra_social = '654321',
-    @saldo = 0,
-    @operacion = 'Insertar';
--- Resultado esperado: Persona y socio insertados correctamente
-GO
-
-EXEC administracion.GestionarSocio
-    @nombre = 'Juan',
-    @apellido = 'Perez',
-    @dni = '33444555',
-    @email = 'juan.perez@email.com',
-    @fecha_nacimiento = '2004-04-10',
-    @tel_contacto = '3331233234',
-    @tel_emergencia = '6624324388',
-    @categoria = 'Adulto',
-    @nro_socio = 'SOC1003',
-    @obra_social = 'VITA',
-    @nro_obra_social = '654331',
-    @saldo = 0,
-    @operacion = 'Insertar';
--- Resultado esperado: Persona y socio insertados correctamente
-GO
-SELECT * FROM administracion.Socio
-SELECT * FROM administracion.Persona
 
 -- ✅ PRUEBA 1: Inserción válida de invitado
 EXEC administracion.GestionarInvitado
     @dni_socio = '45778667',
-	@dni_invitado = '34567891',
+	@dni_invitado = '46501934',
+	@nombre = 'Lucia',
+    @apellido = 'De Titto',
+    @email = 'ldetitto10@email.com',
+	@domicilio = 'Av. Crovara 2345',
     @operacion = 'Insertar';
 -- Resultado esperado: Invitado insertado correctamente
 GO
 
-select * from administracion.Persona
-select * from administracion.Socio
-select * from administracion.Invitado
+SELECT * FROM administracion.Socio
+SELECT * FROM administracion.Invitado
 
 -- ✅ PRUEBA 2: Eliminación válida de invitado
 EXEC administracion.GestionarInvitado
     @dni_socio = '45778667',
-	@dni_invitado = '34567891',
-    @operacion = 'Eliminar';
+	@dni_invitado = '46501934',
+	@nombre = 'Lucia',
+    @apellido = 'De Titto',
+    @email = 'ldetitto10@email.com',
+	@domicilio = 'Av. Crovara 2345',
+    @operacion = 'Eliminar'
 -- Resultado esperado: Invitado eliminado correctamente
 GO
 
-select * from administracion.Persona
-select * from administracion.Socio
-select * from administracion.Invitado
+SELECT * FROM administracion.Socio
+SELECT * FROM administracion.Invitado
 
 -- ❌ PRUEBA 3: Insertar invitado con DNI ya existente
 EXEC administracion.GestionarInvitado
-    @dni_socio = '45678901',
-	@dni_invitado = '12345678',
+    @dni_socio = '45778667',
+	@dni_invitado = '33444555',
+	@nombre = 'Lucia',
+    @apellido = 'De Titto',
+    @email = 'ldetitto10@email.com',
+	@domicilio = 'Av. Crovara 2345',
     @operacion = 'Insertar';
 -- Resultado esperado: Error por restricción UNIQUE en DNI
 GO
 
 /*_____________________________________________________________________
-  _____________________ P_GestionarGrupoFamiliar ______________________
+  ___________________ PRUEBAS GestionGrupoFamiliar ____________________
   _____________________________________________________________________*/
-
 
 -- ✅ PRUEBA 1: Inserción válida de grupo familiar
 EXEC administracion.GestionarGrupoFamiliar
@@ -331,47 +364,18 @@ EXEC administracion.GestionarGrupoFamiliar
 -- Resultado esperado: Error por FK en socio o socio_rp
 GO
 
--- ✅ PRUEBA 4: insertar a un socio a el mismo
-EXEC administracion.GestionarGrupoFamiliar
-    @dni_socio = '33444555',
-    @dni_socio_rp = '33444555',
-    @operacion = 'Insertar';
--- Resultado esperado: Grupo familiar insertado correctamente
-GO
-SELECT * FROM administracion.Socio
-SELECT * FROM administracion.Persona
-SELECT * FROM administracion.GrupoFamiliar
+/*_____________________________________________________________________
+  ________________ PRUEBAS ConsultarEstadoSocioyGrupo _________________
+  _____________________________________________________________________*/
 
-/*_______________________________________________________________________________
-  _________________________________ConsultarEstadoSocioyGrupo ___________________
-  _______________________________________________________________________________ */
+-- ✅ PRUEBA 1: Consulta sobre socio sin grupo familiar
+EXEC administracion.ConsultarEstadoSocioyGrupo @dni = '40707070';
+-- Resultado esperado: Datos del titular, sin familiares
 
--- ✅ PRUEBA 1: Consultar estado
-EXEC socios.sp_ConsultarEstadoSocioyGrupo @id_socio = 1;
--- Resultado esperado: Información del titular y su grupo
+-- ✅ PRUEBA 2: Consulta sobre socio con grupo familiar
+EXEC administracion.ConsultarEstadoSocioyGrupo @dni = '45778667';
+-- Resultado esperado: Titular y familiares del grupo
 
-GO
--- ❌ PRUEBA 2: Error por DNI inválido
-UPDATE socios.Socio SET dni = '12AB5678' WHERE id_socio = 1;
-EXEC socios.sp_ConsultarEstadoSocioyGrupo @id_socio = 1;
--- Resultado esperado: Error → 'El DNI debe tener exactamente 8 dígitos numéricos.'
-
-GO
--- ❌ PRUEBA 3: DNI inválido (menos de 8 dígitos)
-UPDATE socios.Socio SET dni = '1234567' WHERE id_socio = 1;
-EXEC socios.sp_ConsultarEstadoSocio @id_socio = 1;
--- Resultado esperado: Error → 'El DNI debe tener exactamente 8 dígitos numéricos.'
-
-GO
--- ❌ PRUEBA 4: Email inválido (sin @)
-UPDATE socios.Socio SET email = 'juan.perezemail.com' WHERE id_socio = 1;
-EXEC socios.sp_ConsultarEstadoSocio @id_socio = 1;
--- Resultado esperado: Error → 'El correo electrónico del socio no tiene un formato válido.'
-GO
-
--- ❌ PRUEBA 5: Email inválido (sin punto)
-UPDATE socios.Socio SET email = 'juan@perezemailcom' WHERE id_socio = 1;
-EXEC socios.sp_ConsultarEstadoSocio @id_socio = 1;
--- Resultado esperado: Error → 'El correo electrónico del socio no tiene un formato válido.'
-
-
+-- ❌ PRUEBA 3: Consulta sobre socio con grupo familiar inexistente
+EXEC administracion.ConsultarEstadoSocioyGrupo @dni = '99999999';
+-- Resultado esperado: Error "No existe un socio activo con el DNI especificado."
