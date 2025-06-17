@@ -1,7 +1,7 @@
 /* =========================================================================
-   Trabajo Práctico Integrador - Bases de Datos Aplicadas
-   Grupo N°: 13
-   Comisión: 2900
+   Trabajo Prï¿½ctico Integrador - Bases de Datos Aplicadas
+   Grupo Nï¿½: 13
+   Comisiï¿½n: 2900
    Fecha de Entrega: 17/06/2025
    Materia: Bases de Datos Aplicadas
    Alumnos: Vignardel Francisco 45778667
@@ -19,7 +19,7 @@ GO
 DROP VIEW IF EXISTS administracion.vwSociosConCategoria;
 DROP VIEW IF EXISTS administracion.vwSociosConObraSocial;
 
--- Funciones y procedimientos específicos
+-- Funciones y procedimientos especï¿½ficos
 DROP PROCEDURE IF EXISTS cobranzas.AplicarBloqueoVencimiento;
 
 /* =============================
@@ -133,7 +133,7 @@ CREATE SCHEMA facturacion;
 GO
 
 /* ================================
-   TABLAS DEL MÓDULO ADMINISTRACION
+   TABLAS DEL Mï¿½DULO ADMINISTRACION
    ================================ */
 
 IF OBJECT_ID('administracion.Persona', 'U') IS NOT NULL
@@ -256,7 +256,7 @@ CREATE TABLE administracion.Invitado (
 GO
 
 /* ==============================
-   TABLAS DEL MÓDULO ACTIVIDADES
+   TABLAS DEL Mï¿½DULO ACTIVIDADES
    ============================== */
 
 IF OBJECT_ID('actividades.Actividad', 'U') IS NOT NULL
@@ -349,7 +349,7 @@ CREATE TABLE actividades.presentismoActividadExtra (
 GO
 
 /* =============================
-   TABLAS DEL MÓDULO FACTURACION
+   TABLAS DEL Mï¿½DULO FACTURACION
    ============================= */
 
 IF OBJECT_ID('facturacion.Recargo', 'U') IS NOT NULL
@@ -362,17 +362,6 @@ CREATE TABLE facturacion.Recargo (
 	descripcion VARCHAR(50),
 	vigencia DATE
 )
-
---IF OBJECT_ID('facturacion.Descuento', 'U') IS NOT NULL
---    DROP TABLE facturacion.Descuento;
---GO
-
---CREATE TABLE facturacion.Descuento (
---	id_recargo INT IDENTITY(1,1) PRIMARY KEY,
---	porcentaje DECIMAL(5,2),
---	descripcion VARCHAR(50),
---	vigencia DATE
---)
 
 IF OBJECT_ID('facturacion.EmisorFactura', 'U') IS NOT NULL
     DROP TABLE facturacion.EmisorFactura;
@@ -434,7 +423,7 @@ CREATE TABLE facturacion.DetalleFactura (
 GO
 
 /* ===========================
-   TABLAS DEL MÓDULO COBRANZAS
+   TABLAS DEL Mï¿½DULO COBRANZAS
    =========================== */
 
 
@@ -457,8 +446,8 @@ CREATE TABLE cobranzas.DebitoAutomaticoSocio (
     id_medio INT,
     habilitado BIT NOT NULL,
     PRIMARY KEY (id_socio, id_medio),
-    CONSTRAINT FK_debito_socio FOREIGN KEY (id_socio) REFERENCES administracion.Socio(id_socio),
-    CONSTRAINT FK_debito_medio FOREIGN KEY (id_medio) REFERENCES cobranzas.MedioDePago(id_medio)
+    CONSTRAINT FK_debito_socio_id FOREIGN KEY (id_socio) REFERENCES administracion.Socio(id_socio),
+    CONSTRAINT FK_debito_medio_id FOREIGN KEY (id_medio) REFERENCES cobranzas.MedioDePago(id_medio)
 );
 
 
