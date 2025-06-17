@@ -363,17 +363,6 @@ CREATE TABLE facturacion.Recargo (
 	vigencia DATE
 )
 
-IF OBJECT_ID('facturacion.Descuento', 'U') IS NOT NULL
-    DROP TABLE facturacion.Descuento;
-GO
-
-CREATE TABLE facturacion.Descuento (
-	id_recargo INT IDENTITY(1,1) PRIMARY KEY,
-	porcentaje DECIMAL(5,2),
-	descripcion VARCHAR(50),
-	vigencia DATE
-)
-
 IF OBJECT_ID('facturacion.EmisorFactura', 'U') IS NOT NULL
     DROP TABLE facturacion.EmisorFactura;
 GO
@@ -457,8 +446,8 @@ CREATE TABLE cobranzas.DebitoAutomaticoSocio (
     id_medio INT,
     habilitado BIT NOT NULL,
     PRIMARY KEY (id_socio, id_medio),
-    CONSTRAINT FK_debito_socio FOREIGN KEY (id_socio) REFERENCES administracion.Socio(id_socio),
-    CONSTRAINT FK_debito_medio FOREIGN KEY (id_medio) REFERENCES cobranzas.MedioDePago(id_medio)
+    CONSTRAINT FK_debito_socio_id FOREIGN KEY (id_socio) REFERENCES administracion.Socio(id_socio),
+    CONSTRAINT FK_debito_medio_id FOREIGN KEY (id_medio) REFERENCES cobranzas.MedioDePago(id_medio)
 );
 
 
