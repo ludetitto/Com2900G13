@@ -27,3 +27,6 @@ GO
 GO
 :r "C:\Users\Cisco\Desktop\Unlam\Tercer Año\BDA\Com2900G13\09_LoteDePruebasMorosidad.sql"
 GO
+:r "C:\Users\Cisco\Desktop\Unlam\Tercer Año\BDA\Com2900G13\12_IndicesNoCluster.sql"
+GO
+

@@ -80,7 +80,7 @@ DROP TABLE IF EXISTS cobranzas.DebitoAutomaticoSocio;
 DROP TABLE IF EXISTS cobranzas.MedioDePago;
 
 -- FACTURACION
-DROP TABLE IF EXISTS facturacion.Descuento;
+--DROP TABLE IF EXISTS facturacion.Descuento;
 DROP TABLE IF EXISTS facturacion.Recargo;
 DROP TABLE IF EXISTS facturacion.DetalleFactura;
 DROP TABLE IF EXISTS facturacion.Factura;
@@ -363,16 +363,16 @@ CREATE TABLE facturacion.Recargo (
 	vigencia DATE
 )
 
-IF OBJECT_ID('facturacion.Descuento', 'U') IS NOT NULL
-    DROP TABLE facturacion.Descuento;
-GO
+--IF OBJECT_ID('facturacion.Descuento', 'U') IS NOT NULL
+--    DROP TABLE facturacion.Descuento;
+--GO
 
-CREATE TABLE facturacion.Descuento (
-	id_recargo INT IDENTITY(1,1) PRIMARY KEY,
-	porcentaje DECIMAL(5,2),
-	descripcion VARCHAR(50),
-	vigencia DATE
-)
+--CREATE TABLE facturacion.Descuento (
+--	id_recargo INT IDENTITY(1,1) PRIMARY KEY,
+--	porcentaje DECIMAL(5,2),
+--	descripcion VARCHAR(50),
+--	vigencia DATE
+--)
 
 IF OBJECT_ID('facturacion.EmisorFactura', 'U') IS NOT NULL
     DROP TABLE facturacion.EmisorFactura;
