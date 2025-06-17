@@ -25,5 +25,5 @@ GO
 GO
 :r "C:\Users\Cisco\Desktop\Unlam\Tercer Año\BDA\Com2900G13\08_LoteDePruebasCobranza.sql"
 GO
-:r "C:\C:\Users\Cisco\Desktop\Unlam\Tercer Año\BDA\Com2900G13\09_LoteDePruebasMorosidad.sql"
+:r "C:\Users\Cisco\Desktop\Unlam\Tercer Año\BDA\Com2900G13\09_LoteDePruebasMorosidad.sql"
 GO
