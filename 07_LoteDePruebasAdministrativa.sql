@@ -18,6 +18,12 @@ SET NOCOUNT ON;
 /* ==========================================================
    LIMPIEZA COMPLETA DE TABLAS SOCIOS Y GRUPOS FAMILIARES
 ========================================================== */
+DELETE FROM actividades.PresentismoClase;
+DBCC CHECKIDENT ('actividades.PresentismoClase', RESEED, 0);
+DELETE FROM actividades.InscriptoClase;
+DBCC CHECKIDENT ('actividades.InscriptoClase', RESEED, 0);
+DELETE FROM actividades.Clase;
+DBCC CHECKIDENT ('actividades.Clase', RESEED, 0);
 DELETE FROM socios.GrupoFamiliarSocio;
 DELETE FROM socios.Tutor;
 DBCC CHECKIDENT ('socios.Tutor', RESEED, 0);
