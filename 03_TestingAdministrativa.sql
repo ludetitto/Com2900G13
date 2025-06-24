@@ -132,8 +132,8 @@ GO
   _____________________________________________________________________*/
 -- ✅ LIMPIEZA previa (opcional)
 DELETE FROM socios.GrupoFamiliarSocio;
-DELETE FROM socios.GrupoFamiliar;
 DELETE FROM socios.Tutor;
+DELETE FROM socios.GrupoFamiliar;
 DELETE FROM socios.Socio;
 GO
 
@@ -262,7 +262,6 @@ SELECT * FROM socios.GrupoFamiliar ORDER BY id_grupo;
 SELECT * FROM socios.GrupoFamiliarSocio ORDER BY id_grupo, id_socio;
 SELECT * FROM socios.Tutor ORDER BY id_grupo;
 GO
-
 
 
 -- ❌ PRUEBA 6: Insertar socio con DNI duplicado (Carlos Gómez ya existe con ese DNI)
