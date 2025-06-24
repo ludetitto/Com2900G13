@@ -16,278 +16,111 @@ en los juegos de prueba demuestren la correcta aplicación de las validaciones.
 USE COM2900G13;
 GO
 
-/*_____________________________________________________________________
-  ___________________ PRUEBAS gestionarMedioDePago ____________________
-  _____________________________________________________________________*/
+-- ================================================
+-- TESTING: cobranzas.GestionarMedioDePago
+-- ================================================
 
-/* ✅ PRUEBA 1: Insertar un nuevo medio de pago */
+-- ✅ Insertar nuevo medio de pago válido
 EXEC cobranzas.GestionarMedioDePago 
-    @nombre = 'Tarjeta Naranja',
+    @nombre = 'Visa',
     @debito_automatico = 1,
     @operacion = 'Insertar';
--- Resultado esperado: Inserta correctamente el medio de pago.
-SELECT * FROM cobranzas.MedioDePago;
+SELECT * FROM administracion.MedioDePago;
 GO
 
-/* ✅ PRUEBA 2: Modificar debito_automatico a 0 */
+-- ❌ Insertar duplicado
 EXEC cobranzas.GestionarMedioDePago 
-    @nombre = 'Tarjeta Naranja',
+    @nombre = 'Visa',
+    @debito_automatico = 1,
+    @operacion = 'Insertar';
+SELECT * FROM administracion.MedioDePago;
+GO
+
+-- ✅ Modificar debito_automatico a 0
+EXEC cobranzas.GestionarMedioDePago 
+    @nombre = 'Visa',
     @debito_automatico = 0,
     @operacion = 'Modificar';
--- Resultado esperado: Modifica correctamente el medio de pago.
-SELECT * FROM cobranzas.MedioDePago;
+SELECT * FROM administracion.MedioDePago;
 GO
 
-/* ✅ PRUEBA 3: Eliminar el medio de pago */
+-- ❌ Modificar medio inexistente
 EXEC cobranzas.GestionarMedioDePago 
-    @nombre = 'Tarjeta Naranja',
+    @nombre = 'NoExiste',
+    @debito_automatico = 1,
+    @operacion = 'Modificar';
+SELECT * FROM administracion.MedioDePago;
+GO
+
+-- ✅ Eliminar medio existente
+EXEC cobranzas.GestionarMedioDePago 
+    @nombre = 'Visa',
     @operacion = 'Eliminar';
--- Resultado esperado: Elimina correctamente el medio de pago.
-SELECT * FROM cobranzas.MedioDePago;
+SELECT * FROM administracion.MedioDePago;
 GO
 
-/*_____________________________________________________________________
-  ____________________ PRUEBAS RegistrarCobranza ______________________
-  _____________________________________________________________________*/
-
-USE COM2900G13;
+-- ❌ Eliminar medio inexistente
+EXEC cobranzas.GestionarMedioDePago 
+    @nombre = 'NoExiste',
+    @operacion = 'Eliminar';
+SELECT * FROM administracion.MedioDePago;
 GO
 
--- Ver socios y facturas para testeo
-SELECT s.id_socio, p.dni, s.activo, s.saldo 
-FROM administracion.Socio s
-JOIN administracion.Persona p ON s.id_persona = p.id_persona;
+-- ================================================
+-- TESTING: cobranzas.HabilitarDebitoAutomatico
+-- ================================================
 
-SELECT * FROM facturacion.Factura;
-SELECT * FROM cobranzas.MedioDePago;
+-- Agregar MasterCard y Rapipago como medios de pago de prueba
+EXEC cobranzas.GestionarMedioDePago 'MasterCard', 1, 'Insertar';
+EXEC cobranzas.GestionarMedioDePago 'Rapipago', 0, 'Insertar';
 GO
 
-/* ✅ PRUEBA 1: Registro válido de cobranza */
-EXEC cobranzas.RegistrarCobranza
-    @dni_socio = '45778667',
-    @monto = 5000,
-    @fecha = '2025-06-15',
-    @medio_pago = 'Visa',
-    @nombre_actividad_extra = NULL,
-    @id_factura = 1;
--- Resultado esperado: Inserta correctamente el pago y actualiza el saldo del socio.
-GO
-
-/* ❌ PRUEBA 2: Medio de pago no permitido (Efectivo) */
-EXEC cobranzas.RegistrarCobranza
-    @dni_socio = '45778667',
-    @monto = 5000,
-    @fecha = '2025-06-15',
-    @medio_pago = 'Efectivo',
-    @nombre_actividad_extra = NULL,
-    @id_factura = 1;
--- Resultado esperado: Error 'No se aceptan pagos en Efectivo ni Cheque.'
-GO
-
-/* ❌ PRUEBA 3: Medio de pago inválido (no registrado) */
-EXEC cobranzas.RegistrarCobranza
-    @dni_socio = '45778667',
-    @monto = 5000,
-    @fecha = '2025-06-15',
-    @medio_pago = 'Paypal',
-    @nombre_actividad_extra = NULL,
-    @id_factura = 1;
--- Resultado esperado: Error 'Medio de pago inválido. Solo se aceptan Visa...'
-GO
-
-/* ❌ PRUEBA 4: DNI de socio no existe */
-EXEC cobranzas.RegistrarCobranza
-    @dni_socio = '00000000',
-    @monto = 5000,
-    @fecha = '2025-06-15',
-    @medio_pago = 'Visa',
-    @nombre_actividad_extra = NULL,
-    @id_factura = 1;
--- Resultado esperado: Error 'El socio especificado no existe o no está activo.'
-GO
-
-/* ❌ PRUEBA 5: Socio inactivo */
--- Precondición: tener socio con dni = '88888888' y activo = 0
-EXEC cobranzas.RegistrarCobranza
-    @dni_socio = '88888888',
-    @monto = 5000,
-    @fecha = '2025-06-15',
-    @medio_pago = 'Visa',
-    @nombre_actividad_extra = NULL,
-    @id_factura = 1;
--- Resultado esperado: Error 'El socio especificado no existe o no está activo.'
-GO
-
-/* ❌ PRUEBA 6: Actividad extra no existente */
-EXEC cobranzas.RegistrarCobranza
-    @dni_socio = '45778667',
-    @monto = 5000,
-    @fecha = '2025-06-15',
-    @medio_pago = 'Visa',
-    @nombre_actividad_extra = 9999,
-    @id_factura = 1;
--- Resultado esperado: Error 'La actividad extra especificada no existe.'
-GO
-
-/* ❌ PRUEBA 7: Factura anulada o inexistente */
-EXEC cobranzas.RegistrarCobranza
-    @dni_socio = '45778667',
-    @monto = 5000,
-    @fecha = '2025-06-15',
-    @medio_pago = 'Visa',
-    @nombre_actividad_extra = NULL,
-    @id_factura = 9999;
--- Resultado esperado: Error 'La factura no existe, no pertenece al socio o está anulada.'
-GO
-
-/* ✅ PRUEBA 8: Registro con actividad extra válida */
--- Precondición: actividad extra con id = 1 y factura válida con id = 2
-EXEC cobranzas.RegistrarCobranza
-    @dni_socio = '45778667',
-    @monto = 2000,
-    @fecha = '2025-06-20',
-    @medio_pago = 'Visa',
-    @nombre_actividad_extra = 1,
-    @id_factura = 2;
--- Resultado esperado: Inserción válida
-GO
-
--- Verificar resultados
-SELECT * FROM cobranzas.Pago ORDER BY id_pago DESC;
-SELECT saldo FROM administracion.Socio WHERE id_persona IN (
-    SELECT id_persona FROM administracion.Persona WHERE dni = '45778667'
-);
-GO
-
-/*_____________________________________________________________________
-  ________________ PRUEBAS HabilitarDebitoAutomatico __________________
-  _____________________________________________________________________*/
-  
--- Precondición: Tener socio activo con DNI = '45778667'
--- Precondición: Tener medio de pago 'Visa' con debito_automatico = 1
-SELECT * FROM cobranzas.MedioDePago;
-SELECT * FROM administracion.Persona;
-SELECT * FROM administracion.Socio;
-GO
-
--- ✅ PRUEBA 1: Habilitar débito automático correctamente
+-- ✅ Habilitar débito automático correctamente
 EXEC cobranzas.HabilitarDebitoAutomatico 
     @dni_socio = '45778667',
-    @nombre_medio = 'Visa';
--- Esperado: Registro insertado o actualizado como habilitado
+    @nombre_medio = 'MasterCard';
+SELECT * FROM socios.DebitoAutomaticoSocio;
 GO
 
--- Verificar resultado
-SELECT * FROM cobranzas.DebitoAutomaticoSocio;
-GO
-
--- ❌ PRUEBA 2: Medio no admite débito automático
--- Precondición: 'Rapipago' tiene debito_automatico = 0
+-- ❌ Medio no permite débito automático
 EXEC cobranzas.HabilitarDebitoAutomatico 
     @dni_socio = '45778667',
     @nombre_medio = 'Rapipago';
--- Esperado: Error 'El medio de pago especificado no permite débito automático.'
+SELECT * FROM socios.DebitoAutomaticoSocio;
 GO
 
--- ❌ PRUEBA 3: Socio inexistente
+-- ❌ Socio no existe
 EXEC cobranzas.HabilitarDebitoAutomatico 
     @dni_socio = '00000000',
-    @nombre_medio = 'Visa';
--- Esperado: Error 'El socio especificado no existe o no está activo.'
+    @nombre_medio = 'MasterCard';
+SELECT * FROM socios.DebitoAutomaticoSocio;
 GO
-/*_____________________________________________________________________
-  _______________ PRUEBAS DeshabilitarDebitoAutomatico ________________
-  _____________________________________________________________________*/
 
-  
--- ✅ PRUEBA 4: Deshabilitar débito automático correctamente
+-- ================================================
+-- TESTING: cobranzas.DeshabilitarDebitoAutomatico
+-- ================================================
+
+-- ✅ Deshabilitar débito automático
 EXEC cobranzas.DeshabilitarDebitoAutomatico 
     @dni_socio = '45778667',
-    @nombre_medio = 'Visa';
--- Esperado: Se actualiza habilitado = 0
+    @nombre_medio = 'MasterCard';
+SELECT * FROM socios.DebitoAutomaticoSocio;
 GO
 
--- Verificar resultado
-SELECT * FROM cobranzas.DebitoAutomaticoSocio;
-GO
-
--- ❌ PRUEBA 5: Medio no existe
+-- ❌ Medio no existe
 EXEC cobranzas.DeshabilitarDebitoAutomatico 
     @dni_socio = '45778667',
-    @nombre_medio = 'Tarjeta Imaginaria';
--- Esperado: Error 'El medio de pago especificado no existe.'
+    @nombre_medio = 'Inexistente';
+SELECT * FROM socios.DebitoAutomaticoSocio;
 GO
 
--- ❌ PRUEBA 6: El socio no tiene habilitado ese medio
+-- ❌ Socio no tiene habilitado el medio
 EXEC cobranzas.DeshabilitarDebitoAutomatico 
     @dni_socio = '45778667',
-    @nombre_medio = 'Visa';
--- Esperado: Error 'El socio no tiene habilitado el débito automático con ese medio de pago.'
-GO
-  
---Preset datos
-
-select * from facturacion.Factura
-
-EXEC cobranzas.RegistrarCobranza
-    @dni_socio = '33444555',          -- DNI de Juan Pérez
-    @monto = 90300,                   -- Monto total de la factura
-    @fecha = '2025-06-15',            -- Fecha actual de pago
-    @medio_pago = 'Visa',            -- Medio válido (asegurate de que existe)
-    @nombre_actividad_extra = NULL,  -- No es actividad extra
-    @id_factura = 2;                 -- ID de la factura
+    @nombre_medio = 'Rapipago';
+SELECT * FROM socios.DebitoAutomaticoSocio;
 GO
 
-SELECT * FROM cobranzas.Pago 
-
-
-/*_____________________________________________________________________
-  ____________________ PRUEBAS GenerarReembolso _______________________
-  _____________________________________________________________________*/
--- ✅ PRUEBA 1: Generar un reembolso mediante pago a cuenta
-EXEC cobranzas.GenerarReembolsoPorPago
-    @id_pago = 3,
-    @motivo = 'Suspensión de actividades por mantenimiento';
--- Resultado esperado: Reembolso efectuado y pago a cuenta insertado.
-GO
-
--- ❌ PRUEBA 2: Pago no existe
-EXEC cobranzas.GenerarReembolsoPorPago
-    @id_pago = 50,
-    @motivo = 'Suspensión de actividades por mantenimiento';
--- Resultado esperado: 'El pago no existe o está incompleto.'.
-GO
-
-select * from cobranzas.NotaDeCredito
-
-select * from cobranzas.vwNotasConMedioDePago
-
-/*_____________________________________________________________________
-  ___________________ PRUEBAS GenerarPagoCuenta _______________________
-  _____________________________________________________________________*/
--- ✅ PRUEBA 1: Generar un reembolso mediante pago a cuenta
-  EXEC cobranzas.GenerarPagoACuentaPorReembolso
-    @id_pago = 3,
-    @motivo = 'Primer Mes de Regalo se carga en su cuenta el saldo equivalente';
--- Resultado esperado: Reembolso efectuado y pago a cuenta insertado.
-GO
-
--- ❌ PRUEBA 2: Pago no existe
-EXEC cobranzas.GenerarPagoACuentaPorReembolso
-    @id_pago = 50,
-    @motivo = 'Suspensión de actividades por mantenimiento';
--- Resultado esperado: 'El pago no existe o está incompleto.'.
-GO
-
--- Verificar el registro del pago a cuenta
-SELECT * FROM cobranzas.PagoACuenta WHERE id_pago = 3;
-
--- Verificar el nuevo saldo del socio
-SELECT s.id_socio, p.dni, p.nombre, p.apellido, s.saldo
-FROM administracion.Socio s
-JOIN administracion.Persona p ON s.id_persona = p.id_persona
-WHERE p.dni = '33444555';
-GO
 
 /*_____________________________________________________________________
   ________________ PRUEBAS RegistrarReintegroLluvia ___________________

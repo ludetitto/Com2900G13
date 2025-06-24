@@ -197,7 +197,6 @@ CREATE TABLE socios.CategoriaSocio (
     costo DECIMAL(10,2),
     vigencia DATE
 );
-
 CREATE TABLE socios.Socio (
     id_socio INT IDENTITY PRIMARY KEY,
     nombre VARCHAR(50),
@@ -211,8 +210,9 @@ CREATE TABLE socios.Socio (
     obra_social VARCHAR(100),
     nro_os VARCHAR(50),
     id_categoria INT NOT NULL,
-	activo BIT,
-	eliminado BIT
+    activo BIT,
+    eliminado BIT,
+    saldo DECIMAL(10,2) NOT NULL DEFAULT 0
 );
 
 CREATE TABLE socios.GrupoFamiliar (

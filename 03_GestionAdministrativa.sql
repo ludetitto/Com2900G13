@@ -187,7 +187,8 @@ BEGIN
                     nro_os = @nro_os,
                     id_categoria = @id_categoria,
                     activo = 1,
-                    eliminado = 0
+                    eliminado = 0,
+                    saldo = 0
                 WHERE id_socio = @id_socio;
             END
             ELSE
@@ -202,13 +203,13 @@ BEGIN
                 nombre, apellido, dni, email, fecha_nacimiento,
                 telefono, telefono_emergencia, direccion,
                 obra_social, nro_os, id_categoria,
-                activo, eliminado
+                activo, eliminado, saldo
             )
             VALUES (
                 @nombre, @apellido, @dni, @email, @fecha_nacimiento,
                 @telefono, @telefono_emergencia, @direccion,
                 @obra_social, @nro_os, @id_categoria,
-                1, 0
+                1, 0, 0
             );
 
             SELECT @id_socio = SCOPE_IDENTITY();
