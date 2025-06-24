@@ -16,7 +16,6 @@ en los juegos de prueba demuestren la correcta aplicación de las validaciones
 USE COM2900G13;
 GO
 
-
 /*_____________________________________________________________________
   _____________________ PRUEBAS GestionarActividad ____________________
   _____________________________________________________________________*/
@@ -68,15 +67,11 @@ GO
   _____________________ PRUEBAS GestionarClase ______________________
   ___________________________________________________________________*/
 
--- Ver datos de referencia
-SELECT * FROM administracion.Profesor;
-SELECT * FROM administracion.Persona;
-SELECT * FROM administracion.CategoriaSocio;
-
 -- ✅ PRUEBA 1: Inserción válida de clase
 EXEC actividades.GestionarClase
     @nombre_actividad = 'Ajedrez',
-    @dni_profesor = '34567890',
+    @nombre_profesor = 'Gabriel',
+	@apellido_profesor = 'Mirabelli',
     @horario = 'Miércoles 17:00',
     @nombre_categoria = 'Mayor',
     @operacion = 'Insertar';
@@ -86,7 +81,8 @@ SELECT * FROM actividades.Clase;
 -- ✅ PRUEBA 2: Modificación válida de clase
 EXEC actividades.GestionarClase
     @nombre_actividad = 'Ajedrez',
-    @dni_profesor = '34567890',
+    @nombre_profesor = 'Gabriel',
+	@apellido_profesor = 'Mirabelli',
     @horario = 'Miércoles 15:00',
     @nombre_categoria = 'Mayor',
     @operacion = 'Modificar';
@@ -96,7 +92,8 @@ SELECT * FROM actividades.Clase;
 -- ✅ PRUEBA 3: Eliminación válida de clase
 EXEC actividades.GestionarClase
     @nombre_actividad = 'Ajedrez',
-    @dni_profesor = '34567890',
+    @nombre_profesor = 'Gabriel',
+	@apellido_profesor = 'Mirabelli',
     @horario = 'Miércoles 15:00',
     @nombre_categoria = 'Mayor',
     @operacion = 'Eliminar';
@@ -106,7 +103,8 @@ SELECT * FROM actividades.Clase;
 -- ❌ PRUEBA 4: Modificar clase inexistente
 EXEC actividades.GestionarClase
     @nombre_actividad = 'Actividad Fantasma',
-    @dni_profesor = '00000000',
+    @nombre_profesor = 'Juan',
+	@apellido_profesor = 'Pepito',
     @horario = 'Domingo 12:00',
     @nombre_categoria = 'Mayor',
     @operacion = 'Modificar';
@@ -115,22 +113,19 @@ GO
 -- ❌ PRUEBA 5: Operación inválida
 EXEC actividades.GestionarClase
     @nombre_actividad = 'Ajedrez',
-    @dni_profesor = '34567890',
+    @nombre_profesor = 'Juan',
+	@apellido_profesor = 'Pepito',
     @horario = 'Miércoles 17:00',
     @nombre_categoria = 'Mayor',
     @operacion = 'Actualizar';
 GO
 
 /*_____________________________________________________________________
-  ___________________ PRUEBAS GestionarInscripcion ____________________
+  ________________ PRUEBAS GestionarInscripcitoClase __________________
   _____________________________________________________________________*/
 
--- Ver socios y clases existentes
-SELECT * FROM administracion.Socio;
-SELECT * FROM administracion.Persona;
-SELECT * FROM actividades.Clase;
 -- ✅ Francisco (Mayor) se inscribe a Ajedrez
-EXEC actividades.GestionarInscripcion
+EXEC actividades.GestionarInscriptoClase
     @dni_socio = '45778667',
     @nombre_actividad = 'Ajedrez',
     @horario = 'Sábado 19:00',
@@ -141,7 +136,7 @@ EXEC actividades.GestionarInscripcion
 select * from actividades.InscriptoClase
 
 -- ✅ Mariana (Menor) se inscribe a Natación
-EXEC actividades.GestionarInscripcion
+EXEC actividades.GestionarInscriptoClase
     @dni_socio = '40505050',
     @nombre_actividad = 'Natación',
     @horario = 'Viernes 08:00',
@@ -152,7 +147,7 @@ EXEC actividades.GestionarInscripcion
 select * from actividades.InscriptoClase
 
 -- ✅ Camila (Menor) se inscribe a Vóley
-EXEC actividades.GestionarInscripcion
+EXEC actividades.GestionarInscriptoClase
     @dni_socio = '40606060',
     @nombre_actividad = 'Vóley',
     @horario = 'Martes 08:00',
@@ -164,7 +159,7 @@ select * from actividades.InscriptoClase
 
 
 -- ✅ Luciano (Mayor) se inscribe a Futsal
-EXEC actividades.GestionarInscripcion
+EXEC actividades.GestionarInscriptoClase
     @dni_socio = '40707070',
     @nombre_actividad = 'Futsal',
     @horario = 'Lunes 19:00',
@@ -176,7 +171,7 @@ select * from actividades.InscriptoClase
 
 
 -- ✅ Juan Perez (Mayor) se inscribe a Baile artístico
-EXEC actividades.GestionarInscripcion
+EXEC actividades.GestionarInscriptoClase
     @dni_socio = '33444555',
     @nombre_actividad = 'Baile artístico',
     @horario = 'Jueves 14:00',
@@ -188,7 +183,7 @@ EXEC actividades.GestionarInscripcion
 
 
 -- ❌ Error esperado: José intenta inscribirse a clase inexistente
-EXEC actividades.GestionarInscripcion
+EXEC actividades.GestionarInscriptoClase
     @dni_socio = '99888777',
     @nombre_actividad = 'Karate',
     @horario = 'Martes 10:00',
@@ -213,7 +208,7 @@ EXEC actividades.GestionarPresentismoClase
     @horario = 'Sábado 19:00',
     @nombre_categoria = 'Mayor',
     @fecha = '2025-02-06',
-    @condicion = 'P',
+    @estado= 'P',
     @operacion = 'Insertar';
 GO
 
@@ -229,7 +224,7 @@ EXEC actividades.GestionarPresentismoClase
     @horario = 'Sábado 19:00',
     @nombre_categoria = 'Mayor',
     @fecha = '2025-02-06',
-    @condicion = 'A', -- Ausente
+    @estado = 'A', -- Ausente
     @operacion = 'Modificar';
 GO
 SELECT * FROM actividades.presentismoClase;
@@ -258,6 +253,7 @@ EXEC actividades.GestionarPresentismoClase
     @horario = 'Lunes 10:00',
     @nombre_categoria = 'Mayor',
     @fecha = '2025-06-08',
+	@estado = NULL,
     @operacion = 'Eliminar';
 GO
 
@@ -270,6 +266,7 @@ EXEC actividades.GestionarPresentismoClase
     @horario = 'Lunes 10:00',
     @nombre_categoria = 'Mayor',
     @fecha = '2025-06-08',
+	@estado = NULL,
     @operacion = 'Asistir'; -- operación inválida
 GO
 
