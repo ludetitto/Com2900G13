@@ -121,7 +121,7 @@ EXEC actividades.GestionarClase
 GO
 
 /*_____________________________________________________________________
-  ________________ PRUEBAS GestionarInscripcitoClase __________________
+  _______________:_ PRUEBAS GestionarInscriptoClase ___________________
   _____________________________________________________________________*/
 
 -- ✅ Francisco (Mayor) se inscribe a Ajedrez

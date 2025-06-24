@@ -164,24 +164,25 @@ BEGIN
 
 	SET @id_actividad = (SELECT id_actividad FROM actividades.Actividad WHERE descripcion = @nombre_actividad)
 
-    IF @id_actividad IS NULL
+	IF @operacion = 'Insertar'
     BEGIN
-        RAISERROR('No existe la actividad ingresada.', 16, 1);
-        RETURN;
-    END
-    IF @nombre_profesor IS NULL OR @apellido_profesor IS NULL
-    BEGIN
-        RAISERROR('No existe el profesor con nombre y apellido ingresados.', 16, 1);
-        RETURN;
-    END
-    IF @id_categoria IS NULL
-    BEGIN
-        RAISERROR('No existe la categoría de socio ingresada.', 16, 1);
-        RETURN;
-    END
 
-    IF @operacion = 'Insertar'
-    BEGIN
+		IF @id_actividad IS NULL
+		BEGIN
+			RAISERROR('No existe la actividad ingresada.', 16, 1);
+			RETURN;
+		END
+		IF @nombre_profesor IS NULL OR @apellido_profesor IS NULL
+		BEGIN
+			RAISERROR('No existe el profesor con nombre y apellido ingresados.', 16, 1);
+			RETURN;
+		END
+		IF @id_categoria IS NULL
+		BEGIN
+			RAISERROR('No existe la categoría de socio ingresada.', 16, 1);
+			RETURN;
+		END
+
         INSERT INTO actividades.Clase (id_actividad, nombre_profesor, apellido_profesor, id_categoria, horario)
         VALUES (@id_actividad, @nombre_profesor, @apellido_profesor, @id_categoria, @horario);
         RETURN;
@@ -359,8 +360,8 @@ IF OBJECT_ID('actividades.GestionarPresentismoClase', 'P') IS NOT NULL
 GO
 
 CREATE PROCEDURE actividades.GestionarPresentismoClase
-    @nombre_actividad VARCHAR(100),
     @dni_socio VARCHAR(10),
+	@nombre_actividad VARCHAR(100),
     @horario VARCHAR(20),
     @nombre_categoria VARCHAR(50),
     @fecha DATE,
