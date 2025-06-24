@@ -31,7 +31,7 @@ DROP PROCEDURE IF EXISTS cobranzas.AplicarBloqueoVencimiento;
 DROP PROCEDURE IF EXISTS actividades.GestionarActividad
 DROP PROCEDURE IF EXISTS actividades.GestionarActividadExtra
 DROP PROCEDURE IF EXISTS actividades.GestionarClase
-DROP PROCEDURE IF EXISTS actividades.GestionarInscripcion
+DROP PROCEDURE IF EXISTS actividades.GestionarInscripcionClase
 DROP PROCEDURE IF EXISTS actividades.GestionarPresentismoActividadExtra
 DROP PROCEDURE IF EXISTS actividades.GestionarPresentismoClase
 DROP PROCEDURE IF EXISTS administracion.ConsultarEstadoSocioyGrupo
@@ -69,6 +69,9 @@ DROP PROCEDURE IF EXISTS facturacion.GestionarDescuentos
 DROP PROCEDURE IF EXISTS facturacion.GestionarEmisorFactura
 DROP VIEW IF EXISTS facturacion.vwResponsablesDeFactura
 
+DROP PROCEDURE IF EXISTS tarifas.GestionarTarifaColoniaVerano
+DROP PROCEDURE IF EXISTS tarifas.GestionarTarifaReservaSum
+DROP PROCEDURE IF EXISTS tarifas.GestionarTarifaPiletaVerano
 
 DROP PROCEDURE IF EXISTS socios.GestionarCategoriaSocio;
 DROP PROCEDURE IF EXISTS socios.GestionarSocio;
@@ -205,7 +208,9 @@ CREATE TABLE socios.Socio (
     direccion VARCHAR(150),
     obra_social VARCHAR(100),
     nro_os VARCHAR(50),
-    id_categoria INT NOT NULL
+    id_categoria INT NOT NULL,
+	activo BIT,
+	eliminado BIT
 );
 
 CREATE TABLE socios.GrupoFamiliar (
@@ -274,6 +279,7 @@ CREATE TABLE actividades.Clase (
 
 CREATE TABLE actividades.InscriptoClase (
     id_inscripcion INT IDENTITY PRIMARY KEY,
+	fecha DATE NOT NULL,
     id_socio INT NOT NULL,
     id_clase INT NOT NULL
 );
@@ -288,19 +294,25 @@ CREATE TABLE actividades.PresentismoClase (
 CREATE TABLE actividades.InscriptoCategoriaSocio (
     id_inscripcion INT IDENTITY PRIMARY KEY,
     id_socio INT NOT NULL,
-    id_categoria INT NOT NULL
+    id_categoria INT NOT NULL,
+	fecha DATE NOT NULL,
+	monto DECIMAL(10, 2) NOT NULL
 );
 
 CREATE TABLE actividades.InscriptoColoniaVerano (
     id_inscripcion INT IDENTITY PRIMARY KEY,
     id_socio INT NOT NULL,
-    id_tarifa INT NOT NULL
+    id_tarifa INT NOT NULL,
+	fecha DATE NOT NULL,
+	monto DECIMAL(10, 2) NOT NULL
 );
 
 CREATE TABLE actividades.InscriptoPiletaVerano (
     id_inscripcion INT IDENTITY PRIMARY KEY,
     id_socio INT NOT NULL,
-    id_tarifa INT NOT NULL
+    id_tarifa INT NOT NULL,
+	fecha DATE NOT NULL,
+	monto DECIMAL(10, 2) NOT NULL
 );
 
 -- ===============================
@@ -310,7 +322,9 @@ CREATE TABLE actividades.InscriptoPiletaVerano (
 CREATE TABLE tarifas.TarifaColoniaVerano (
     id_tarifa INT IDENTITY PRIMARY KEY,
     descripcion VARCHAR(100),
-    monto DECIMAL(10,2)
+    monto DECIMAL(10,2),
+	periodo CHAR(10),
+	categoria VARCHAR(50)
 );
 
 CREATE TABLE tarifas.TarifaReservaSum (
@@ -323,7 +337,8 @@ CREATE TABLE tarifas.TarifaPiletaVerano (
     id_tarifa INT IDENTITY PRIMARY KEY,
     descripcion VARCHAR(100),
     monto DECIMAL(10,2),
-    id_invitado INT
+	categoria VARCHAR(50),
+    es_invitado BIT
 );
 
 -- ===============================
@@ -345,8 +360,12 @@ CREATE TABLE reservas.ReservaSum (
 
 CREATE TABLE facturacion.EmisorFactura (
     id_emisor INT IDENTITY PRIMARY KEY,
-    nombre VARCHAR(100),
-    cuit CHAR(11)
+    razon_social VARCHAR(100),
+    cuil CHAR(11) CHECK(cuil LIKE '[0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9]'),
+	direccion CHAR(50),
+	pais VARCHAR(50),
+	localidad VARCHAR(50),
+	codigo_postal CHAR(4)
 );
 
 
@@ -500,14 +519,6 @@ ADD CONSTRAINT FK_InscriptoPileta_Socio
     FOREIGN KEY (id_socio) REFERENCES socios.Socio(id_socio),
     CONSTRAINT FK_InscriptoPileta_Tarifa
     FOREIGN KEY (id_tarifa) REFERENCES tarifas.TarifaPiletaVerano(id_tarifa);
-
--- ===============================
--- RELACIONES: TARIFAS
--- ===============================
-
-ALTER TABLE tarifas.TarifaPiletaVerano
-ADD CONSTRAINT FK_TarifaPileta_Invitado
-    FOREIGN KEY (id_invitado) REFERENCES socios.Invitado(id_invitado);
 
 -- ===============================
 -- RELACIONES: RESERVAS
