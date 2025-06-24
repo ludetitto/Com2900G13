@@ -255,6 +255,14 @@ BEGIN
         ELSE
         BEGIN
             -- Crear grupo nuevo
+            INSERT INTO socios.GrupoFamiliar (id_socio_rp)
+            VALUES (CASE WHEN @edad >= 18 THEN @id_socio ELSE NULL END);
+
+            SELECT @id_grupo_nuevo = SCOPE_IDENTITY();
+
+            INSERT INTO socios.GrupoFamiliarSocio (id_grupo, id_socio)
+            VALUES (@id_grupo_nuevo, @id_socio);
+
             IF @edad < 18
             BEGIN
                 IF @dni_tutor IS NULL OR @nombre_tutor IS NULL OR @email_tutor IS NULL OR @domicilio_tutor IS NULL
@@ -263,11 +271,6 @@ BEGIN
                     RETURN;
                 END
 
-                INSERT INTO socios.GrupoFamiliar (id_socio_rp)
-                VALUES (NULL);
-
-                SELECT @id_grupo_nuevo = SCOPE_IDENTITY();
-
                 INSERT INTO socios.Tutor (
                     id_grupo, dni, nombre, apellido, domicilio, email
                 )
@@ -275,16 +278,6 @@ BEGIN
                     @id_grupo_nuevo, @dni_tutor, @nombre_tutor, @apellido_tutor, @domicilio_tutor, @email_tutor
                 );
             END
-            ELSE
-            BEGIN
-                INSERT INTO socios.GrupoFamiliar (id_socio_rp)
-                VALUES (@id_socio);
-
-                SELECT @id_grupo_nuevo = SCOPE_IDENTITY();
-            END
-
-            INSERT INTO socios.GrupoFamiliarSocio (id_grupo, id_socio)
-            VALUES (@id_grupo_nuevo, @id_socio);
         END
     END
 
@@ -330,6 +323,7 @@ BEGIN
     END
 END;
 GO
+
 
 
 /*____________________________________________________________________
