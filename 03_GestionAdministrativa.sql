@@ -15,324 +15,82 @@ también debe decidir si determinadas entidades solo admitirán borrado lógico) de
 USE COM2900G13;
 GO
 
-/*____________________________________________________________________
-  _________________________ GestionarPersona _______________________
-  ____________________________________________________________________*/
 
-IF OBJECT_ID('administracion.GestionarPersona', 'P') IS NOT NULL
-    DROP PROCEDURE administracion.GestionarPersona;
-GO
-
-CREATE PROCEDURE administracion.GestionarPersona
-    @nombre VARCHAR(50),
-    @apellido CHAR(50),
-    @dni CHAR(10),
-    @email VARCHAR(70),
-    @fecha_nacimiento DATE,
-	@domicilio VARCHAR(200),
-    @tel_contacto CHAR(15),
-    @tel_emergencia CHAR(15),
-    @operacion CHAR(10)
-AS
-BEGIN
-    SET NOCOUNT ON;
-	
-    -- Verificación de operaciones válidas
-    IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
-    BEGIN
-        RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
-        RETURN;
-    END
-
-    -- CASO 1: Eliminar persona (borrado lógico)
-    IF @operacion = 'Eliminar'
-    BEGIN
-        IF NOT EXISTS (SELECT 1 FROM administracion.Persona WHERE dni = @dni)
-        BEGIN
-            RAISERROR('No existe el DNI para eliminar.', 16, 1);
-            RETURN;
-        END
-
-        UPDATE administracion.Persona
-        SET borrado = 1
-        WHERE dni = @dni;
-    END
-
-    -- CASO 2: Modificar datos
-    ELSE IF @operacion = 'Modificar'
-    BEGIN
-        IF NOT EXISTS (SELECT 1 FROM administracion.Persona WHERE dni = @dni)
-        BEGIN
-            RAISERROR('No existe el DNI para modificar.', 16, 1);
-            RETURN;
-        END
-
-        UPDATE administracion.Persona
-        SET nombre = COALESCE(@nombre, nombre),
-            apellido = COALESCE(@apellido, apellido),
-            email = COALESCE(@email, email),
-            fecha_nacimiento = COALESCE(@fecha_nacimiento, fecha_nacimiento),
-			domicilio = COALESCE(@domicilio, domicilio),
-            tel_contacto = COALESCE(@tel_contacto, tel_contacto),
-            tel_emergencia = COALESCE(@tel_emergencia, tel_emergencia)
-        WHERE dni = @dni;
-    END
-
-    -- CASO 3: Insertar persona o reactivar si ya existía borrada
-    ELSE IF @operacion = 'Insertar'
-    BEGIN
-        IF @nombre IS NULL OR LTRIM(RTRIM(@nombre)) = ''
-        BEGIN
-            RAISERROR('El nombre es obligatorio.', 16, 1);
-            RETURN;
-        END
-
-        IF @apellido IS NULL OR LTRIM(RTRIM(@apellido)) = ''
-        BEGIN
-            RAISERROR('El apellido es obligatorio.', 16, 1);
-            RETURN;
-        END
-
-        IF @dni IS NULL OR LEN(LTRIM(RTRIM(@dni))) > 10
-        BEGIN
-            RAISERROR('El DNI debe tener hasta 10 caracteres.', 16, 1);
-            RETURN;
-        END
-
-        IF @fecha_nacimiento IS NULL OR @fecha_nacimiento > GETDATE()
-        BEGIN
-            RAISERROR('La fecha de nacimiento es inválida.', 16, 1);
-            RETURN;
-        END
-
-		IF @domicilio IS NULL OR LTRIM(RTRIM(@domicilio)) = ''
-        BEGIN
-            RAISERROR('El domicilio es obligatorio.', 16, 1);
-            RETURN;
-        END
-
-        -- Si ya existe y está borrada, se reactiva
-        IF EXISTS (SELECT 1 FROM administracion.Persona WHERE dni = @dni AND borrado = 1)
-        BEGIN
-            UPDATE administracion.Persona
-            SET nombre = @nombre,
-                apellido = @apellido,
-                email = @email,
-                fecha_nacimiento = @fecha_nacimiento,
-				domicilio = @domicilio,
-                tel_contacto = @tel_contacto,
-                tel_emergencia = @tel_emergencia,
-                borrado = 0
-            WHERE dni = @dni;
-
-            RETURN;
-        END
-
-        -- Inserción normal si no existía
-        INSERT INTO administracion.Persona (
-            nombre, apellido, dni, email, fecha_nacimiento, domicilio, tel_contacto, tel_emergencia, borrado
-        )
-        VALUES (
-            @nombre, @apellido, @dni, @email, @fecha_nacimiento, @domicilio, @tel_contacto, @tel_emergencia, 0
-        );
-    END
-END;
-GO
-
-/*____________________________________________________________________
-  _______________________ GestionarProfesor ________________________
-  ____________________________________________________________________*/
-
-IF OBJECT_ID('administracion.GestionarProfesor', 'P') IS NOT NULL
-    DROP PROCEDURE administracion.GestionarProfesor;
-GO
-
-CREATE PROCEDURE administracion.GestionarProfesor
-    @nombre           VARCHAR(50),
-    @apellido         CHAR(50),
-    @dni              CHAR(10),
-    @email            VARCHAR(70),
-    @fecha_nacimiento DATE,
-	@domicilio		  VARCHAR(200),
-    @tel_contacto     CHAR(15),
-    @tel_emergencia   CHAR(15),
-    @operacion        CHAR(10)
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    -- 1) Verificación de operación válida
-    IF @operacion NOT IN ('Insertar', 'Eliminar')
-    BEGIN
-        RAISERROR('Operación inválida. Usar Insertar o Eliminar.', 16, 1);
-        RETURN;
-    END
-
-    DECLARE 
-        @id_persona INT,
-        @esta_borrada BIT;
-
-    -- CASO 1: INSERTAR
-    IF @operacion = 'Insertar'
-    BEGIN
-        -- 1.1) Verifico si ya existe la persona (incluso si está borrada)
-        SELECT 
-            @id_persona = id_persona,
-            @esta_borrada = borrado
-        FROM administracion.Persona
-        WHERE dni = @dni;
-
-        -- 1.2) Si existe pero estaba borrada, la "reactivo"
-        IF @id_persona IS NOT NULL AND @esta_borrada = 1
-        BEGIN
-            UPDATE administracion.Persona
-            SET borrado = 0
-            WHERE id_persona = @id_persona;
-        END
-
-        -- 1.3) Si no existía, inserto la persona nueva
-        IF @id_persona IS NULL
-        BEGIN
-            EXEC administracion.GestionarPersona
-                @nombre,
-                @apellido,
-                @dni,
-                @email,
-                @fecha_nacimiento,
-				@domicilio,
-                @tel_contacto,
-                @tel_emergencia,
-                'Insertar';
-
-            SELECT @id_persona = id_persona
-            FROM administracion.Persona
-            WHERE dni = @dni;
-        END
-
-        -- 1.4) Verificar que no esté ya como profesor
-        IF EXISTS (
-            SELECT 1 
-            FROM administracion.Profesor 
-            WHERE id_persona = @id_persona
-        )
-        BEGIN
-            RAISERROR('La persona ya está registrada como profesor.', 16, 1);
-            RETURN;
-        END
-
-        -- 1.5) Inserto el registro en Profesor
-        INSERT INTO administracion.Profesor (id_persona)
-        VALUES (@id_persona);
-    END
-
-    -- CASO 2: ELIMINAR
-    ELSE IF @operacion = 'Eliminar'
-    BEGIN
-        -- 2.1) Obtengo la persona
-        SELECT @id_persona = id_persona
-        FROM administracion.Persona
-        WHERE dni = @dni;
-
-        IF @id_persona IS NULL
-        BEGIN
-            RAISERROR('No se encontró una persona con el DNI especificado.', 16, 1);
-            RETURN;
-        END
-
-        -- 2.2) Elimino el rol de profesor
-        DELETE FROM administracion.Profesor
-        WHERE id_persona = @id_persona;
-
-        -- 2.3) Marco la persona como borrada
-        UPDATE administracion.Persona 
-        SET borrado = 1
-        WHERE id_persona = @id_persona;
-    END
-END;
-GO
 /*____________________________________________________________________
   ____________________ GestionarCategoriaSocio _____________________
   ____________________________________________________________________*/
-
-IF OBJECT_ID('administracion.GestionarCategoriaSocio', 'P') IS NOT NULL
-    DROP PROCEDURE administracion.GestionarCategoriaSocio;
+IF OBJECT_ID('socios.GestionarCategoriaSocio', 'P') IS NOT NULL
+    DROP PROCEDURE socios.GestionarCategoriaSocio;
 GO
 
-CREATE PROCEDURE administracion.GestionarCategoriaSocio
-    @nombre VARCHAR(50),
-    @edad_desde INT = NULL,
-    @edad_hasta INT = NULL,
-    @costo_membresia DECIMAL(10,2) = NULL,
-    @vigencia DATE = NULL,
-    @operacion CHAR(10)
+CREATE PROCEDURE socios.GestionarCategoriaSocio
+    @descripcion     VARCHAR(50),
+    @edad_minima     INT = NULL,
+    @edad_maxima     INT = NULL,
+    @costo           DECIMAL(10,2) = NULL,
+    @vigencia        DATE = NULL,
+    @operacion       CHAR(10)
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- 1) Validar que la operación sea válida.
     IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
     BEGIN
         RAISERROR('Operación inválida. Use Insertar, Modificar o Eliminar.', 16, 1);
         RETURN;
     END
 
-    -- CASO 1: INSERTAR
     IF @operacion = 'Insertar'
     BEGIN
-		-- 1.1) Se verifica que la categoría no sea inválida.
-        IF LTRIM(RTRIM(@nombre)) = ''
+        IF LTRIM(RTRIM(@descripcion)) = ''
         BEGIN
-            RAISERROR('El nombre de la categoría es obligatorio.', 16, 1);
+            RAISERROR('La descripción es obligatoria.', 16, 1);
             RETURN;
         END
-		-- 1.2) Se verifica que el rango de edad no sea inválido.
-        IF @edad_desde IS NULL OR @edad_hasta IS NULL
+
+        IF @edad_minima IS NULL OR @edad_maxima IS NULL OR @edad_minima > @edad_maxima
         BEGIN
-            RAISERROR('Debe especificar el rango de edad (desde/hasta).', 16, 1);
+            RAISERROR('El rango de edad es inválido.', 16, 1);
             RETURN;
         END
-		-- 1.3) Se verifica que la categoría no haya sido creada.
-        IF EXISTS (SELECT 1 FROM administracion.CategoriaSocio WHERE nombre = @nombre)
+
+        IF EXISTS (SELECT 1 FROM socios.CategoriaSocio WHERE descripcion = @descripcion)
         BEGIN
-            RAISERROR('Ya existe una categoría con ese nombre.', 16, 1);
+            RAISERROR('Ya existe una categoría con esa descripción.', 16, 1);
             RETURN;
         END
-		-- 1.4) Se inserta el registro en CategoriaSocio.
-        INSERT INTO administracion.CategoriaSocio (nombre, edad_desde, edad_hasta, costo_membresia, vigencia)
-        VALUES (@nombre, @edad_desde, @edad_hasta, @costo_membresia, @vigencia);
+
+        INSERT INTO socios.CategoriaSocio (descripcion, edad_minima, edad_maxima, costo, vigencia)
+        VALUES (@descripcion, @edad_minima, @edad_maxima, @costo, @vigencia);
     END
 
-    -- CASO 2: Modificar
     ELSE IF @operacion = 'Modificar'
     BEGIN
-		-- 2.1) Se verifica que exista la categoría.
-        IF NOT EXISTS (SELECT 1 FROM administracion.CategoriaSocio WHERE nombre = @nombre)
+        IF NOT EXISTS (SELECT 1 FROM socios.CategoriaSocio WHERE descripcion = @descripcion)
         BEGIN
             RAISERROR('Categoría no encontrada.', 16, 1);
             RETURN;
         END
-		--2.2) Se modifican los campos que no sean nulos de dicha categoría.
-        UPDATE administracion.CategoriaSocio
+
+        UPDATE socios.CategoriaSocio
         SET 
-            edad_desde = COALESCE(@edad_desde, edad_desde),
-            edad_hasta = COALESCE(@edad_hasta, edad_hasta),
-            costo_membresia = COALESCE(@costo_membresia, costo_membresia),
-            vigencia = COALESCE(@vigencia, vigencia)
-        WHERE nombre = @nombre;
+            edad_minima = COALESCE(@edad_minima, edad_minima),
+            edad_maxima = COALESCE(@edad_maxima, edad_maxima),
+            costo       = COALESCE(@costo, costo),
+            vigencia    = COALESCE(@vigencia, vigencia)
+        WHERE descripcion = @descripcion;
     END
 
-    -- CASO 3: ELIMINAR
     ELSE IF @operacion = 'Eliminar'
     BEGIN
-		-- 3.1) Se verifica que exista la categoría.
-        IF NOT EXISTS (SELECT 1 FROM administracion.CategoriaSocio WHERE nombre = @nombre)
+        IF NOT EXISTS (SELECT 1 FROM socios.CategoriaSocio WHERE descripcion = @descripcion)
         BEGIN
-            RAISERROR('No se encontró una categoría con ese nombre para eliminar.', 16, 1);
+            RAISERROR('No se encontró una categoría con esa descripción para eliminar.', 16, 1);
             RETURN;
         END
-		-- 3.2) Se elimina físicamente la fila que corresponde a dicha categoría.
-        DELETE FROM administracion.CategoriaSocio
-        WHERE nombre = @nombre;
+
+        DELETE FROM socios.CategoriaSocio
+        WHERE descripcion = @descripcion;
     END
 END;
 GO
@@ -340,374 +98,449 @@ GO
 /*____________________________________________________________________
   _________________________ GestionarSocio ___________________________
   ____________________________________________________________________*/
-IF OBJECT_ID('administracion.GestionarSocio', 'P') IS NOT NULL
-    DROP PROCEDURE administracion.GestionarSocio;
+IF OBJECT_ID('socios.GestionarSocio', 'P') IS NOT NULL
+    DROP PROCEDURE socios.GestionarSocio;
 GO
 
-CREATE PROCEDURE administracion.GestionarSocio
-    @nombre            VARCHAR(50)   = NULL,
-    @apellido          CHAR(50)      = NULL,
-    @dni               CHAR(10),
-    @email             VARCHAR(70)   = NULL,
-    @fecha_nacimiento  DATE          = NULL,
-	@domicilio		   VARCHAR(200)	 = NULL,
-    @tel_contacto      CHAR(15)      = NULL,
-    @tel_emergencia    CHAR(15)      = NULL,
-    @categoria         VARCHAR(50)   = NULL,
-    @nro_socio         CHAR(20)      = NULL,
-    @obra_social       VARCHAR(100)  = NULL,
-    @nro_obra_social   VARCHAR(100)  = NULL,
-    @saldo             DECIMAL(10,2) = NULL,
-    @operacion         CHAR(10)
+CREATE PROCEDURE socios.GestionarSocio
+    @nombre              VARCHAR(50) = NULL,
+    @apellido            VARCHAR(50) = NULL,
+    @dni                 CHAR(8),
+    @email               VARCHAR(100) = NULL,
+    @fecha_nacimiento    DATE = NULL,
+    @telefono            VARCHAR(20) = NULL,
+    @telefono_emergencia VARCHAR(20) = NULL,
+    @direccion           VARCHAR(150) = NULL,
+    @obra_social         VARCHAR(100) = NULL,
+    @nro_os              VARCHAR(50) = NULL,
+    @dni_integrante_grupo CHAR(8) = NULL,
+    @nombre_tutor        VARCHAR(50) = NULL,
+    @apellido_tutor      VARCHAR(50) = NULL,
+    @dni_tutor           CHAR(8) = NULL,
+    @email_tutor         VARCHAR(100) = NULL,
+    @fecha_nac_tutor     DATE = NULL,
+    @telefono_tutor      VARCHAR(20) = NULL,
+    @relacion_tutor      VARCHAR(50) = NULL,
+    @domicilio_tutor     VARCHAR(150) = NULL,
+    @es_responsable      BIT = NULL,
+    @operacion           CHAR(10)
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    IF @operacion NOT IN ('Insertar','Eliminar')
+    IF @operacion NOT IN ('Insertar', 'Eliminar')
     BEGIN
-        RAISERROR('Operación inválida. Use Insertar o Eliminar.',16,1);
+        RAISERROR('Operación inválida. Use Insertar o Eliminar.', 16, 1);
         RETURN;
     END
 
     DECLARE 
-        @id_persona INT,
-        @id_socio   INT,
-        @activo     BIT,
-        @id_categoria INT;
+        @edad INT,
+        @id_categoria INT,
+        @id_socio INT,
+        @id_socio_ref INT,
+        @id_grupo_ref INT,
+        @id_grupo_nuevo INT,
+        @id_responsable_ref INT;
 
-    -- ======== INSERTAR ========
     IF @operacion = 'Insertar'
     BEGIN
-        -- 1. Obtener o crear persona
-        SELECT @id_persona = id_persona
-          FROM administracion.Persona
-         WHERE dni = @dni;
-
-        IF @id_persona IS NULL
+        IF @fecha_nacimiento IS NULL
         BEGIN
-            EXEC administracion.GestionarPersona
-                @nombre           = @nombre,
-                @apellido         = @apellido,
-                @dni              = @dni,
-                @email            = @email,
-                @fecha_nacimiento = @fecha_nacimiento,
-				@domicilio		  = @domicilio,
-                @tel_contacto     = @tel_contacto,
-                @tel_emergencia   = @tel_emergencia,
-                @operacion        = 'Insertar';
-
-            SELECT @id_persona = id_persona
-              FROM administracion.Persona
-             WHERE dni = @dni;
-        END
-        ELSE
-        BEGIN
-            -- Reactivar persona si estaba borrada
-            UPDATE administracion.Persona
-               SET borrado = 0
-             WHERE id_persona = @id_persona
-               AND borrado = 1;
-        END
-
-        -- 2. Evitar duplicados de socio para la misma persona
-        IF EXISTS (
-            SELECT 1 
-              FROM administracion.Socio
-             WHERE id_persona = @id_persona
-               AND activo = 1
-        )
-        BEGIN
-            RAISERROR('Este DNI ya tiene un socio activo.',16,1);
+            RAISERROR('La fecha de nacimiento es obligatoria para insertar.', 16, 1);
             RETURN;
         END
 
-        -- 3. Obtener id_categoria (con validación)
-        SELECT @id_categoria = id_categoria
-          FROM administracion.CategoriaSocio
-         WHERE nombre = @categoria;
+        SET @edad = DATEDIFF(YEAR, @fecha_nacimiento, GETDATE());
+
+        SELECT TOP 1 @id_categoria = id_categoria
+        FROM socios.CategoriaSocio
+        WHERE @edad BETWEEN edad_minima AND edad_maxima
+        ORDER BY edad_minima;
 
         IF @id_categoria IS NULL
         BEGIN
-            RAISERROR('La categoría especificada no existe.',16,1);
+            RAISERROR('No existe categoría para la edad especificada.', 16, 1);
             RETURN;
         END
 
-        SET @activo = 1;
+        IF EXISTS (SELECT 1 FROM socios.Socio WHERE dni = @dni)
+        BEGIN
+            RAISERROR('Ya existe un socio con ese DNI.', 16, 1);
+            RETURN;
+        END
 
-        INSERT INTO administracion.Socio
-            (id_persona, id_categoria, nro_socio, obra_social, nro_obra_social, saldo, activo)
-        VALUES
-            (
-             @id_persona,
-             @id_categoria,
-             @nro_socio,
-             @obra_social,
-             @nro_obra_social,
-             ISNULL(@saldo,0),
-             @activo
-            );
+        INSERT INTO socios.Socio (
+            nombre, apellido, dni, email, fecha_nacimiento,
+            telefono, telefono_emergencia, direccion,
+            obra_social, nro_os, id_categoria
+        )
+        VALUES (
+            @nombre, @apellido, @dni, @email, @fecha_nacimiento,
+            @telefono, @telefono_emergencia, @direccion,
+            @obra_social, @nro_os, @id_categoria
+        );
+
+        SELECT @id_socio = SCOPE_IDENTITY();
+
+        -- Buscar grupo existente por DNI de referencia
+        IF @dni_integrante_grupo IS NOT NULL
+        BEGIN
+            SELECT @id_socio_ref = id_socio FROM socios.Socio WHERE dni = @dni_integrante_grupo;
+
+            IF @id_socio_ref IS NULL
+            BEGIN
+                RAISERROR('No se encontró el socio indicado como referencia de grupo.', 16, 1);
+                RETURN;
+            END
+
+            SELECT TOP 1 
+                @id_grupo_ref = gf.id_grupo,
+                @id_responsable_ref = gf.id_socio_rp
+            FROM socios.GrupoFamiliar gf
+            INNER JOIN socios.GrupoFamiliarSocio gfs ON gf.id_grupo = gfs.id_grupo
+            WHERE gfs.id_socio = @id_socio_ref;
+
+            IF @id_grupo_ref IS NULL
+            BEGIN
+                RAISERROR('El socio indicado no pertenece a ningún grupo familiar.', 16, 1);
+                RETURN;
+            END
+
+            INSERT INTO socios.GrupoFamiliarSocio (id_grupo, id_socio)
+            VALUES (@id_grupo_ref, @id_socio);
+
+            IF @edad >= 18 AND @es_responsable = 1
+            BEGIN
+                UPDATE socios.GrupoFamiliar
+                SET id_socio_rp = @id_socio
+                WHERE id_grupo = @id_grupo_ref;
+            END
+        END
+        ELSE
+        BEGIN
+            -- Crear grupo nuevo
+            IF @edad < 18
+            BEGIN
+                IF @dni_tutor IS NULL OR @nombre_tutor IS NULL OR @email_tutor IS NULL OR @domicilio_tutor IS NULL
+                BEGIN
+                    RAISERROR('Los datos del tutor son obligatorios para menores sin grupo.', 16, 1);
+                    RETURN;
+                END
+
+                INSERT INTO socios.GrupoFamiliar (id_socio_rp)
+                VALUES (NULL);
+
+                SELECT @id_grupo_nuevo = SCOPE_IDENTITY();
+
+                INSERT INTO socios.Tutor (
+                    id_grupo, dni, nombre, apellido, domicilio, email
+                )
+                VALUES (
+                    @id_grupo_nuevo, @dni_tutor, @nombre_tutor, @apellido_tutor, @domicilio_tutor, @email_tutor
+                );
+            END
+            ELSE
+            BEGIN
+                INSERT INTO socios.GrupoFamiliar (id_socio_rp)
+                VALUES (@id_socio);
+
+                SELECT @id_grupo_nuevo = SCOPE_IDENTITY();
+            END
+
+            INSERT INTO socios.GrupoFamiliarSocio (id_grupo, id_socio)
+            VALUES (@id_grupo_nuevo, @id_socio);
+        END
     END
-
-    -- ======== ELIMINAR ========
     ELSE IF @operacion = 'Eliminar'
     BEGIN
-        SELECT 
-            @id_persona = p.id_persona,
-            @id_socio   = s.id_socio
-          FROM administracion.Persona p
-          JOIN administracion.Socio s 
-            ON p.id_persona = s.id_persona
-         WHERE p.dni = @dni
-           AND s.activo = 1;
+        SELECT @id_socio = id_socio FROM socios.Socio WHERE dni = @dni;
 
-        IF @id_persona IS NULL OR @id_socio IS NULL
+        IF @id_socio IS NULL
         BEGIN
-            RAISERROR('No se encontró un socio activo con ese DNI.',16,1);
+            RAISERROR('No se encontró un socio con ese DNI.', 16, 1);
             RETURN;
         END
 
-        UPDATE administracion.Persona
-           SET borrado = 1
-         WHERE id_persona = @id_persona;
+        SELECT @id_grupo_ref = id_grupo
+        FROM socios.GrupoFamiliar
+        WHERE id_socio_rp = @id_socio;
 
-        DELETE FROM administracion.Socio
-         WHERE id_socio = @id_socio;
+        IF @id_grupo_ref IS NOT NULL
+        BEGIN
+            -- Convertir al socio en tutor del grupo
+            INSERT INTO socios.Tutor (id_grupo, dni, nombre, apellido, domicilio, email)
+            SELECT TOP 1
+                GF.id_grupo,
+                S.dni,
+                S.nombre,
+                S.apellido,
+                S.direccion,
+                S.email
+            FROM socios.Socio S
+            JOIN socios.GrupoFamiliar GF ON GF.id_socio_rp = S.id_socio
+            WHERE S.id_socio = @id_socio;
+
+            -- Quitar la responsabilidad
+            UPDATE socios.GrupoFamiliar
+            SET id_socio_rp = NULL
+            WHERE id_grupo = @id_grupo_ref;
+        END
+
+        DELETE FROM socios.GrupoFamiliarSocio WHERE id_socio = @id_socio;
+        DELETE FROM socios.Socio WHERE id_socio = @id_socio;
     END
 END;
 GO
+
+
 
 
 /*____________________________________________________________________
   _____________________ GestionarGrupoFamiliar _____________________
   ____________________________________________________________________*/
-
-IF OBJECT_ID('administracion.GestionarGrupoFamiliar','P') IS NOT NULL
-    DROP PROCEDURE administracion.GestionarGrupoFamiliar;
+ IF OBJECT_ID('socios.GestionarGrupoFamiliar','P') IS NOT NULL
+    DROP PROCEDURE socios.GestionarGrupoFamiliar;
 GO
 
-CREATE PROCEDURE administracion.GestionarGrupoFamiliar
-    @dni_socio     CHAR(10),
-    @dni_socio_rp  CHAR(10),
-    @operacion     CHAR(10)
+CREATE PROCEDURE socios.GestionarGrupoFamiliar
+    @dni_socio       CHAR(8),
+    @dni_responsable CHAR(8),
+    @operacion       CHAR(10)
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- 1) Verificar operación válida
-    IF @operacion NOT IN ('Insertar','Eliminar')
+    IF @operacion NOT IN ('Insertar', 'Eliminar')
     BEGIN
-        RAISERROR('Operación inválida. Use Insertar o Eliminar.',16,1);
+        RAISERROR('Operación inválida. Use Insertar o Eliminar.', 16, 1);
         RETURN;
     END
 
-    DECLARE 
-        @id_socio     INT,
-        @id_socio_rp  INT;
+    DECLARE @id_socio INT, @id_socio_rp INT, @id_grupo INT;
 
-    -- ======== INSERTAR ========
-    IF @operacion = 'Insertar'
+    SELECT @id_socio = id_socio FROM socios.Socio WHERE dni = @dni_socio;
+    SELECT @id_socio_rp = id_socio FROM socios.Socio WHERE dni = @dni_responsable;
+
+    IF @id_socio IS NULL OR @id_socio_rp IS NULL
     BEGIN
-        -- obtener id_socio
-        SELECT @id_socio = S.id_socio
-          FROM administracion.Socio S
-          JOIN administracion.Persona P 
-            ON S.id_persona = P.id_persona
-         WHERE P.dni = @dni_socio;
-
-        -- obtener id_socio_rp
-        SELECT @id_socio_rp = S.id_socio
-          FROM administracion.Socio S
-          JOIN administracion.Persona P 
-            ON S.id_persona = P.id_persona
-         WHERE P.dni = @dni_socio_rp;
-
-        -- validar existencia de ambos
-        IF @id_socio IS NULL
-        BEGIN
-            RAISERROR('No se encontró el socio con DNI %s.',16,1,@dni_socio);
-            RETURN;
-        END
-        IF @id_socio_rp IS NULL
-        BEGIN
-            RAISERROR('No se encontró el responsable con DNI %s.',16,1,@dni_socio_rp);
-            RETURN;
-        END
-
-        -- validar duplicado: un socio sólo puede tener un registro en GrupoFamiliar
-        IF EXISTS (
-            SELECT 1 
-              FROM administracion.GrupoFamiliar
-             WHERE id_socio = @id_socio
-        )
-        BEGIN
-            RAISERROR('El socio con DNI %s ya tiene grupo familiar asignado.',16,1,@dni_socio);
-            RETURN;
-        END
-
-        -- insertar
-        INSERT INTO administracion.GrupoFamiliar (id_socio,id_socio_rp)
-        VALUES (@id_socio,@id_socio_rp);
+        RAISERROR('Socio o responsable no encontrado.', 16, 1);
+        RETURN;
     END
 
-    -- ======== ELIMINAR ========
-    ELSE IF @operacion = 'Eliminar'
+    IF @operacion = 'Insertar'
     BEGIN
-        -- obtener id_socio
-        SELECT @id_socio = S.id_socio
-          FROM administracion.Socio S
-          JOIN administracion.Persona P 
-            ON S.id_persona = P.id_persona
-         WHERE P.dni = @dni_socio;
+        -- Obtener grupo del responsable
+        SELECT TOP 1 @id_grupo = id_grupo 
+        FROM socios.GrupoFamiliar 
+        WHERE id_socio_rp = @id_socio_rp;
 
-        IF @id_socio IS NULL
+        IF @id_grupo IS NULL
         BEGIN
-            RAISERROR('No se encontró el socio con DNI %s.',16,1,@dni_socio);
+            -- Si no tenía grupo, crearlo
+            INSERT INTO socios.GrupoFamiliar (id_socio_rp) VALUES (@id_socio_rp);
+            SET @id_grupo = SCOPE_IDENTITY();
+        END
+
+        -- Agregar al socio al grupo
+        IF EXISTS (
+            SELECT 1 FROM socios.GrupoFamiliarSocio 
+            WHERE id_socio = @id_socio AND id_grupo = @id_grupo
+        )
+        BEGIN
+            RAISERROR('El socio ya pertenece a ese grupo.', 16, 1);
             RETURN;
         END
 
-        -- eliminar todas las filas de GrupoFamiliar para ese socio
-        DELETE FROM administracion.GrupoFamiliar
-         WHERE id_socio = @id_socio;
+        INSERT INTO socios.GrupoFamiliarSocio (id_grupo, id_socio)
+        VALUES (@id_grupo, @id_socio);
+    END
+
+    ELSE IF @operacion = 'Eliminar'
+    BEGIN
+        DELETE FROM socios.GrupoFamiliarSocio
+        WHERE id_socio = @id_socio;
     END
 END;
 GO
 
 /*____________________________________________________________________
-  _______________________ GestionarInvitado _______________________
+  _______________________ GestionarTutorDeSocio _______________________
   ____________________________________________________________________*/
-IF OBJECT_ID('administracion.GestionarInvitado', 'P') IS NOT NULL
-    DROP PROCEDURE administracion.GestionarInvitado;
+IF OBJECT_ID('socios.GestionarTutorDeSocio','P') IS NOT NULL
+    DROP PROCEDURE socios.GestionarTutorDeSocio;
 GO
 
-CREATE PROCEDURE administracion.GestionarInvitado
-    @dni_socio     CHAR(10),
-    @dni_invitado  CHAR(10),
-	@nombre CHAR(50),
-	@apellido CHAR(50),
-	@categoria VARCHAR(50),
-	@email VARCHAR(70),
-	@domicilio VARCHAR(200),
+CREATE PROCEDURE socios.GestionarTutorDeSocio
+    @dni_socio_menor CHAR(8),
+    @dni_tutor       CHAR(10),
+    @nombre          VARCHAR(50),
+    @apellido        VARCHAR(50),
+    @domicilio       VARCHAR(200),
+    @email           VARCHAR(70),
+    @operacion       CHAR(10)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF @operacion NOT IN ('Insertar', 'Eliminar')
+    BEGIN
+        RAISERROR('Operación inválida. Use Insertar o Eliminar.', 16, 1);
+        RETURN;
+    END
+
+    DECLARE @id_socio_menor INT, @id_grupo INT;
+
+    SELECT @id_socio_menor = id_socio
+    FROM socios.Socio
+    WHERE dni = @dni_socio_menor;
+
+    IF @id_socio_menor IS NULL
+    BEGIN
+        RAISERROR('No se encontró el socio menor con ese DNI.', 16, 1);
+        RETURN;
+    END
+
+    SELECT @id_grupo = gf.id_grupo
+    FROM socios.GrupoFamiliar gf
+    JOIN socios.GrupoFamiliarSocio gfs ON gf.id_grupo = gfs.id_grupo
+    WHERE gfs.id_socio = @id_socio_menor;
+
+    IF @id_grupo IS NULL
+    BEGIN
+        RAISERROR('El socio menor no está asignado a ningún grupo familiar.', 16, 1);
+        RETURN;
+    END
+
+    IF @operacion = 'Insertar'
+    BEGIN
+        IF EXISTS (SELECT 1 FROM socios.Tutor WHERE id_grupo = @id_grupo)
+        BEGIN
+            RAISERROR('Ese grupo familiar ya tiene un tutor asignado.', 16, 1);
+            RETURN;
+        END
+
+        INSERT INTO socios.Tutor (id_grupo, dni, nombre, apellido, domicilio, email)
+        VALUES (@id_grupo, @dni_tutor, @nombre, @apellido, @domicilio, @email);
+    END
+
+    ELSE IF @operacion = 'Eliminar'
+    BEGIN
+        DELETE FROM socios.Tutor WHERE id_grupo = @id_grupo;
+    END
+END;
+GO
+
+
+
+/*____________________________________________________________________
+  _______________________ GestionarInvitado _______________________
+  ____________________________________________________________________*/
+IF OBJECT_ID('socios.GestionarInvitado', 'P') IS NOT NULL
+    DROP PROCEDURE socios.GestionarInvitado;
+GO
+
+CREATE PROCEDURE socios.GestionarInvitado
+    @dni_socio     CHAR(8),
+    @dni_invitado  CHAR(8),
+    @nombre        VARCHAR(50),
+    @apellido      VARCHAR(50),
+    @email         VARCHAR(100),
+    @domicilio     VARCHAR(150),
     @operacion     CHAR(10)
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- 1) Verificar operación válida
-    IF @operacion NOT IN ('Insertar','Eliminar')
+    IF @operacion NOT IN ('Insertar', 'Eliminar')
     BEGIN
-        RAISERROR('Operación inválida. Use Insertar o Eliminar.',16,1);
+        RAISERROR('Operación inválida. Use Insertar o Eliminar.', 16, 1);
         RETURN;
     END
 
     DECLARE @id_socio INT;
 
-    -- ======== INSERTAR ========
-    IF @operacion = 'Insertar'
+    SELECT @id_socio = id_socio FROM socios.Socio WHERE dni = @dni_socio;
+
+    IF @id_socio IS NULL
     BEGIN
-        -- (igual que antes...)
-        SELECT @id_socio = S.id_socio
-          FROM administracion.Socio S
-          JOIN administracion.Persona P 
-            ON S.id_persona = P.id_persona
-         WHERE P.dni = @dni_socio;
-
-        IF @id_socio IS NULL
-        BEGIN
-            RAISERROR('No se encontró un socio con ese DNI.',16,1);
-            RETURN;
-        END
-
-        IF @nombre IS NULL OR LTRIM(RTRIM(@nombre)) = ''
-        BEGIN
-            RAISERROR('El nombre es obligatorio.', 16, 1);
-            RETURN;
-        END
-
-        IF @apellido IS NULL OR LTRIM(RTRIM(@apellido)) = ''
-        BEGIN
-            RAISERROR('El apellido es obligatorio.', 16, 1);
-            RETURN;
-        END
-
-		IF @categoria IS NULL OR LTRIM(RTRIM(@categoria)) = '' OR @categoria NOT IN ('Mayor','Menor')
-        BEGIN
-            RAISERROR('La categoria es obligatoria.', 16, 1);
-            RETURN;
-        END
-	
-        IF @dni_invitado IS NULL OR LEN(LTRIM(RTRIM(@dni_invitado))) > 10
-        BEGIN
-            RAISERROR('El DNI debe tener hasta 10 caracteres.', 16, 1);
-            RETURN;
-        END
-
-		IF @domicilio IS NULL OR LTRIM(RTRIM(@domicilio)) = ''
-        BEGIN
-            RAISERROR('El domicilio es obligatorio.', 16, 1);
-            RETURN;
-        END
-
-        IF EXISTS (SELECT 1 FROM administracion.Persona WHERE dni = @dni_invitado)
-        BEGIN
-            RAISERROR('El DNI de invitado ya existe como persona.',16,1);
-            RETURN;
-        END
-
-        IF EXISTS (
-            SELECT 1 
-              FROM administracion.Invitado
-             WHERE id_socio = @id_socio
-               AND dni     = @dni_invitado
-        )
-        BEGIN
-            RAISERROR('Este invitado ya está asignado a ese socio.',16,1);
-            RETURN;
-        END
-
-        INSERT INTO administracion.Invitado (id_socio, dni, nombre, apellido, categoria, email, domicilio)
-        VALUES (@id_socio, @dni_invitado, @nombre, @apellido, @categoria, @email, @domicilio);
+        RAISERROR('No se encontró un socio con ese DNI.', 16, 1);
+        RETURN;
     END
 
-    -- ======== ELIMINAR ========
-    ELSE IF @operacion = 'Eliminar'
+    IF @operacion = 'Insertar'
     BEGIN
-        -- 2) Verificar que el socio exista
-        SELECT @id_socio = S.id_socio
-          FROM administracion.Socio S
-          JOIN administracion.Persona P 
-            ON S.id_persona = P.id_persona
-         WHERE P.dni = @dni_socio;
-
-        IF @id_socio IS NULL
-        BEGIN
-            RAISERROR('No se encontró un socio con ese DNI.',16,1);
-            RETURN;
-        END
-
-        -- 3) Verificar que ese invitado exista para ese socio
-        IF NOT EXISTS (
-            SELECT 1
-              FROM administracion.Invitado
-             WHERE id_socio = @id_socio
-               AND dni      = @dni_invitado
+        IF EXISTS (
+            SELECT 1 
+              FROM socios.Invitado
+             WHERE id_socio = @id_socio AND dni = @dni_invitado
         )
         BEGIN
-            RAISERROR('No existe ese invitado para el socio indicado.',16,1);
+            RAISERROR('Este invitado ya está asignado a ese socio.', 16, 1);
             RETURN;
         END
 
-        -- 4) Eliminar
-        DELETE FROM administracion.Invitado
-         WHERE id_socio = @id_socio
-           AND dni      = @dni_invitado;
+        INSERT INTO socios.Invitado (
+            dni, nombre, apellido, domicilio, email, id_socio
+        ) VALUES (
+            @dni_invitado, @nombre, @apellido, @domicilio, @email, @id_socio
+        );
+    END
+    ELSE IF @operacion = 'Eliminar'
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM socios.Invitado
+             WHERE id_socio = @id_socio AND dni = @dni_invitado
+        )
+        BEGIN
+            RAISERROR('No existe ese invitado para el socio indicado.', 16, 1);
+            RETURN;
+        END
+
+        DELETE FROM socios.Invitado
+         WHERE id_socio = @id_socio AND dni = @dni_invitado;
     END
 END;
 GO
 
 /*____________________________________________________________________
+  ____________________ vwGrupoFamiliarConCategorias ___________________
+  ____________________________________________________________________*/
+IF OBJECT_ID('socios.vwGrupoFamiliarConCategorias', 'V') IS NOT NULL
+    DROP VIEW socios.vwGrupoFamiliarConCategorias;
+GO
+
+CREATE VIEW socios.vwGrupoFamiliarConCategorias AS
+SELECT 
+    GF.id_grupo,
+    S.id_socio,
+    S.dni,
+    S.nombre,
+    S.apellido,
+    S.fecha_nacimiento,
+    S.email,
+    S.telefono,
+    S.telefono_emergencia,
+    S.direccion,
+    S.obra_social,
+    S.nro_os,
+    CS.descripcion AS categoria,
+    CS.costo AS costo_membresia,
+    CASE 
+        WHEN S.id_socio = GF.id_socio_rp THEN 1
+        ELSE 0 
+    END AS es_responsable
+FROM socios.GrupoFamiliar GF
+INNER JOIN socios.GrupoFamiliarSocio GFS ON GF.id_grupo = GFS.id_grupo
+INNER JOIN socios.Socio S ON GFS.id_socio = S.id_socio
+INNER JOIN socios.CategoriaSocio CS ON S.id_categoria = CS.id_categoria;
+GO
+
+
+/*____________________________________________________________________
   ____________________ VerCuotasPagasGrupoFamiliar ___________________
   ____________________________________________________________________*/
-
+/*
 IF OBJECT_ID('administracion.VerCuotasPagasGrupoFamiliar', 'P') IS NOT NULL
     DROP PROCEDURE administracion.VerCuotasPagasGrupoFamiliar;
 GO
@@ -755,11 +588,12 @@ BEGIN
 
 END;
 GO
+*/
 
 /*____________________________________________________________________
   ______________________ AnularFacturaSocioDeBaja ____________________
   ____________________________________________________________________*/
-
+/*
 IF OBJECT_ID('administracion.AnularFacturaSocioDeBaja', 'TR') IS NOT NULL
     DROP TRIGGER administracion.AnularFacturaSocioDeBaja;
 GO
@@ -779,173 +613,9 @@ BEGIN
 	WHERE I.activo = 0
 END;
 GO
-
+*/
 
 /*______________________________________________________________________
   _____________________ ConsultarEstadoSocioyGrupo _____________________
   ____________________________________________________________________*/
   
-IF OBJECT_ID('administracion.ConsultarEstadoSocioyGrupo','P') IS NOT NULL
-    DROP PROCEDURE administracion.ConsultarEstadoSocioyGrupo;
-GO
-
-CREATE PROCEDURE administracion.ConsultarEstadoSocioyGrupo
-    @dni VARCHAR(10)
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    -- 1) Validaciones iniciales
-    IF LEN(@dni) <> 8 OR ISNUMERIC(@dni) = 0
-    BEGIN
-        RAISERROR('El DNI debe tener exactamente 8 dígitos numéricos.',16,1);
-        RETURN;
-    END
-
-    DECLARE @id_socio INT, @email VARCHAR(70);
-
-    -- Buscar socio activo con ese DNI
-    SELECT TOP 1
-        @id_socio = s.id_socio,
-        @email    = p.email
-    FROM administracion.Socio s
-    JOIN administracion.Persona p
-      ON s.id_persona = p.id_persona
-    WHERE p.dni = @dni AND s.activo = 1;
-
-    IF @id_socio IS NULL
-    BEGIN
-        RAISERROR('No existe un socio activo con el DNI especificado.',16,1);
-        RETURN;
-    END
-
-    IF CHARINDEX('@',@email) = 0 OR CHARINDEX('.',@email) = 0
-    BEGIN
-        RAISERROR('El correo electrónico del socio no tiene un formato válido.',16,1);
-        RETURN;
-    END
-
-    -- 2) Datos del TITULAR
-    SELECT
-        'Titular'         AS TipoPersona,
-        s.id_socio,
-        p.nombre,
-        p.apellido,
-        p.dni,
-        p.email,
-        p.fecha_nacimiento,
-        p.tel_contacto,
-        p.tel_emergencia,
-        s.nro_socio,
-        s.obra_social,
-        s.nro_obra_social,
-        s.saldo,
-        s.activo,
-        cs.nombre       AS categoria,
-        cs.costo_membresia,
-        gf.id_grupo
-    FROM administracion.Socio s
-    JOIN administracion.Persona p
-      ON s.id_persona = p.id_persona
-    JOIN administracion.CategoriaSocio cs
-      ON s.id_categoria = cs.id_categoria
-    LEFT JOIN administracion.GrupoFamiliar gf
-      ON gf.id_socio    = s.id_socio
-     OR gf.id_socio_rp = s.id_socio
-    WHERE s.id_socio = @id_socio;
-
-    -- 3) Datos de los FAMILIARES (si existen)
-    ;WITH MiGrupo AS (
-        SELECT id_grupo
-        FROM administracion.GrupoFamiliar
-        WHERE id_socio = @id_socio
-           OR id_socio_rp = @id_socio
-    ),
-    Familiares AS (
-        SELECT gf.id_socio     AS id_fam, g.id_grupo FROM administracion.GrupoFamiliar gf JOIN MiGrupo g ON gf.id_grupo = g.id_grupo WHERE gf.id_socio     <> @id_socio
-        UNION
-        SELECT gf.id_socio_rp  AS id_fam, g.id_grupo FROM administracion.GrupoFamiliar gf JOIN MiGrupo g ON gf.id_grupo = g.id_grupo WHERE gf.id_socio_rp  <> @id_socio
-    )
-    SELECT
-        'Familiar'        AS TipoPersona,
-        f.id_socio,
-        p2.nombre,
-        p2.apellido,
-        p2.dni,
-        p2.email,
-        p2.fecha_nacimiento,
-        p2.tel_contacto,
-        p2.tel_emergencia,
-        f.nro_socio,
-        f.obra_social,
-        f.nro_obra_social,
-        f.saldo,
-        f.activo,
-        cs2.nombre      AS categoria,
-        cs2.costo_membresia,
-        fam.id_grupo
-    FROM Familiares fam
-    JOIN administracion.Socio f
-      ON f.id_socio = fam.id_fam
-    JOIN administracion.Persona p2
-      ON f.id_persona = p2.id_persona
-    JOIN administracion.CategoriaSocio cs2
-      ON f.id_categoria = cs2.id_categoria
-    ORDER BY fam.id_grupo, f.id_socio;
-END;
-GO
-
-
-/*____________________________________________________________________
-  _______________________ vwSociosConCategoria _______________________
-  ____________________________________________________________________*/
-
-IF OBJECT_ID('administracion.vwSociosConCategoria', 'V') IS NOT NULL
-    DROP VIEW administracion.vwSociosConCategoria;
-GO
-
-CREATE VIEW administracion.vwSociosConCategoria AS
--- Vista meramente visual, a fines prácticos para el testing
-SELECT 
-    P.dni,
-    P.nombre,
-    P.apellido,
-    P.fecha_nacimiento,
-    P.email,
-    S.id_socio,
-	s.saldo,
-    C.nombre AS categoria,
-    C.costo_membresia,
-    C.vigencia
-FROM administracion.Socio S
-JOIN administracion.Persona P ON S.id_persona = P.id_persona
-JOIN administracion.CategoriaSocio C ON S.id_categoria = C.id_categoria;
-GO
-
-
-
-/*____________________________________________________________________
-  _______________________ vwSociosConObraSocial ______________________
-  ____________________________________________________________________*/
-
-IF OBJECT_ID('administracion.vwSociosConObraSocial', 'V') IS NOT NULL
-    DROP VIEW administracion.vwSociosConObraSocial;
-GO
-
-CREATE VIEW administracion.vwSociosConObraSocial AS
--- Vista meramente visual, a fines prácticos para el testing
-
-SELECT 
-    P.dni,
-    P.nombre,
-    P.apellido,
-    P.email,
-	P.tel_contacto,
-	P.tel_emergencia,
-    S.id_socio,
-	S.nro_obra_social,
-	S.obra_social,
-	S.nro_socio
-FROM administracion.Socio S
-JOIN administracion.Persona P ON S.id_persona = P.id_persona
-GO

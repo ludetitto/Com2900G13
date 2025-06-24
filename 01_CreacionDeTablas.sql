@@ -73,6 +73,15 @@ DROP PROCEDURE IF EXISTS tarifas.GestionarTarifaColoniaVerano
 DROP PROCEDURE IF EXISTS tarifas.GestionarTarifaReservaSum
 DROP PROCEDURE IF EXISTS tarifas.GestionarTarifaPiletaVerano
 
+DROP PROCEDURE IF EXISTS socios.GestionarCategoriaSocio;
+DROP PROCEDURE IF EXISTS socios.GestionarSocio;
+DROP PROCEDURE IF EXISTS socios.GestionarGrupoFamiliar;
+DROP PROCEDURE IF EXISTS socios.GestionarTutorDeSocio;
+DROP PROCEDURE IF EXISTS socios.GestionarInvitado;
+
+-- Eliminar vistas del esquema socios si las hubiera
+DROP VIEW IF EXISTS socios.vwGrupoFamiliarConCategorias;
+
 -- ===============================
 -- Eliminación de todas las claves foráneas
 -- ===============================
@@ -118,6 +127,7 @@ DROP TABLE IF EXISTS tarifas.TarifaPiletaVerano;
 DROP TABLE IF EXISTS reservas.ReservaSum;
 
 DROP TABLE IF EXISTS socios.GrupoFamiliar;
+DROP TABLE IF EXISTS socios.GrupoFamiliarSocio;
 DROP TABLE IF EXISTS socios.Tutor;
 DROP TABLE IF EXISTS socios.DebitoAutomaticoSocio;
 DROP TABLE IF EXISTS socios.Socio;
@@ -139,17 +149,18 @@ DROP SCHEMA IF EXISTS tarifas;
 GO
 DROP SCHEMA IF EXISTS reservas;
 GO
-DROP SCHEMA IF EXISTS socios;
-GO
 DROP SCHEMA IF EXISTS administracion;
 GO
+DROP SCHEMA IF EXISTS socios;
+GO
+
 -- ===============================
 -- Creación de esquemas
 -- ===============================
 
-CREATE SCHEMA administracion;
-GO
 CREATE SCHEMA socios;
+GO
+CREATE SCHEMA administracion;
 GO
 CREATE SCHEMA actividades;
 GO
@@ -204,15 +215,29 @@ CREATE TABLE socios.Socio (
 
 CREATE TABLE socios.GrupoFamiliar (
     id_grupo INT IDENTITY PRIMARY KEY,
-    id_socio INT NOT NULL,
-    id_socio_rp INT NOT NULL
+    id_socio_rp INT NULL
 );
+
+
+CREATE TABLE socios.GrupoFamiliarSocio (
+    id_grupo INT NOT NULL,
+    id_socio INT NOT NULL,
+    PRIMARY KEY (id_grupo, id_socio),
+    FOREIGN KEY (id_grupo) REFERENCES socios.GrupoFamiliar(id_grupo),
+    FOREIGN KEY (id_socio) REFERENCES socios.Socio(id_socio)
+);
+
 
 CREATE TABLE socios.Tutor (
     id_tutor INT IDENTITY PRIMARY KEY,
-    id_socio INT NOT NULL
+    id_grupo INT NOT NULL, 
+    dni VARCHAR(10) NOT NULL,
+    nombre CHAR(50) NOT NULL,
+    apellido CHAR(50) NOT NULL,
+    domicilio VARCHAR(200) NOT NULL,
+    email VARCHAR(70) NOT NULL
 );
-
+GO
 CREATE TABLE socios.Invitado (
     id_invitado INT IDENTITY PRIMARY KEY,
     dni CHAR(8),
@@ -438,14 +463,14 @@ ADD CONSTRAINT FK_Socio_Categoria
     FOREIGN KEY (id_categoria) REFERENCES socios.CategoriaSocio(id_categoria);
 
 ALTER TABLE socios.GrupoFamiliar
-ADD CONSTRAINT FK_GrupoFamiliar_Socio
-    FOREIGN KEY (id_socio) REFERENCES socios.Socio(id_socio),
-    CONSTRAINT FK_GrupoFamiliar_Representante
+ADD CONSTRAINT FK_GrupoFamiliar_Representante
     FOREIGN KEY (id_socio_rp) REFERENCES socios.Socio(id_socio);
 
+
 ALTER TABLE socios.Tutor
-ADD CONSTRAINT FK_Tutor_Socio
-    FOREIGN KEY (id_socio) REFERENCES socios.Socio(id_socio);
+ADD CONSTRAINT FK_Tutor_GrupoFamiliar
+    FOREIGN KEY (id_grupo) REFERENCES socios.GrupoFamiliar(id_grupo);
+
 
 ALTER TABLE socios.Invitado
 ADD CONSTRAINT FK_Invitado_Socio
