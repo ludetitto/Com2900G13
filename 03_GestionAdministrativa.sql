@@ -164,62 +164,90 @@ BEGIN
             RETURN;
         END
 
-        IF EXISTS (SELECT 1 FROM socios.Socio WHERE dni = @dni)
+        SELECT @id_socio = id_socio
+        FROM socios.Socio
+        WHERE dni = @dni;
+
+        IF @id_socio IS NOT NULL
         BEGIN
-            RAISERROR('Ya existe un socio con ese DNI.', 16, 1);
-            RETURN;
-        END
+            DECLARE @ya_eliminado BIT;
 
-        INSERT INTO socios.Socio (
-            nombre, apellido, dni, email, fecha_nacimiento,
-            telefono, telefono_emergencia, direccion,
-            obra_social, nro_os, id_categoria
-        )
-        VALUES (
-            @nombre, @apellido, @dni, @email, @fecha_nacimiento,
-            @telefono, @telefono_emergencia, @direccion,
-            @obra_social, @nro_os, @id_categoria
-        );
+            SELECT @ya_eliminado = eliminado FROM socios.Socio WHERE id_socio = @id_socio;
 
-        SELECT @id_socio = SCOPE_IDENTITY();
-
-        -- Buscar grupo existente por DNI de referencia
-        IF @dni_integrante_grupo IS NOT NULL
-        BEGIN
-            SELECT @id_socio_ref = id_socio FROM socios.Socio WHERE dni = @dni_integrante_grupo;
-
-            IF @id_socio_ref IS NULL
+            IF @ya_eliminado = 1
             BEGIN
-                RAISERROR('No se encontró el socio indicado como referencia de grupo.', 16, 1);
-                RETURN;
+                -- Reactivar y actualizar datos personales
+                UPDATE socios.Socio
+                SET 
+                    nombre = @nombre,
+                    apellido = @apellido,
+                    email = @email,
+                    fecha_nacimiento = @fecha_nacimiento,
+                    telefono = @telefono,
+                    telefono_emergencia = @telefono_emergencia,
+                    direccion = @direccion,
+                    obra_social = @obra_social,
+                    nro_os = @nro_os,
+                    id_categoria = @id_categoria,
+                    activo = 1,
+                    eliminado = 0
+                WHERE id_socio = @id_socio;
+
+                -- Restaurar vínculo con grupo (si se pasó socio de referencia)
+                IF @dni_integrante_grupo IS NOT NULL
+                BEGIN
+                    SELECT @id_socio_ref = id_socio FROM socios.Socio WHERE dni = @dni_integrante_grupo;
+
+                    IF @id_socio_ref IS NOT NULL
+                    BEGIN
+                        SELECT TOP 1 @id_grupo_ref = gf.id_grupo
+                        FROM socios.GrupoFamiliar gf
+                        INNER JOIN socios.GrupoFamiliarSocio gfs ON gf.id_grupo = gfs.id_grupo
+                        WHERE gfs.id_socio = @id_socio_ref;
+
+                        IF @id_grupo_ref IS NOT NULL
+                        BEGIN
+                            INSERT INTO socios.GrupoFamiliarSocio (id_grupo, id_socio)
+                            VALUES (@id_grupo_ref, @id_socio);
+
+                            IF @edad >= 18 AND @es_responsable = 1
+                            BEGIN
+                                UPDATE socios.GrupoFamiliar
+                                SET id_socio_rp = @id_socio
+                                WHERE id_grupo = @id_grupo_ref;
+                            END
+                        END
+                    END
+                END
             END
-
-            SELECT TOP 1 
-                @id_grupo_ref = gf.id_grupo,
-                @id_responsable_ref = gf.id_socio_rp
-            FROM socios.GrupoFamiliar gf
-            INNER JOIN socios.GrupoFamiliarSocio gfs ON gf.id_grupo = gfs.id_grupo
-            WHERE gfs.id_socio = @id_socio_ref;
-
-            IF @id_grupo_ref IS NULL
+            ELSE
             BEGIN
-                RAISERROR('El socio indicado no pertenece a ningún grupo familiar.', 16, 1);
+                RAISERROR('Ya existe un socio con ese DNI.', 16, 1);
                 RETURN;
-            END
-
-            INSERT INTO socios.GrupoFamiliarSocio (id_grupo, id_socio)
-            VALUES (@id_grupo_ref, @id_socio);
-
-            IF @edad >= 18 AND @es_responsable = 1
-            BEGIN
-                UPDATE socios.GrupoFamiliar
-                SET id_socio_rp = @id_socio
-                WHERE id_grupo = @id_grupo_ref;
             END
         END
         ELSE
         BEGIN
-            -- Crear grupo nuevo
+            -- Insertar nuevo socio
+            INSERT INTO socios.Socio (
+                nombre, apellido, dni, email, fecha_nacimiento,
+                telefono, telefono_emergencia, direccion,
+                obra_social, nro_os, id_categoria,
+                activo, eliminado
+            )
+            VALUES (
+                @nombre, @apellido, @dni, @email, @fecha_nacimiento,
+                @telefono, @telefono_emergencia, @direccion,
+                @obra_social, @nro_os, @id_categoria,
+                1, 0
+            );
+
+            SELECT @id_socio = SCOPE_IDENTITY();
+        END
+
+        -- Si no se está reinsertando y no tenía grupo, crearlo
+        IF @dni_integrante_grupo IS NULL
+        BEGIN
             IF @edad < 18
             BEGIN
                 IF @dni_tutor IS NULL OR @nombre_tutor IS NULL OR @email_tutor IS NULL OR @domicilio_tutor IS NULL
@@ -252,6 +280,7 @@ BEGIN
             VALUES (@id_grupo_nuevo, @id_socio);
         END
     END
+
     ELSE IF @operacion = 'Eliminar'
     BEGIN
         SELECT @id_socio = id_socio FROM socios.Socio WHERE dni = @dni;
@@ -268,7 +297,6 @@ BEGIN
 
         IF @id_grupo_ref IS NOT NULL
         BEGIN
-            -- Convertir al socio en tutor del grupo
             INSERT INTO socios.Tutor (id_grupo, dni, nombre, apellido, domicilio, email)
             SELECT TOP 1
                 GF.id_grupo,
@@ -281,18 +309,21 @@ BEGIN
             JOIN socios.GrupoFamiliar GF ON GF.id_socio_rp = S.id_socio
             WHERE S.id_socio = @id_socio;
 
-            -- Quitar la responsabilidad
             UPDATE socios.GrupoFamiliar
             SET id_socio_rp = NULL
             WHERE id_grupo = @id_grupo_ref;
         END
 
+        -- Eliminación lógica
+        UPDATE socios.Socio
+        SET activo = 0,
+            eliminado = 1
+        WHERE id_socio = @id_socio;
+
         DELETE FROM socios.GrupoFamiliarSocio WHERE id_socio = @id_socio;
-        DELETE FROM socios.Socio WHERE id_socio = @id_socio;
     END
 END;
 GO
-
 
 
 
