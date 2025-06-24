@@ -121,7 +121,7 @@ EXEC actividades.GestionarClase
 GO
 
 /*_____________________________________________________________________
-  _______________:_ PRUEBAS GestionarInscriptoClase ___________________
+  _________________ PRUEBAS GestionarInscriptoClase ___________________
   _____________________________________________________________________*/
 
 -- ✅ Francisco (Mayor) se inscribe a Ajedrez
@@ -271,144 +271,46 @@ EXEC actividades.GestionarPresentismoClase
 GO
 
 /*_____________________________________________________________________
-  _____________________ PRUEBAS GestionarActividadExtra _______________
+  _________________ PRUEBAS GenerarCargoMembresia ____________________
   _____________________________________________________________________*/
 
--- ✅ PRUEBA 1: Inserción válida
-EXEC actividades.GestionarActividadExtra
-@nombre = 'Pileta',
-@costo = 2000.00,
-@periodo = '2025-06',
-@es_invitado = 'N',
-@vigencia = '2025-06-01',
-@categoria = 'Menor',
-@operacion = 'Insertar';
--- Resultado esperado: Actividad insertada sin errores
-GO
-SELECT * FROM actividades.actividadExtra;
-
-
--- ✅ PRUEBA 2: Modificación válida
-EXEC actividades.GestionarActividadExtra
-@nombre = 'Pileta',
-@costo = 2500.00,
-@periodo = '2025-06',
-@es_invitado = 'N',
-@vigencia = '2025-06-10',
-@categoria = 'Cadete',
-@operacion = 'Modificar';
--- Resultado esperado: Actividad modificada correctamente
-GO
-SELECT * FROM actividades.actividadExtra;
-
--- ✅ PRUEBA 3: Eliminación válida
-EXEC actividades.GestionarActividadExtra
-@nombre = 'Pileta',
-@costo = NULL,
-@periodo = '2025-06',
-@es_invitado = 'N',
-@vigencia = NULL,
-@categoria = 'Cadete',
-@operacion = 'Eliminar';
--- Resultado esperado: Actividad eliminada sin errores
-GO
-SELECT * FROM actividades.actividadExtra;
-
--- ❌ PRUEBA 4: Modificación de actividad inexistente
-EXEC actividades.GestionarActividadExtra
-@nombre = 'Zumba',
-@costo = 1000,
-@periodo = '2024-01',
-@es_invitado = 'N',
-@vigencia = '2024-01-01',
-@categoria = 'Cadete',
-@operacion = 'Modificar';
--- Resultado esperado: Error de no existencia
+-- ✅ PRUEBA 1: Inserción válida del cargo
+-- Esperado: Se registra correctamente el cargo
+EXEC facturacion.GenerarCargoMembresia
+    @dni_socio = '45778667',
+	@fecha = '2025-06-25';
 GO
 
--- ❌ PRUEBA 5: Operación inválida
-EXEC actividades.GestionarActividadExtra
-@nombre = 'Pileta',
-@costo = 1000,
-@periodo = '2025-06',
-@es_invitado = 'N',
-@vigencia = '2025-06-01',
-@categoria = 'Mayor',
-@operacion = 'Actualizar';
--- Resultado esperado: Error de operación no válida
+-- Verificar inserción
+SELECT * FROM facturacion.CargoMembresias;
 GO
 
-/*_____________________________________________________________________
-  ______________ PRUEBAS GestionarPresentismoActividadExtra ___________
-  _____________________________________________________________________*/
-
-select * from administracion.Socio
-select * from administracion.Persona
--- ✅ PRUEBA 1: Inserción válida
-EXEC actividades.GestionarPresentismoActividadExtra
-@nombre_actividad_extra = 'Pileta verano',
-@periodo = 'Dia',
-@es_invitado = 'N',
-@dni = '45778667',
-@fecha = '2025-06-08',
-@condicion = 'P',
-@operacion = 'Insertar';
--- Resultado esperado: Presentismo insertado sin errores
-GO
-SELECT * FROM actividades.actividadExtra;
-SELECT * FROM actividades.presentismoActividadExtra;
-
-
--- ✅ PRUEBA 2: Modificación válida
-EXEC actividades.GestionarPresentismoActividadExtra
-@nombre_actividad_extra = 'Pileta verano',
-@periodo = 'Dia',
-@es_invitado = 'N',
-@dni = '45778667',
-@fecha = '2025-06-08',
-@condicion = 'F',
-@operacion = 'Modificar';
--- Resultado esperado: Presentismo modificado sin errores
-GO
-SELECT * FROM actividades.actividadExtra;
-SELECT * FROM actividades.presentismoActividadExtra;
-
--- ✅ PRUEBA 3: Eliminación válida
-EXEC actividades.GestionarPresentismoActividadExtra
-@nombre_actividad_extra = 'Pileta verano',
-@periodo = 'Dia',
-@es_invitado = 'N',
-@dni = '45778667',
-@fecha = '2025-06-08',
-@condicion = NULL,
-@operacion = 'Eliminar';
--- Resultado esperado: Presentismo eliminado sin errores
-GO
-SELECT * FROM actividades.actividadExtra;
-SELECT * FROM actividades.presentismoActividadExtra;
-
--- ❌ PRUEBA 4: Insertar sin nombre de actividad
-EXEC actividades.GestionarPresentismoActividadExtra
-@nombre_actividad_extra = NULL,
-@periodo = 'Dia',
-@es_invitado = 'N',
-@dni = '0012345678',
-@fecha = NULL,
-@condicion = NULL,
-@operacion = 'Insertar';
--- Resultado esperado: Error por nombre de actividad requerido
+-- ❌ PRUEBA 2: Cargo ya existente
+-- Esperado: Error lanzado por RAISERROR indicando existencia previa
+EXEC facturacion.GenerarCargoMembresia
+    @dni_socio = '87654321',
+	@fecha = '2025-06-25';
 GO
 
--- ❌ PRUEBA 5: Operación inválida
-EXEC actividades.GestionarPresentismoActividadExtra
-@nombre_actividad_extra = 'Pileta verano',
-@periodo = 'Mes',
-@es_invitado = 'N',
-@dni = '0012345678',
-@fecha = NULL,
-@condicion = NULL,
-@operacion = 'Registrar';
--- Resultado esperado: Error de operación inválida
+-- ❌ PRUEBA 3: Socio inexistente
+-- Esperado: Error lanzado por RAISERROR indicando socio no existe
+EXEC facturacion.GenerarCargoMembresia
+    @dni_socio = '99999999',
+	@fecha = '2025-06-25';
+GO
+
+-- ❌ PRUEBA 4: Socio inactivo
+-- Esperado: Error lanzado por RAISERROR indicando socio inactivo
+EXEC facturacion.GenerarCargoMembresia
+    @dni_socio = '11111111', --hay q cambiar
+	@fecha = '2025-06-25';
+GO
+
+-- ❌ PRUEBA 5: Socio sin inscripción en categoría
+-- Esperado: Error lanzado por RAISERROR indicando falta de inscripción
+EXEC facturacion.GenerarCargoMembresia
+    @dni_socio = '22222222', --hay q cambiar
+	@fecha = '2025-06-25';
 GO
 
 /*_____________________________________________________________________

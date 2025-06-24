@@ -64,6 +64,8 @@ DROP PROCEDURE IF EXISTS cobranzas.GenerarPagoACuentaPorReembolso
 DROP PROCEDURE IF EXISTS cobranzas.GestionarRecargo
 DROP VIEW IF EXISTS cobranzas.vwNotasConMedioDePago
 
+DROP PROCEDURE IF EXISTS facturacion.GenerarCargoClase
+DROP PROCEDURE IF EXISTS facturacion.GenerarCargoMembresia
 DROP PROCEDURE IF EXISTS facturacion.AnularFactura
 DROP PROCEDURE IF EXISTS facturacion.GenerarFacturaSocioActExtra
 DROP PROCEDURE IF EXISTS facturacion.GenerarFacturaSocioMensual
@@ -372,20 +374,25 @@ CREATE TABLE facturacion.EmisorFactura (
 
 CREATE TABLE facturacion.CuotaMensual (
     id_cuota INT IDENTITY PRIMARY KEY,
-    mes INT,
-    anio INT
+	monto_membresia DECIMAL(10, 2) NOT NULL,
+	monto_actividad DECIMAL(10, 2) NOT NULL,
+    fecha DATE NOT NULL
 );
 
 CREATE TABLE facturacion.CargoMembresias (
     id_cargo INT IDENTITY PRIMARY KEY,
     id_inscripcion_categoria INT NOT NULL,
-    id_cuota INT NOT NULL
+    id_cuota INT,
+	monto DECIMAL(10, 2) NOT NULL,
+	fecha DATE NOT NULL
 );
 
 CREATE TABLE facturacion.CargoClases (
     id_cargo INT IDENTITY PRIMARY KEY,
-    id_presentismo INT NOT NULL,
-    id_cuota INT NOT NULL
+    id_inscripcion_clase INT NOT NULL,
+    id_cuota INT,
+	monto DECIMAL(10, 2) NOT NULL,
+	fecha DATE NOT NULL
 );
 
 CREATE TABLE facturacion.CargoActividadExtra (
@@ -537,14 +544,14 @@ ADD CONSTRAINT FK_ReservaSum_Socio
 -- ===============================
 
 ALTER TABLE facturacion.CargoMembresias
-ADD CONSTRAINT FK_CargoMembresia_InscriptoCategoria
+ADD CONSTRAINT FK_CargoMembresias_InscriptoCategoria
     FOREIGN KEY (id_inscripcion_categoria) REFERENCES actividades.InscriptoCategoriaSocio(id_inscripcion),
-    CONSTRAINT FK_CargoMembresia_Cuota
+    CONSTRAINT FK_CargoMembresias_Cuota
     FOREIGN KEY (id_cuota) REFERENCES facturacion.CuotaMensual(id_cuota);
 
 ALTER TABLE facturacion.CargoClases
-ADD CONSTRAINT FK_CargoClase_Presentismo
-    FOREIGN KEY (id_presentismo) REFERENCES actividades.PresentismoClase(id_presentismo),
+ADD CONSTRAINT FK_CargoClase_InscriptoClase
+    FOREIGN KEY (id_inscripcion_clase) REFERENCES actividades.InscriptoClase(id_inscripcion),
     CONSTRAINT FK_CargoClase_Cuota
     FOREIGN KEY (id_cuota) REFERENCES facturacion.CuotaMensual(id_cuota);
 

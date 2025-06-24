@@ -280,6 +280,18 @@ BEGIN
                 );
             END
         END
+
+		-- Se crea la inscripcion de dicho socio a esa categoria
+
+		INSERT INTO actividades.InscriptoCategoriaSocio
+		VALUES (
+			@id_socio,
+			@id_categoria,
+			GETDATE(),
+			(SELECT TOP 1 costo
+			 FROM socios.CategoriaSocio
+			 WHERE id_categoria = @id_categoria)
+		)
     END
 
     ELSE IF @operacion = 'Eliminar'
