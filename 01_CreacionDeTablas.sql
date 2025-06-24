@@ -31,9 +31,12 @@ DROP PROCEDURE IF EXISTS cobranzas.AplicarBloqueoVencimiento;
 DROP PROCEDURE IF EXISTS actividades.GestionarActividad
 DROP PROCEDURE IF EXISTS actividades.GestionarActividadExtra
 DROP PROCEDURE IF EXISTS actividades.GestionarClase
-DROP PROCEDURE IF EXISTS actividades.GestionarInscripcionClase
+DROP PROCEDURE IF EXISTS actividades.GestionarInscriptoClase
+DROP PROCEDURE IF EXISTS actividades.GestionarInscriptoColonia
 DROP PROCEDURE IF EXISTS actividades.GestionarPresentismoActividadExtra
 DROP PROCEDURE IF EXISTS actividades.GestionarPresentismoClase
+DROP PROCEDURE IF EXISTS actividades.GestionarInscriptoPileta
+DROP PROCEDURE IF EXISTS actividades.GestionarInscriptoReservaSum
 DROP PROCEDURE IF EXISTS administracion.ConsultarEstadoSocioyGrupo
 DROP PROCEDURE IF EXISTS administracion.VerCuotasPagasGrupoFamiliar
 
@@ -269,10 +272,7 @@ CREATE TABLE actividades.Clase (
     id_clase INT IDENTITY PRIMARY KEY,
     id_actividad INT NOT NULL,
     id_categoria INT NOT NULL,
-    dias VARCHAR(50),
     horario VARCHAR(50),
-    cupo_minimo INT,
-    cupo_maximo INT,
     nombre_profesor VARCHAR(50),
     apellido_profesor VARCHAR(50)
 );
@@ -309,7 +309,8 @@ CREATE TABLE actividades.InscriptoColoniaVerano (
 
 CREATE TABLE actividades.InscriptoPiletaVerano (
     id_inscripcion INT IDENTITY PRIMARY KEY,
-    id_socio INT NOT NULL,
+    id_socio INT,
+	id_invitado INT,
     id_tarifa INT NOT NULL,
 	fecha DATE NOT NULL,
 	monto DECIMAL(10, 2) NOT NULL
@@ -361,7 +362,7 @@ CREATE TABLE reservas.ReservaSum (
 CREATE TABLE facturacion.EmisorFactura (
     id_emisor INT IDENTITY PRIMARY KEY,
     razon_social VARCHAR(100),
-    cuil CHAR(11) CHECK(cuil LIKE '[0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9]'),
+    cuil CHAR(13) CHECK(cuil LIKE '[0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9]'),
 	direccion CHAR(50),
 	pais VARCHAR(50),
 	localidad VARCHAR(50),
@@ -517,6 +518,8 @@ ADD CONSTRAINT FK_InscriptoColonia_Socio
 ALTER TABLE actividades.InscriptoPiletaVerano
 ADD CONSTRAINT FK_InscriptoPileta_Socio
     FOREIGN KEY (id_socio) REFERENCES socios.Socio(id_socio),
+	CONSTRAINT FK_InscriptoPileta_Invitado
+    FOREIGN KEY (id_invitado) REFERENCES socios.Invitado(id_invitado),
     CONSTRAINT FK_InscriptoPileta_Tarifa
     FOREIGN KEY (id_tarifa) REFERENCES tarifas.TarifaPiletaVerano(id_tarifa);
 
