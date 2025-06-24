@@ -355,7 +355,6 @@ CREATE TABLE facturacion.Factura (
     id_factura INT IDENTITY PRIMARY KEY,
     id_emisor INT NOT NULL,
     id_socio INT,
-    id_tutor INT,
     monto_total DECIMAL(10,2),
     saldo_anterior DECIMAL(10,2),
     fecha_emision DATE,
@@ -524,8 +523,6 @@ ADD CONSTRAINT FK_Factura_Emisor
     FOREIGN KEY (id_emisor) REFERENCES facturacion.EmisorFactura(id_emisor),
     CONSTRAINT FK_Factura_Socio
     FOREIGN KEY (id_socio) REFERENCES socios.Socio(id_socio),
-    CONSTRAINT FK_Factura_Tutor
-    FOREIGN KEY (id_tutor) REFERENCES socios.Tutor(id_tutor),
     CONSTRAINT FK_Factura_Cuota
     FOREIGN KEY (id_cuota) REFERENCES facturacion.CuotaMensual(id_cuota),
     CONSTRAINT FK_Factura_CargoExtra
@@ -562,5 +559,3 @@ SELECT TABLE_SCHEMA, TABLE_NAME
 FROM INFORMATION_SCHEMA.TABLES
 WHERE TABLE_TYPE = 'BASE TABLE'
 ORDER BY TABLE_SCHEMA, TABLE_NAME;
-
-
