@@ -17,30 +17,34 @@ GO
 SET NOCOUNT ON;
 GO
 
-/*
-DELETE FROM cobranzas.Mora;
-DBCC CHECKIDENT ('cobranzas.Mora', RESEED, 0) WITH NO_INFOMSGS;
-DELETE FROM facturacion.Recargo;
-DBCC CHECKIDENT ('facturacion.Recargo', RESEED, 0) WITH NO_INFOMSGS;
-
--- Borrar pagos y medio de pago
-DELETE FROM cobranzas.Pago;
-DELETE FROM cobranzas.MedioDePago;
-DBCC CHECKIDENT ('cobranzas.Pago', RESEED, 0) WITH NO_INFOMSGS;
-DBCC CHECKIDENT ('cobranzas.MedioDePago', RESEED, 0) WITH NO_INFOMSGS;
-*/
-
+-- ================== LIMPIEZA DE FACTURACIÓN ==================
 DELETE FROM facturacion.DetalleFactura;
 DELETE FROM facturacion.Factura;
 DBCC CHECKIDENT ('facturacion.DetalleFactura', RESEED, 0) WITH NO_INFOMSGS;
 DBCC CHECKIDENT ('facturacion.Factura', RESEED, 0) WITH NO_INFOMSGS;
 
--- Borrar emisor de factura
+-- ================== LIMPIEZA DE ACTIVIDADES ==================
+DELETE FROM actividades.PresentismoClase;
+DELETE FROM facturacion.CargoMembresias;
+DELETE FROM facturacion.CargoClases; -- primero borrar cargos
+DELETE FROM facturacion.CuotaMensual
+DELETE FROM actividades.InscriptoClase;
+DELETE FROM actividades.Clase;
+DELETE FROM actividades.Actividad;
+
+DBCC CHECKIDENT ('facturacion.CargoMembresias', RESEED, 0) WITH NO_INFOMSGS;
+DBCC CHECKIDENT ('facturacion.CargoClases', RESEED, 0) WITH NO_INFOMSGS;
+DBCC CHECKIDENT ('actividades.InscriptoClase', RESEED, 0) WITH NO_INFOMSGS;
+DBCC CHECKIDENT ('actividades.Clase', RESEED, 0) WITH NO_INFOMSGS;
+DBCC CHECKIDENT ('actividades.Actividad', RESEED, 0) WITH NO_INFOMSGS;
+
+-- ================== LIMPIEZA DE EMISOR Y TARIFAS ==================
 DELETE FROM facturacion.EmisorFactura;
-DELETE FROM tarifas.TarifaColoniaVerano
-DELETE FROM tarifas.TarifaPiletaVerano
-DELETE FROM tarifas.TarifaReservaSum
 DBCC CHECKIDENT ('facturacion.EmisorFactura', RESEED, 0) WITH NO_INFOMSGS;
+
+DELETE FROM tarifas.TarifaColoniaVerano;
+DELETE FROM tarifas.TarifaPiletaVerano;
+DELETE FROM tarifas.TarifaReservaSum;
 DBCC CHECKIDENT ('tarifas.TarifaColoniaVerano', RESEED, 0) WITH NO_INFOMSGS;
 DBCC CHECKIDENT ('tarifas.TarifaPiletaVerano', RESEED, 0) WITH NO_INFOMSGS;
 DBCC CHECKIDENT ('tarifas.TarifaReservaSum', RESEED, 0) WITH NO_INFOMSGS;
@@ -201,6 +205,87 @@ EXEC actividades.GestionarPresentismoClase '44444444', 'Natación', 'Viernes 08:
 GO
 
 
+-- =================== CARGA DE CARGO DE MEMBRESÍA ===================
+
+-- FRANCISCO (45778667)
+EXEC facturacion.GenerarCargoMembresia '45778667', '2025-06-24';
+GO
+
+-- JUAN (33444555)
+EXEC facturacion.GenerarCargoMembresia '33444555', '2025-06-24';
+GO
+
+-- CAMILA (40606060)
+EXEC facturacion.GenerarCargoMembresia '40606060', '2025-06-24';
+GO
+
+-- PEDRO (41111111)
+EXEC facturacion.GenerarCargoMembresia '41111111', '2025-06-24';
+GO
+
+-- JULIÁN (41111112)
+EXEC facturacion.GenerarCargoMembresia '41111112', '2025-06-24';
+GO
+
+-- ANDREA (42222222)
+EXEC facturacion.GenerarCargoMembresia '42222222', '2025-06-24';
+GO
+
+-- SOFÍA (42222223)
+EXEC facturacion.GenerarCargoMembresia '42222223', '2025-06-24';
+GO
+
+-- VALENTÍN (43333334)
+EXEC facturacion.GenerarCargoMembresia '43333334', '2025-06-24';
+GO
+
+-- EMILIA (44444444)
+EXEC facturacion.GenerarCargoMembresia '44444444', '2025-06-24';
+GO
+
+-- =================== CARGA DE CARGO DE CLASES ===================
+
+-- FRANCISCO (45778667)
+EXEC facturacion.GenerarCargoClase '45778667', '2025-06-17'; -- Futsal - P
+EXEC facturacion.GenerarCargoClase '45778667', '2025-06-22'; -- Ajedrez - P
+GO
+
+-- JUAN (33444555)
+EXEC facturacion.GenerarCargoClase '33444555', '2025-06-22'; -- Ajedrez - P
+GO
+
+-- CAMILA (40606060)
+EXEC facturacion.GenerarCargoClase '40606060', '2025-06-21'; -- Natación - P
+GO
+
+-- PEDRO (41111111)
+EXEC facturacion.GenerarCargoClase '41111111', '2025-06-18'; -- Vóley - P
+GO
+
+-- JULIÁN (41111112)
+EXEC facturacion.GenerarCargoClase '41111112', '2025-06-24'; -- Futsal - P
+GO
+
+-- ANDREA (42222222)
+EXEC facturacion.GenerarCargoClase '42222222', '2025-06-20'; -- Baile artístico - P
+GO
+
+-- SOFÍA (42222223)
+EXEC facturacion.GenerarCargoClase '42222223', '2025-06-27'; -- Baile artístico - P
+GO
+
+-- VALENTÍN (43333334)
+EXEC facturacion.GenerarCargoClase '43333334', '2025-06-19'; -- Taekwondo - P
+GO
+
+-- EMILIA (44444444)
+EXEC facturacion.GenerarCargoClase '44444444', '2025-06-28'; -- Natación - P
+GO
+
+EXEC facturacion.GenerarCuotasMensualesPorFecha '2025-06-28';
+
+SELECT * FROM facturacion.CuotaMensual
+
 /*
 -- =================== GENERACI�N DE FACTURA MENSUAL ===================
 EXEC facturacion.GenerarFacturaSocioMensual '45778667', '20-12345678-4';
@@ -304,6 +389,15 @@ FROM actividades.InscriptoClase;
 SELECT id_presentismo, id_inscripcion, fecha, estado
 FROM actividades.presentismoClase
 ORDER BY fecha;
+
+SELECT S.nombre, S.apellido, IC.monto
+FROM facturacion.CargoMembresias CM
+INNER JOIN actividades.InscriptoCategoriaSocio IC ON IC.id_categoria = CM.id_inscripcion_categoria
+INNER JOIN  socios.Socio S ON IC.id_socio = S.ID_SOCIO
+
+SELECT *
+FROM facturacion.CargoClases
+
 /*
 SELECT id_extra, , costo, periodo, categoria, es_invitado, vigencia
 FROM actividades.ActividadExtra;

@@ -18,21 +18,48 @@ SET NOCOUNT ON;
 /* ==========================================================
    LIMPIEZA COMPLETA DE TABLAS SOCIOS Y GRUPOS FAMILIARES
 ========================================================== */
+
+DELETE FROM facturacion.CuotaMensual;
+DBCC CHECKIDENT ('facturacion.CuotaMensual', RESEED, 0);
+
+-- 1. Presentismo y clases
 DELETE FROM actividades.PresentismoClase;
 DBCC CHECKIDENT ('actividades.PresentismoClase', RESEED, 0);
+
+DELETE FROM facturacion.CargoClases;
+DBCC CHECKIDENT ('facturacion.CargoClases', RESEED, 0);
+
 DELETE FROM actividades.InscriptoClase;
 DBCC CHECKIDENT ('actividades.InscriptoClase', RESEED, 0);
+
 DELETE FROM actividades.Clase;
 DBCC CHECKIDENT ('actividades.Clase', RESEED, 0);
+
+-- 2. Cargo de membresías
+DELETE FROM facturacion.CargoMembresias;
+DBCC CHECKIDENT ('facturacion.CargoMembresias', RESEED, 0);
+
+-- 3. Inscripciones a categorías
+DELETE FROM actividades.InscriptoCategoriaSocio;
+DBCC CHECKIDENT ('actividades.InscriptoCategoriaSocio', RESEED, 0);
+
+-- 4. Grupo Familiar - relaciones y tutores
 DELETE FROM socios.GrupoFamiliarSocio;
 DELETE FROM socios.Tutor;
 DBCC CHECKIDENT ('socios.Tutor', RESEED, 0);
+
+-- 5. Grupos familiares
 DELETE FROM socios.GrupoFamiliar;
 DBCC CHECKIDENT ('socios.GrupoFamiliar', RESEED, 0);
+
+-- 6. Socios
 DELETE FROM socios.Socio;
 DBCC CHECKIDENT ('socios.Socio', RESEED, 0);
+
+-- 7. Categorías de socio
 DELETE FROM socios.CategoriaSocio;
 DBCC CHECKIDENT ('socios.CategoriaSocio', RESEED, 0);
+
 GO
 
 /* ==========================================================
@@ -140,4 +167,5 @@ SELECT * FROM socios.Socio;
 SELECT * FROM socios.GrupoFamiliar;
 SELECT * FROM socios.GrupoFamiliarSocio;
 SELECT * FROM socios.Tutor;
+SELECT * FROM actividades.InscriptoCategoriaSocio
 GO

@@ -1321,11 +1321,305 @@ DROP TABLE IF EXISTS facturacion.CuotaMensual;*/
   _______________________ GenerarCargoMembresia ______________________
   ____________________________________________________________________*/
 
-/*IF OBJECT_ID('facturacion.GenerarCargoMembresia', 'P') IS NOT NULL
-    DROP PROCEDURE facturacion.GestionarEmisorFactura;
+IF OBJECT_ID('facturacion.GenerarCargoMembresia', 'P') IS NOT NULL
+    DROP PROCEDURE facturacion.GenerarCargoMembresia;
 GO
 
 CREATE PROCEDURE facturacion.GenerarCargoMembresia
-    @dni_socio VARCHAR(100)
+    @dni_socio VARCHAR(100),
+	@fecha DATE
 AS
-BEGIN*/
+BEGIN
+	
+	DECLARE @id_socio INT;
+	DECLARE @id_inscripcion_categoria INT;
+
+	-- Validar existencia de FECHA
+	IF @fecha IS NULL
+	BEGIN
+		RAISERROR('La fecha ingresada es inválida', 16, 1);
+            RETURN;
+	END
+
+	-- Se busca el SOCIOS al que se le quiere generar el cargo
+	SET @id_socio = (SELECT TOP 1 id_socio
+					 FROM socios.Socio
+					 WHERE dni = @dni_socio
+					 AND activo = 1
+					 AND eliminado = 0)
+
+	-- Validar existencia de SOCIO
+	IF @id_socio IS NULL
+	BEGIN
+		RAISERROR('El socio no existe o no está activo.', 16, 1);
+            RETURN;
+	END
+
+	-- Se busca LA INSCRIPCION al que se le quiere generar el cargo
+	SET @id_inscripcion_categoria = (SELECT TOP 1 id_inscripcion
+									 FROM actividades.InscriptoCategoriaSocio
+									 WHERE id_socio = @id_socio
+									 AND fecha <= @fecha
+									 ORDER BY fecha DESC)
+
+	-- Validar existencia de INSCRIPCION
+	IF @id_inscripcion_categoria IS NULL
+	BEGIN
+		RAISERROR('No existe inscripción para el socio ingresado.', 16, 1);
+            RETURN;
+	END
+	-- Validar existencia de CARGO
+	IF EXISTS (SELECT TOP 1 CS.id_cargo
+			   FROM facturacion.CargoMembresias CS
+			   INNER JOIN actividades.InscriptoCategoriaSocio IC ON IC.id_inscripcion = CS.id_inscripcion_categoria
+			   INNER JOIN socios.Socio S ON S.id_socio = IC.id_socio
+			   WHERE IC.id_socio = @id_socio
+			   AND IC.fecha < @fecha
+			   ORDER BY IC.fecha DESC)
+	BEGIN
+		RAISERROR('Ya existe el cargo que se intenta generar.', 16, 1);
+            RETURN;
+	END
+
+	INSERT INTO facturacion.CargoMembresias
+	VALUES (
+		@id_inscripcion_categoria,
+		NULL,
+		(SELECT monto
+		 FROM actividades.InscriptoCategoriaSocio
+		 WHERE id_inscripcion = @id_inscripcion_categoria),
+		@fecha
+	)
+
+END;
+GO
+
+/*____________________________________________________________________
+  _________________________ GenerarCargoClase ________________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('facturacion.GenerarCargoClase', 'P') IS NOT NULL
+    DROP PROCEDURE facturacion.GenerarCargoClase;
+GO
+
+CREATE PROCEDURE facturacion.GenerarCargoClase
+    @dni_socio VARCHAR(100),
+    @fecha DATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @id_socio INT;
+
+    -- Validar existencia de FECHA
+    IF @fecha IS NULL
+    BEGIN
+        RAISERROR('La fecha ingresada es inválida.', 16, 1);
+        RETURN;
+    END
+
+    -- Buscar el socio
+    SELECT @id_socio = id_socio
+    FROM socios.Socio
+    WHERE dni = @dni_socio AND activo = 1 AND eliminado = 0;
+
+    IF @id_socio IS NULL
+    BEGIN
+        RAISERROR('El socio no existe o no está activo.', 16, 1);
+        RETURN;
+    END
+
+    -- Insertar un cargo por cada clase en la que esté inscripto ese día (sin duplicados)
+    INSERT INTO facturacion.CargoClases (id_inscripcion_clase, id_cuota, monto, fecha)
+    SELECT
+        IC.id_inscripcion,
+        NULL,
+        A.costo,
+        @fecha
+    FROM actividades.InscriptoClase IC
+    INNER JOIN actividades.Clase C ON C.id_clase = IC.id_clase
+    INNER JOIN actividades.Actividad A ON A.id_actividad = C.id_actividad
+    WHERE IC.id_socio = @id_socio-- Buscando las clases a las cuales un socio está inscripto
+      AND IC.fecha < @fecha
+      AND NOT EXISTS (
+          SELECT 1
+          FROM facturacion.CargoClases CC
+          WHERE CC.id_inscripcion_clase = IC.id_inscripcion
+            AND CC.fecha <= @fecha
+      );
+
+END;
+GO
+
+/*____________________________________________________________________
+  ___________________ GenerarCuotasMensualesPorFecha _________________
+  ____________________________________________________________________*/
+
+
+IF OBJECT_ID('facturacion.GenerarCuotasMensualesPorFecha', 'P') IS NOT NULL
+    DROP PROCEDURE facturacion.GenerarCuotasMensualesPorFecha;
+GO
+
+IF OBJECT_ID('facturacion.GenerarCuotasMensualesPorFecha', 'P') IS NOT NULL
+    DROP PROCEDURE facturacion.GenerarCuotasMensualesPorFecha;
+GO
+
+CREATE PROCEDURE facturacion.GenerarCuotasMensualesPorFecha
+    @fecha DATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validar fecha
+    IF @fecha IS NULL
+    BEGIN
+        RAISERROR('La fecha ingresada es inválida.', 16, 1);
+        RETURN;
+    END
+
+    DECLARE @primer_dia_mes DATE = DATEFROMPARTS(YEAR(@fecha), MONTH(@fecha), 1);
+    DECLARE @ultimo_dia_mes DATE = EOMONTH(@fecha);
+
+    ;WITH SociosPorGrupo AS (
+        SELECT GF.id_grupo, S.id_socio
+        FROM socios.GrupoFamiliar GF
+        INNER JOIN socios.GrupoFamiliarSocio GFS ON GFS.id_grupo = GF.id_grupo
+        INNER JOIN socios.Socio S ON S.id_socio = GFS.id_socio
+        WHERE S.activo = 1 AND S.eliminado = 0
+    ),
+
+    MembresiasPorGrupo AS (
+        SELECT id_grupo, SUM(monto) AS monto_membresia
+        FROM (
+            SELECT 
+                SPG.id_grupo,
+                SPG.id_socio,
+                MAX(CM.monto) AS monto
+            FROM SociosPorGrupo SPG
+            INNER JOIN actividades.InscriptoCategoriaSocio IC 
+                ON IC.id_socio = SPG.id_socio
+            INNER JOIN facturacion.CargoMembresias CM 
+                ON CM.id_inscripcion_categoria = IC.id_inscripcion
+            WHERE CM.fecha BETWEEN @primer_dia_mes AND @ultimo_dia_mes
+            GROUP BY SPG.id_grupo, SPG.id_socio
+        ) MembresiasPorSocio
+        GROUP BY id_grupo
+    ),
+
+    ClasesPorGrupo AS (
+        SELECT SPG.id_grupo, SUM(CC.monto) AS monto_actividad
+        FROM SociosPorGrupo SPG
+        INNER JOIN actividades.InscriptoClase IC ON IC.id_socio = SPG.id_socio
+        INNER JOIN facturacion.CargoClases CC 
+            ON CC.id_inscripcion_clase = IC.id_inscripcion
+            AND CC.fecha BETWEEN @primer_dia_mes AND @ultimo_dia_mes
+        GROUP BY SPG.id_grupo
+    ),
+
+    TotalesPorGrupo AS (
+        SELECT
+            GF.id_grupo,
+            ISNULL(M.monto_membresia, 0) AS monto_membresia,
+            ISNULL(C.monto_actividad, 0) AS monto_actividad
+        FROM socios.GrupoFamiliar GF
+        LEFT JOIN MembresiasPorGrupo M ON M.id_grupo = GF.id_grupo
+        LEFT JOIN ClasesPorGrupo C ON C.id_grupo = GF.id_grupo
+    )
+
+    INSERT INTO facturacion.CuotaMensual (monto_membresia, monto_actividad, fecha)
+    SELECT monto_membresia, monto_actividad, @ultimo_dia_mes
+    FROM TotalesPorGrupo TPG
+    WHERE NOT EXISTS (
+        SELECT 1 FROM facturacion.CuotaMensual CM
+        WHERE CM.fecha = @ultimo_dia_mes
+    );
+
+END;
+GO
+
+/*____________________________________________________________________
+  ______________________ GenerarFacturasMensuales ____________________
+  ____________________________________________________________________*/
+  /*
+IF OBJECT_ID('facturacion.GenerarFacturasMensuales', 'P') IS NOT NULL
+    DROP PROCEDURE facturacion.GenerarFacturasMensuales;
+GO
+
+CREATE PROCEDURE facturacion.GenerarFacturasDesdeCuotasMensuales
+    @fecha DATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validar fecha
+    IF @fecha IS NULL
+    BEGIN
+        RAISERROR('La fecha ingresada es inválida.', 16, 1);
+        RETURN;
+    END
+
+    DECLARE @id_emisor INT;
+    SELECT TOP 1 @id_emisor = id_emisor FROM facturacion.EmisorFactura;
+
+    IF @id_emisor IS NULL
+    BEGIN
+        RAISERROR('No se encontró un emisor de facturas.', 16, 1);
+        RETURN;
+    END
+
+    DECLARE @fecha_vto1 DATE = DATEADD(DAY, 5, @fecha);
+    DECLARE @fecha_vto2 DATE = DATEADD(DAY, 10, @fecha);
+
+    ;WITH CuotasConResponsables AS (
+        SELECT
+            GM.id_grupo,
+            GM.id_socio_rp,
+            T.id_tutor,
+            CM.id_cuota,
+            CM.monto_membresia,
+            CM.monto_actividad,
+            CM.fecha,
+            ISNULL(S.saldo, 0) AS saldo_anterior
+        FROM facturacion.CuotaMensual CM
+        JOIN socios.GrupoFamiliar GM ON GM.id_grupo = CM.id_cuota
+        LEFT JOIN socios.Socio S ON S.id_socio = GM.id_socio_rp
+        LEFT JOIN socios.Tutor T ON T.id_grupo = GM.id_grupo
+        WHERE CM.fecha = @fecha
+    )
+    INSERT INTO facturacion.Factura (
+        id_emisor, id_socio, monto_total, saldo_anterior,
+        fecha_emision, fecha_vencimiento1, fecha_vencimiento2,
+        estado, id_cuota, id_cargo_actividad_extra
+    )
+    OUTPUT INSERTED.id_factura, 
+           C.monto_membresia, 
+           C.monto_actividad
+    INTO #FacturasGeneradas (id_factura, monto_membresia, monto_actividad)
+    SELECT
+        @id_emisor,
+        ISNULL(C.id_socio_rp, T.id_tutor), -- Prioridad responsable > tutor
+        C.monto_membresia + C.monto_actividad,
+        C.saldo_anterior,
+        C.fecha,
+        @fecha_vto1,
+        @fecha_vto2,
+        'Emitida',
+        C.id_cuota,
+        NULL
+    FROM CuotasConResponsables C
+    LEFT JOIN socios.Tutor T ON T.id_grupo = C.id_grupo;
+
+    -- Insertar detalles de factura
+    INSERT INTO facturacion.DetalleFactura (id_factura, concepto, monto, tipo_concepto)
+    SELECT id_factura, 'Membresía mensual', monto_membresia, 'Membresía'
+    FROM #FacturasGeneradas
+    WHERE monto_membresia > 0
+
+    UNION ALL
+
+    SELECT id_factura, 'Actividades del mes', monto_actividad, 'Actividad'
+    FROM #FacturasGeneradas
+    WHERE monto_actividad > 0;
+END;
+GO
+*/
