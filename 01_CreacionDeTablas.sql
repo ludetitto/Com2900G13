@@ -78,9 +78,8 @@ DROP PROCEDURE IF EXISTS tarifas.GestionarTarifaPiletaVerano
 
 DROP PROCEDURE IF EXISTS socios.GestionarCategoriaSocio;
 DROP PROCEDURE IF EXISTS socios.GestionarSocio;
-DROP PROCEDURE IF EXISTS socios.GestionarGrupoFamiliar;
-DROP PROCEDURE IF EXISTS socios.GestionarTutorDeSocio;
-DROP PROCEDURE IF EXISTS socios.GestionarInvitado;
+DROP PROCEDURE IF EXISTS socios.GestionarResponsableGrupoFamiliar;
+
 
 -- Eliminar vistas del esquema socios si las hubiera
 DROP VIEW IF EXISTS socios.vwGrupoFamiliarConCategorias;
