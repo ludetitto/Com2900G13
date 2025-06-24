@@ -107,6 +107,7 @@ DROP TABLE IF EXISTS cobranzas.PagoACuenta;
 DROP TABLE IF EXISTS cobranzas.Reembolso;
 DROP TABLE IF EXISTS cobranzas.Pago;
 DROP TABLE IF EXISTS cobranzas.Mora;
+DROP TABLE IF EXISTS cobranzas.MedioDePago;
 
 DROP TABLE IF EXISTS facturacion.DetalleFactura;
 DROP TABLE IF EXISTS facturacion.Factura;
@@ -138,8 +139,6 @@ DROP TABLE IF EXISTS socios.Socio;
 DROP TABLE IF EXISTS socios.Invitado;
 DROP TABLE IF EXISTS socios.CategoriaSocio;
 
-DROP TABLE IF EXISTS administracion.MedioDePago;
-
 -- ===============================
 -- Eliminación segura de esquemas
 -- ===============================
@@ -153,8 +152,6 @@ DROP SCHEMA IF EXISTS tarifas;
 GO
 DROP SCHEMA IF EXISTS reservas;
 GO
-DROP SCHEMA IF EXISTS administracion;
-GO
 DROP SCHEMA IF EXISTS socios;
 GO
 
@@ -163,8 +160,6 @@ GO
 -- ===============================
 
 CREATE SCHEMA socios;
-GO
-CREATE SCHEMA administracion;
 GO
 CREATE SCHEMA actividades;
 GO
@@ -176,16 +171,6 @@ CREATE SCHEMA reservas;
 GO
 CREATE SCHEMA tarifas;
 GO
-
--- ===============================
--- Módulo: ADMINISTRACION
--- ===============================
-
-CREATE TABLE administracion.MedioDePago (
-    id_medio_pago INT IDENTITY PRIMARY KEY,
-    nombre VARCHAR(50) NOT NULL,
-    debito_automatico BIT NOT NULL
-);
 
 -- ===============================
 -- Módulo: SOCIOS
@@ -460,6 +445,13 @@ CREATE TABLE cobranzas.PagoACuenta (
     fecha DATE,
     monto DECIMAL(10,2)
 );
+
+CREATE TABLE cobranzas.MedioDePago (
+    id_medio_pago INT IDENTITY PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL,
+    debito_automatico BIT NOT NULL
+);
+
 
 -- ===============================
 -- RELACIONES: SOCIOS

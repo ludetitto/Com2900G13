@@ -37,41 +37,41 @@ BEGIN
 
         IF @operacion = 'Insertar'
         BEGIN
-            IF EXISTS (SELECT 1 FROM administracion.MedioDePago WHERE nombre = @nombre)
+            IF EXISTS (SELECT 1 FROM cobranzas.MedioDePago WHERE nombre = @nombre)
             BEGIN
                 RAISERROR('Ya existe un medio de pago con ese nombre.', 16, 1);
                 ROLLBACK;
                 RETURN;
             END
 
-            INSERT INTO administracion.MedioDePago (nombre, debito_automatico)
+            INSERT INTO cobranzas.MedioDePago (nombre, debito_automatico)
             VALUES (@nombre, @debito_automatico);
         END
 
         ELSE IF @operacion = 'Modificar'
         BEGIN
-            IF NOT EXISTS (SELECT 1 FROM administracion.MedioDePago WHERE nombre = @nombre)
+            IF NOT EXISTS (SELECT 1 FROM cobranzas.MedioDePago WHERE nombre = @nombre)
             BEGIN
                 RAISERROR('No se encontró el medio de pago para modificar.', 16, 1);
                 ROLLBACK;
                 RETURN;
             END
 
-            UPDATE administracion.MedioDePago
+            UPDATE cobranzas.MedioDePago
             SET debito_automatico = @debito_automatico
             WHERE nombre = @nombre;
         END
 
         ELSE IF @operacion = 'Eliminar'
         BEGIN
-            IF NOT EXISTS (SELECT 1 FROM administracion.MedioDePago WHERE nombre = @nombre)
+            IF NOT EXISTS (SELECT 1 FROM cobranzas.MedioDePago WHERE nombre = @nombre)
             BEGIN
                 RAISERROR('No se encontró el medio de pago para eliminar.', 16, 1);
                 ROLLBACK;
                 RETURN;
             END
 
-            DELETE FROM administracion.MedioDePago
+            DELETE FROM cobranzas.MedioDePago
             WHERE nombre = @nombre;
         END
 
@@ -202,7 +202,7 @@ BEGIN
         END
 
         SELECT @id_medio_pago = id_medio_pago
-        FROM administracion.MedioDePago
+        FROM cobranzas.MedioDePago
         WHERE nombre = @nombre_medio AND debito_automatico = 1;
 
         IF @id_medio_pago IS NULL
@@ -266,7 +266,7 @@ BEGIN
 
         -- Buscar medio de pago
         SELECT @id_medio = id_medio_pago
-        FROM administracion.MedioDePago
+        FROM cobranzas.MedioDePago
         WHERE nombre = @nombre_medio;
 
         IF @id_medio IS NULL
