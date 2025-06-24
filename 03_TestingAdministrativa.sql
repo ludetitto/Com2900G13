@@ -344,3 +344,118 @@ EXEC socios.GestionarSocio
     @operacion = 'Eliminar';
 -- Resultado esperado: Error por socio no encontrado
 GO
+
+
+/*_____________________________________________________________________
+  _________________ PRUEBAS socios.GestionarGrupoFamiliar ______________
+  _____________________________________________________________________*/
+-- ✅ PRUEBA 1: Asignar responsable SOCIO (Lucía Gómez)
+EXEC socios.GestionarResponsableGrupoFamiliar
+    @dni_grupo = '31111113',
+    @nuevo_dni_resp = '34444444',
+    @tipo_responsable = 'socio';
+GO
+
+-- 🔍 Verificación
+SELECT * FROM socios.CategoriaSocio;
+SELECT * FROM socios.Socio;
+SELECT * FROM socios.Tutor;
+SELECT * FROM socios.GrupoFamiliar;
+SELECT * FROM socios.GrupoFamiliarSocio;
+GO
+
+
+--✅ PRUEBA 2: Reasignar responsable SOCIO (Nicolás Martínez)
+EXEC socios.GestionarResponsableGrupoFamiliar
+    @dni_grupo = '31111113',
+    @nuevo_dni_resp = '32222222',
+    @tipo_responsable = 'socio';
+GO
+
+-- 🔍 Verificación
+SELECT * FROM socios.CategoriaSocio;
+SELECT * FROM socios.Socio;
+SELECT * FROM socios.Tutor;
+SELECT * FROM socios.GrupoFamiliar;
+SELECT * FROM socios.GrupoFamiliarSocio;
+GO
+-- ✅ PRUEBA 3: Asignar TUTOR como responsable (Pedro López)
+EXEC socios.GestionarResponsableGrupoFamiliar
+    @dni_grupo = '31111111',
+    @nuevo_dni_resp = '31111114',
+    @tipo_responsable = 'tutor',
+    @nombre = 'Pedro',
+    @apellido = 'López',
+    @domicilio = 'Calle Sombra 999',
+    @email = 'pedro.lopez@email.com';
+GO
+
+-- 🔍 Verificación
+SELECT * FROM socios.CategoriaSocio;
+SELECT * FROM socios.Socio;
+SELECT * FROM socios.Tutor;
+SELECT * FROM socios.GrupoFamiliar;
+SELECT * FROM socios.GrupoFamiliarSocio;
+
+-- ❌ PRUEBA 4: Asignar TUTOR ya asignado a otro grupo (Laura)
+EXEC socios.GestionarResponsableGrupoFamiliar 
+    @dni_grupo = '34444444',               -- Grupo 6
+    @nuevo_dni_resp = '31111112',          -- Laura (ya está en grupo 5)
+    @tipo_responsable = 'tutor',
+    @nombre = 'Laura',
+    @apellido = 'Martínez',
+    @domicilio = 'Calle del Sol 222',
+    @email = 'laura.martinez@email.com';
+-- ✅ Esperado: Error "Ese tutor ya está asignado a otro grupo familiar"
+GO
+
+-- 🔍 Verificación
+SELECT * FROM socios.Tutor ORDER BY id_grupo;
+SELECT * FROM socios.GrupoFamiliar ORDER BY id_grupo;
+SELECT * FROM socios.GrupoFamiliarSocio ORDER BY id_grupo, id_socio;
+GO
+
+-- ❌ PRUEBA 5: Asignar SOCIO que no pertenece al grupo (Carlos)
+EXEC socios.GestionarResponsableGrupoFamiliar
+    @dni_grupo = '31111111',
+    @nuevo_dni_resp = '30000000',
+    @tipo_responsable = 'socio';
+-- Esperado: Error "El nuevo socio responsable no pertenece al grupo."
+GO
+
+-- 🔍 Verificación
+SELECT * FROM socios.GrupoFamiliar ORDER BY id_grupo;
+SELECT * FROM socios.Tutor ORDER BY id_grupo;
+GO
+
+
+/*_____________________________________________________________________
+  _________________ PRUEBAS socios.vwGrupoFamiliarConCategorias ______________
+  _____________________________________________________________________*/
+
+
+-- Ver todos los grupos con sus integrantes activos y categoría
+SELECT * FROM socios.vwGrupoFamiliarConCategorias
+ORDER BY id_grupo, es_responsable DESC, apellido;
+GO
+
+-- Ver solo integrantes del grupo 6
+SELECT * FROM socios.vwGrupoFamiliarConCategorias
+WHERE id_grupo = 6;
+GO
+
+-- Ver datos del socio Carlos Gómez por DNI
+SELECT * FROM socios.vwGrupoFamiliarConCategorias
+WHERE dni = '30000000';
+GO
+
+-- Contar socios por grupo
+SELECT id_grupo, COUNT(*) AS cantidad_socios
+FROM socios.vwGrupoFamiliarConCategorias
+GROUP BY id_grupo;
+GO
+
+-- Ver solo responsables de grupo
+SELECT * FROM socios.vwGrupoFamiliarConCategorias
+WHERE es_responsable = 1;
+GO

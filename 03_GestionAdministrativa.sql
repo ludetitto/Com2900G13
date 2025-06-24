@@ -1,16 +1,16 @@
-/* =========================================================================
-   Trabajo Pr·ctico Integrador - Bases de Datos Aplicadas
-   Grupo N∞: 13
-   ComisiÛn: 2900
+Ôªø/* =========================================================================
+   Trabajo Pr√°ctico Integrador - Bases de Datos Aplicadas
+   Grupo N¬∞: 13
+   Comisi√≥n: 2900
    Fecha de Entrega: 17/06/2025
    Materia: Bases de Datos Aplicadas
    Alumnos: Vignardel Francisco				45778667
             De Titto Lucia					46501934
 			Borja Tomas						42353302
-			Rodriguez Sebasti·n Ezequiel	41691928
+			Rodriguez Sebasti√°n Ezequiel	41691928
    
-   Consigna: Genere store procedures para manejar la inserciÛn, modificado, borrado (si corresponde,
-tambiÈn debe decidir si determinadas entidades solo admitir·n borrado lÛgico) de cada tabla.
+   Consigna: Genere store procedures para manejar la inserci√≥n, modificado, borrado (si corresponde,
+tambi√©n debe decidir si determinadas entidades solo admitir√°n borrado l√≥gico) de cada tabla.
  ========================================================================= */
 USE COM2900G13;
 GO
@@ -36,7 +36,7 @@ BEGIN
 
     IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
     BEGIN
-        RAISERROR('OperaciÛn inv·lida. Use Insertar, Modificar o Eliminar.', 16, 1);
+        RAISERROR('Operaci√≥n inv√°lida. Use Insertar, Modificar o Eliminar.', 16, 1);
         RETURN;
     END
 
@@ -44,19 +44,19 @@ BEGIN
     BEGIN
         IF LTRIM(RTRIM(@descripcion)) = ''
         BEGIN
-            RAISERROR('La descripciÛn es obligatoria.', 16, 1);
+            RAISERROR('La descripci√≥n es obligatoria.', 16, 1);
             RETURN;
         END
 
         IF @edad_minima IS NULL OR @edad_maxima IS NULL OR @edad_minima > @edad_maxima
         BEGIN
-            RAISERROR('El rango de edad es inv·lido.', 16, 1);
+            RAISERROR('El rango de edad es inv√°lido.', 16, 1);
             RETURN;
         END
 
         IF EXISTS (SELECT 1 FROM socios.CategoriaSocio WHERE descripcion = @descripcion)
         BEGIN
-            RAISERROR('Ya existe una categorÌa con esa descripciÛn.', 16, 1);
+            RAISERROR('Ya existe una categor√≠a con esa descripci√≥n.', 16, 1);
             RETURN;
         END
 
@@ -68,7 +68,7 @@ BEGIN
     BEGIN
         IF NOT EXISTS (SELECT 1 FROM socios.CategoriaSocio WHERE descripcion = @descripcion)
         BEGIN
-            RAISERROR('CategorÌa no encontrada.', 16, 1);
+            RAISERROR('Categor√≠a no encontrada.', 16, 1);
             RETURN;
         END
 
@@ -85,7 +85,7 @@ BEGIN
     BEGIN
         IF NOT EXISTS (SELECT 1 FROM socios.CategoriaSocio WHERE descripcion = @descripcion)
         BEGIN
-            RAISERROR('No se encontrÛ una categorÌa con esa descripciÛn para eliminar.', 16, 1);
+            RAISERROR('No se encontr√≥ una categor√≠a con esa descripci√≥n para eliminar.', 16, 1);
             RETURN;
         END
 
@@ -130,7 +130,7 @@ BEGIN
 
     IF @operacion NOT IN ('Insertar', 'Eliminar')
     BEGIN
-        RAISERROR('OperaciÛn inv·lida. Use Insertar o Eliminar.', 16, 1);
+        RAISERROR('Operaci√≥n inv√°lida. Use Insertar o Eliminar.', 16, 1);
         RETURN;
     END
 
@@ -140,8 +140,7 @@ BEGIN
         @id_socio INT,
         @id_socio_ref INT,
         @id_grupo_ref INT,
-        @id_grupo_nuevo INT,
-        @id_responsable_ref INT;
+        @id_grupo_nuevo INT;
 
     IF @operacion = 'Insertar'
     BEGIN
@@ -160,7 +159,7 @@ BEGIN
 
         IF @id_categoria IS NULL
         BEGIN
-            RAISERROR('No existe categorÌa para la edad especificada.', 16, 1);
+            RAISERROR('No existe categor√≠a para la edad especificada.', 16, 1);
             RETURN;
         END
 
@@ -171,12 +170,10 @@ BEGIN
         IF @id_socio IS NOT NULL
         BEGIN
             DECLARE @ya_eliminado BIT;
-
             SELECT @ya_eliminado = eliminado FROM socios.Socio WHERE id_socio = @id_socio;
 
             IF @ya_eliminado = 1
             BEGIN
-                -- Reactivar y actualizar datos personales
                 UPDATE socios.Socio
                 SET 
                     nombre = @nombre,
@@ -192,33 +189,6 @@ BEGIN
                     activo = 1,
                     eliminado = 0
                 WHERE id_socio = @id_socio;
-
-                -- Restaurar vÌnculo con grupo (si se pasÛ socio de referencia)
-                IF @dni_integrante_grupo IS NOT NULL
-                BEGIN
-                    SELECT @id_socio_ref = id_socio FROM socios.Socio WHERE dni = @dni_integrante_grupo;
-
-                    IF @id_socio_ref IS NOT NULL
-                    BEGIN
-                        SELECT TOP 1 @id_grupo_ref = gf.id_grupo
-                        FROM socios.GrupoFamiliar gf
-                        INNER JOIN socios.GrupoFamiliarSocio gfs ON gf.id_grupo = gfs.id_grupo
-                        WHERE gfs.id_socio = @id_socio_ref;
-
-                        IF @id_grupo_ref IS NOT NULL
-                        BEGIN
-                            INSERT INTO socios.GrupoFamiliarSocio (id_grupo, id_socio)
-                            VALUES (@id_grupo_ref, @id_socio);
-
-                            IF @edad >= 18 AND @es_responsable = 1
-                            BEGIN
-                                UPDATE socios.GrupoFamiliar
-                                SET id_socio_rp = @id_socio
-                                WHERE id_grupo = @id_grupo_ref;
-                            END
-                        END
-                    END
-                END
             END
             ELSE
             BEGIN
@@ -228,7 +198,6 @@ BEGIN
         END
         ELSE
         BEGIN
-            -- Insertar nuevo socio
             INSERT INTO socios.Socio (
                 nombre, apellido, dni, email, fecha_nacimiento,
                 telefono, telefono_emergencia, direccion,
@@ -245,9 +214,47 @@ BEGIN
             SELECT @id_socio = SCOPE_IDENTITY();
         END
 
-        -- Si no se est· reinsertando y no tenÌa grupo, crearlo
-        IF @dni_integrante_grupo IS NULL
+        -- Vinculaci√≥n a grupo (nuevo o existente)
+        IF @dni_integrante_grupo IS NOT NULL
         BEGIN
+            SELECT @id_socio_ref = id_socio FROM socios.Socio WHERE dni = @dni_integrante_grupo;
+
+            IF @id_socio_ref IS NULL
+            BEGIN
+                RAISERROR('No se encontr√≥ el socio indicado como referencia de grupo.', 16, 1);
+                RETURN;
+            END
+
+            SELECT TOP 1 @id_grupo_ref = gf.id_grupo
+            FROM socios.GrupoFamiliar gf
+            JOIN socios.GrupoFamiliarSocio gfs ON gf.id_grupo = gfs.id_grupo
+            WHERE gfs.id_socio = @id_socio_ref;
+
+            IF @id_grupo_ref IS NULL
+            BEGIN
+                RAISERROR('El socio indicado no pertenece a ning√∫n grupo familiar.', 16, 1);
+                RETURN;
+            END
+
+            IF NOT EXISTS (
+                SELECT 1 FROM socios.GrupoFamiliarSocio 
+                WHERE id_grupo = @id_grupo_ref AND id_socio = @id_socio
+            )
+            BEGIN
+                INSERT INTO socios.GrupoFamiliarSocio (id_grupo, id_socio)
+                VALUES (@id_grupo_ref, @id_socio);
+            END
+
+            IF @edad >= 18 AND @es_responsable = 1
+            BEGIN
+                UPDATE socios.GrupoFamiliar
+                SET id_socio_rp = @id_socio
+                WHERE id_grupo = @id_grupo_ref;
+            END
+        END
+        ELSE
+        BEGIN
+            -- Crear grupo nuevo
             IF @edad < 18
             BEGIN
                 IF @dni_tutor IS NULL OR @nombre_tutor IS NULL OR @email_tutor IS NULL OR @domicilio_tutor IS NULL
@@ -287,7 +294,7 @@ BEGIN
 
         IF @id_socio IS NULL
         BEGIN
-            RAISERROR('No se encontrÛ un socio con ese DNI.', 16, 1);
+            RAISERROR('No se encontr√≥ un socio con ese DNI.', 16, 1);
             RETURN;
         END
 
@@ -314,7 +321,6 @@ BEGIN
             WHERE id_grupo = @id_grupo_ref;
         END
 
-        -- EliminaciÛn lÛgica
         UPDATE socios.Socio
         SET activo = 0,
             eliminado = 1
@@ -326,213 +332,118 @@ END;
 GO
 
 
-
 /*____________________________________________________________________
-  _____________________ GestionarGrupoFamiliar _____________________
+  ______________ GestionarResponsableGrupoFamiliar ___________________
   ____________________________________________________________________*/
- IF OBJECT_ID('socios.GestionarGrupoFamiliar','P') IS NOT NULL
-    DROP PROCEDURE socios.GestionarGrupoFamiliar;
+IF OBJECT_ID('socios.GestionarResponsableGrupoFamiliar', 'P') IS NOT NULL
+    DROP PROCEDURE socios.GestionarResponsableGrupoFamiliar;
 GO
 
-CREATE PROCEDURE socios.GestionarGrupoFamiliar
-    @dni_socio       CHAR(8),
-    @dni_responsable CHAR(8),
-    @operacion       CHAR(10)
+CREATE PROCEDURE socios.GestionarResponsableGrupoFamiliar
+    @dni_grupo          CHAR(8),       -- DNI de un socio del grupo (para ubicar el grupo)
+    @nuevo_dni_resp     VARCHAR(20),   -- DNI del nuevo responsable (socio o tutor)
+    @tipo_responsable   VARCHAR(10),   -- 'socio' o 'tutor'
+    @nombre             VARCHAR(50) = NULL,
+    @apellido           VARCHAR(50) = NULL,
+    @domicilio          VARCHAR(200) = NULL,
+    @email              VARCHAR(70) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    IF @operacion NOT IN ('Insertar', 'Eliminar')
+    IF @tipo_responsable NOT IN ('socio', 'tutor')
     BEGIN
-        RAISERROR('OperaciÛn inv·lida. Use Insertar o Eliminar.', 16, 1);
+        RAISERROR('Tipo de responsable inv√°lido. Use "socio" o "tutor".', 16, 1);
         RETURN;
     END
 
-    DECLARE @id_socio INT, @id_socio_rp INT, @id_grupo INT;
+    DECLARE @id_grupo INT, @id_nuevo INT;
 
-    SELECT @id_socio = id_socio FROM socios.Socio WHERE dni = @dni_socio;
-    SELECT @id_socio_rp = id_socio FROM socios.Socio WHERE dni = @dni_responsable;
-
-    IF @id_socio IS NULL OR @id_socio_rp IS NULL
-    BEGIN
-        RAISERROR('Socio o responsable no encontrado.', 16, 1);
-        RETURN;
-    END
-
-    IF @operacion = 'Insertar'
-    BEGIN
-        -- Obtener grupo del responsable
-        SELECT TOP 1 @id_grupo = id_grupo 
-        FROM socios.GrupoFamiliar 
-        WHERE id_socio_rp = @id_socio_rp;
-
-        IF @id_grupo IS NULL
-        BEGIN
-            -- Si no tenÌa grupo, crearlo
-            INSERT INTO socios.GrupoFamiliar (id_socio_rp) VALUES (@id_socio_rp);
-            SET @id_grupo = SCOPE_IDENTITY();
-        END
-
-        -- Agregar al socio al grupo
-        IF EXISTS (
-            SELECT 1 FROM socios.GrupoFamiliarSocio 
-            WHERE id_socio = @id_socio AND id_grupo = @id_grupo
-        )
-        BEGIN
-            RAISERROR('El socio ya pertenece a ese grupo.', 16, 1);
-            RETURN;
-        END
-
-        INSERT INTO socios.GrupoFamiliarSocio (id_grupo, id_socio)
-        VALUES (@id_grupo, @id_socio);
-    END
-
-    ELSE IF @operacion = 'Eliminar'
-    BEGIN
-        DELETE FROM socios.GrupoFamiliarSocio
-        WHERE id_socio = @id_socio;
-    END
-END;
-GO
-
-/*____________________________________________________________________
-  _______________________ GestionarTutorDeSocio _______________________
-  ____________________________________________________________________*/
-IF OBJECT_ID('socios.GestionarTutorDeSocio','P') IS NOT NULL
-    DROP PROCEDURE socios.GestionarTutorDeSocio;
-GO
-
-CREATE PROCEDURE socios.GestionarTutorDeSocio
-    @dni_socio_menor CHAR(8),
-    @dni_tutor       CHAR(10),
-    @nombre          VARCHAR(50),
-    @apellido        VARCHAR(50),
-    @domicilio       VARCHAR(200),
-    @email           VARCHAR(70),
-    @operacion       CHAR(10)
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    IF @operacion NOT IN ('Insertar', 'Eliminar')
-    BEGIN
-        RAISERROR('OperaciÛn inv·lida. Use Insertar o Eliminar.', 16, 1);
-        RETURN;
-    END
-
-    DECLARE @id_socio_menor INT, @id_grupo INT;
-
-    SELECT @id_socio_menor = id_socio
-    FROM socios.Socio
-    WHERE dni = @dni_socio_menor;
-
-    IF @id_socio_menor IS NULL
-    BEGIN
-        RAISERROR('No se encontrÛ el socio menor con ese DNI.', 16, 1);
-        RETURN;
-    END
-
-    SELECT @id_grupo = gf.id_grupo
-    FROM socios.GrupoFamiliar gf
-    JOIN socios.GrupoFamiliarSocio gfs ON gf.id_grupo = gfs.id_grupo
-    WHERE gfs.id_socio = @id_socio_menor;
+    -- Obtener grupo al que pertenece el socio
+    SELECT TOP 1 @id_grupo = gfs.id_grupo
+    FROM socios.GrupoFamiliarSocio gfs
+    JOIN socios.Socio s ON gfs.id_socio = s.id_socio
+    WHERE s.dni = @dni_grupo;
 
     IF @id_grupo IS NULL
     BEGIN
-        RAISERROR('El socio menor no est· asignado a ning˙n grupo familiar.', 16, 1);
+        RAISERROR('No se encontr√≥ el grupo familiar del socio indicado.', 16, 1);
         RETURN;
     END
 
-    IF @operacion = 'Insertar'
+    IF @tipo_responsable = 'socio'
     BEGIN
+        SELECT @id_nuevo = id_socio
+        FROM socios.Socio
+        WHERE dni = @nuevo_dni_resp;
+
+        IF @id_nuevo IS NULL
+        BEGIN
+            RAISERROR('No se encontr√≥ el socio indicado como nuevo responsable.', 16, 1);
+            RETURN;
+        END
+
+        IF NOT EXISTS (
+            SELECT 1
+            FROM socios.GrupoFamiliarSocio
+            WHERE id_grupo = @id_grupo AND id_socio = @id_nuevo
+        )
+        BEGIN
+            RAISERROR('El nuevo socio responsable no pertenece al grupo.', 16, 1);
+            RETURN;
+        END
+
+        -- Asignar como responsable
+        UPDATE socios.GrupoFamiliar
+        SET id_socio_rp = @id_nuevo
+        WHERE id_grupo = @id_grupo;
+
+        -- Eliminar tutor si lo hay
+        DELETE FROM socios.Tutor
+        WHERE id_grupo = @id_grupo;
+    END
+    ELSE IF @tipo_responsable = 'tutor'
+    BEGIN
+        IF @nombre IS NULL OR @apellido IS NULL OR @domicilio IS NULL OR @email IS NULL
+        BEGIN
+            RAISERROR('Faltan datos obligatorios del tutor.', 16, 1);
+            RETURN;
+        END
+
+        -- ‚ö† Validaci√≥n cr√≠tica corregida con RTRIM
+        IF EXISTS (
+            SELECT 1 FROM socios.Tutor
+            WHERE RTRIM(dni) = RTRIM(@nuevo_dni_resp) AND id_grupo <> @id_grupo
+        )
+        BEGIN
+            RAISERROR('Ese tutor ya est√° asignado a otro grupo familiar.', 16, 1);
+            RETURN;
+        END
+
         IF EXISTS (SELECT 1 FROM socios.Tutor WHERE id_grupo = @id_grupo)
         BEGIN
-            RAISERROR('Ese grupo familiar ya tiene un tutor asignado.', 16, 1);
-            RETURN;
+            UPDATE socios.Tutor
+            SET dni = @nuevo_dni_resp,
+                nombre = @nombre,
+                apellido = @apellido,
+                domicilio = @domicilio,
+                email = @email
+            WHERE id_grupo = @id_grupo;
+        END
+        ELSE
+        BEGIN
+            INSERT INTO socios.Tutor (id_grupo, dni, nombre, apellido, domicilio, email)
+            VALUES (@id_grupo, @nuevo_dni_resp, @nombre, @apellido, @domicilio, @email);
         END
 
-        INSERT INTO socios.Tutor (id_grupo, dni, nombre, apellido, domicilio, email)
-        VALUES (@id_grupo, @dni_tutor, @nombre, @apellido, @domicilio, @email);
-    END
-
-    ELSE IF @operacion = 'Eliminar'
-    BEGIN
-        DELETE FROM socios.Tutor WHERE id_grupo = @id_grupo;
+        -- Quitar responsable si lo hab√≠a
+        UPDATE socios.GrupoFamiliar
+        SET id_socio_rp = NULL
+        WHERE id_grupo = @id_grupo;
     END
 END;
 GO
 
-
-
-/*____________________________________________________________________
-  _______________________ GestionarInvitado _______________________
-  ____________________________________________________________________*/
-IF OBJECT_ID('socios.GestionarInvitado', 'P') IS NOT NULL
-    DROP PROCEDURE socios.GestionarInvitado;
-GO
-
-CREATE PROCEDURE socios.GestionarInvitado
-    @dni_socio     CHAR(8),
-    @dni_invitado  CHAR(8),
-    @nombre        VARCHAR(50),
-    @apellido      VARCHAR(50),
-    @email         VARCHAR(100),
-    @domicilio     VARCHAR(150),
-    @operacion     CHAR(10)
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    IF @operacion NOT IN ('Insertar', 'Eliminar')
-    BEGIN
-        RAISERROR('OperaciÛn inv·lida. Use Insertar o Eliminar.', 16, 1);
-        RETURN;
-    END
-
-    DECLARE @id_socio INT;
-
-    SELECT @id_socio = id_socio FROM socios.Socio WHERE dni = @dni_socio;
-
-    IF @id_socio IS NULL
-    BEGIN
-        RAISERROR('No se encontrÛ un socio con ese DNI.', 16, 1);
-        RETURN;
-    END
-
-    IF @operacion = 'Insertar'
-    BEGIN
-        IF EXISTS (
-            SELECT 1 
-              FROM socios.Invitado
-             WHERE id_socio = @id_socio AND dni = @dni_invitado
-        )
-        BEGIN
-            RAISERROR('Este invitado ya est· asignado a ese socio.', 16, 1);
-            RETURN;
-        END
-
-        INSERT INTO socios.Invitado (
-            dni, nombre, apellido, domicilio, email, id_socio
-        ) VALUES (
-            @dni_invitado, @nombre, @apellido, @domicilio, @email, @id_socio
-        );
-    END
-    ELSE IF @operacion = 'Eliminar'
-    BEGIN
-        IF NOT EXISTS (
-            SELECT 1 FROM socios.Invitado
-             WHERE id_socio = @id_socio AND dni = @dni_invitado
-        )
-        BEGIN
-            RAISERROR('No existe ese invitado para el socio indicado.', 16, 1);
-            RETURN;
-        END
-
-        DELETE FROM socios.Invitado
-         WHERE id_socio = @id_socio AND dni = @dni_invitado;
-    END
-END;
-GO
 
 /*____________________________________________________________________
   ____________________ vwGrupoFamiliarConCategorias ___________________
@@ -564,7 +475,8 @@ SELECT
 FROM socios.GrupoFamiliar GF
 INNER JOIN socios.GrupoFamiliarSocio GFS ON GF.id_grupo = GFS.id_grupo
 INNER JOIN socios.Socio S ON GFS.id_socio = S.id_socio
-INNER JOIN socios.CategoriaSocio CS ON S.id_categoria = CS.id_categoria;
+INNER JOIN socios.CategoriaSocio CS ON S.id_categoria = CS.id_categoria
+WHERE S.eliminado = 0;
 GO
 
 
@@ -635,7 +547,7 @@ AFTER UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
-	-- Al darse de baja un socio, autom·ticamente las facturas pendientes se anulan.
+	-- Al darse de baja un socio, autom√°ticamente las facturas pendientes se anulan.
     UPDATE F
     SET F.anulada = 1
     FROM facturacion.Factura f
