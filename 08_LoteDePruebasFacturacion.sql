@@ -25,15 +25,18 @@ DBCC CHECKIDENT ('facturacion.Factura', RESEED, 0) WITH NO_INFOMSGS;
 
 -- ================== LIMPIEZA DE ACTIVIDADES ==================
 DELETE FROM actividades.PresentismoClase;
+DELETE FROM facturacion.CuotaMensual;
 DELETE FROM facturacion.CargoMembresias;
 DELETE FROM facturacion.CargoClases; -- primero borrar cargos
-DELETE FROM facturacion.CuotaMensual
+DELETE FROM facturacion.CuotaMensual;
+DELETE FROM facturacion.CargoActividadExtra;
 DELETE FROM actividades.InscriptoClase;
 DELETE FROM actividades.Clase;
 DELETE FROM actividades.Actividad;
 
 DBCC CHECKIDENT ('facturacion.CargoMembresias', RESEED, 0) WITH NO_INFOMSGS;
 DBCC CHECKIDENT ('facturacion.CargoClases', RESEED, 0) WITH NO_INFOMSGS;
+DBCC CHECKIDENT ('facturacion.CargoActividadExtra', RESEED, 0) WITH NO_INFOMSGS;
 DBCC CHECKIDENT ('actividades.InscriptoClase', RESEED, 0) WITH NO_INFOMSGS;
 DBCC CHECKIDENT ('actividades.Clase', RESEED, 0) WITH NO_INFOMSGS;
 DBCC CHECKIDENT ('actividades.Actividad', RESEED, 0) WITH NO_INFOMSGS;
@@ -41,19 +44,6 @@ DBCC CHECKIDENT ('actividades.Actividad', RESEED, 0) WITH NO_INFOMSGS;
 -- ================== LIMPIEZA DE EMISOR Y TARIFAS ==================
 DELETE FROM facturacion.EmisorFactura;
 DBCC CHECKIDENT ('facturacion.EmisorFactura', RESEED, 0) WITH NO_INFOMSGS;
-
-DELETE FROM tarifas.TarifaColoniaVerano;
-DELETE FROM tarifas.TarifaPiletaVerano;
-DELETE FROM tarifas.TarifaReservaSum;
-DBCC CHECKIDENT ('tarifas.TarifaColoniaVerano', RESEED, 0) WITH NO_INFOMSGS;
-DBCC CHECKIDENT ('tarifas.TarifaPiletaVerano', RESEED, 0) WITH NO_INFOMSGS;
-DBCC CHECKIDENT ('tarifas.TarifaReservaSum', RESEED, 0) WITH NO_INFOMSGS;
-
--- Borrar actividad extra y su presentismo
-/*DELETE FROM actividades.presentismoActividadExtra;
-DELETE FROM actividades.ActividadExtra;
-DBCC CHECKIDENT ('actividades.presentismoActividadExtra', RESEED, 0) WITH NO_INFOMSGS;
-DBCC CHECKIDENT ('actividades.ActividadExtra', RESEED, 0) WITH NO_INFOMSGS;*/
 
 -- Borrar actividad regular y sus relaciones
 DELETE FROM actividades.presentismoClase;
@@ -71,6 +61,13 @@ DBCC CHECKIDENT ('actividades.InscriptoColoniaVerano', RESEED, 0) WITH NO_INFOMS
 DBCC CHECKIDENT ('actividades.InscriptoPiletaVerano', RESEED, 0) WITH NO_INFOMSGS;
 DBCC CHECKIDENT ('reservas.ReservaSum', RESEED, 0) WITH NO_INFOMSGS;
 
+DELETE FROM tarifas.TarifaColoniaVerano;
+DELETE FROM tarifas.TarifaPiletaVerano;
+DELETE FROM tarifas.TarifaReservaSum;
+DBCC CHECKIDENT ('tarifas.TarifaColoniaVerano', RESEED, 0) WITH NO_INFOMSGS;
+DBCC CHECKIDENT ('tarifas.TarifaPiletaVerano', RESEED, 0) WITH NO_INFOMSGS;
+DBCC CHECKIDENT ('tarifas.TarifaReservaSum', RESEED, 0) WITH NO_INFOMSGS;
+
 -- Insertar actividades base (sin horarios)
 EXEC actividades.GestionarActividad 'Futsal', 25000, '2025-05-31', 'Insertar';
 EXEC actividades.GestionarActividad 'Vóley', 30000, '2025-05-31', 'Insertar';
@@ -80,6 +77,23 @@ EXEC actividades.GestionarActividad 'Natación', 45000, '2025-05-31', 'Insertar'
 EXEC actividades.GestionarActividad 'Ajedrez', 2000, '2025-05-31', 'Insertar';
 GO
 
+-- Insertar tarifas de actividades extra
+EXEC tarifas.GestionarTarifaPiletaVerano 'Mayor', '0', 25000, '2025-09-25', 'Insertar'
+EXEC tarifas.GestionarTarifaPiletaVerano 'Mayor', '1', 30000, '2025-09-25', 'Insertar'
+EXEC tarifas.GestionarTarifaPiletaVerano 'Menor', '0', 15000, '2025-09-25', 'Insertar'
+EXEC tarifas.GestionarTarifaPiletaVerano 'Menor', '1', 2000, '2025-09-25', 'Insertar'
+GO
+
+EXEC tarifas.GestionarTarifaReservaSum 25000, '2025-09-25', 'Insertar'
+GO
+
+EXEC tarifas.GestionarTarifaColoniaVerano 'Mayor', 'Dia', 25000, '2025-09-25', 'Insertar'
+EXEC tarifas.GestionarTarifaColoniaVerano 'Menor', 'Dia', 15000, '2025-09-25','Insertar'
+EXEC tarifas.GestionarTarifaColoniaVerano 'Mayor', 'Mes', 625000, '2025-09-25', 'Insertar'
+EXEC tarifas.GestionarTarifaColoniaVerano 'Menor', 'Mes', 375000, '2025-09-25','Insertar'
+EXEC tarifas.GestionarTarifaColoniaVerano 'Mayor', 'Temporada', 2000000, '2025-09-25','Insertar'
+EXEC tarifas.GestionarTarifaColoniaVerano 'Menor', 'Temporada', 1200000, '2025-09-25', 'Insertar'
+GO
 -- FUTSAL - Lunes
 EXEC actividades.GestionarClase 'Futsal', 'Gabriel', 'Mirabelli', 'Lunes 08:00', 'Menor', 'Insertar';
 EXEC actividades.GestionarClase 'Futsal', 'Jair', 'Hnatiuk', 'Lunes 14:00', 'Cadete', 'Insertar';
@@ -153,6 +167,22 @@ GO
 EXEC actividades.GestionarInscriptoClase '44444444', 'Natación',   'Viernes 08:00',    'Menor',  '2025-06-14', 'Insertar';
 GO
 
+/* ==========================================================
+   INSCRIPCIÓN DE SOCIOS E INVITADOS A ACTIVIDADES EXTRA
+   ========================================================== */
+EXEC actividades.GestionarInscriptoPiletaVerano '45778667', NULL, NULL, NULL, NULL, NULL, NULL, '2025-06-15', 'Insertar';
+EXEC actividades.GestionarInscriptoPiletaVerano '33444555', NULL, NULL, NULL, NULL, NULL, NULL, '2025-06-20', 'Insertar';
+EXEC actividades.GestionarInscriptoPiletaVerano '45778667', '55500001', 'Lucas', 'Gonzalez', 'Menor', 'lucas.gonzalez@mail.com', 'Calle Falsa 100', '2025-06-25', 'Insertar';
+GO
+
+EXEC actividades.GestionarInscriptoColonia '45778667', 'Mayor', 'Mes','2025-06-10', 'Insertar';
+EXEC actividades.GestionarInscriptoColonia '42222223', 'Menor', 'Temporada', '2025-06-12', 'Insertar';
+GO
+
+EXEC actividades.GestionarReservaSum '45778667', '2025-06-05', '10:00', '13:00', 'Insertar';
+EXEC actividades.GestionarReservaSum '42222222', '2025-06-07', '15:00', '18:00', 'Insertar';
+GO
+
 -- =================== CARGA DE EMISOR DE FACTURA ===================
 EXEC facturacion.GestionarEmisorFactura 'Sol del Norte S.A.', '20-12345678-4', 'Av. Presidente Per�n 1234', 'Argentina', 'La Matanza', '1234', 'Insertar'
 GO
@@ -208,39 +238,39 @@ GO
 -- =================== CARGA DE CARGO DE MEMBRESÍA ===================
 
 -- FRANCISCO (45778667)
-EXEC facturacion.GenerarCargoMembresia '45778667', '2025-06-24';
+EXEC facturacion.GenerarCargoMembresia '45778667', '2025-06-28';
 GO
 
 -- JUAN (33444555)
-EXEC facturacion.GenerarCargoMembresia '33444555', '2025-06-24';
+EXEC facturacion.GenerarCargoMembresia '33444555', '2025-06-28';
 GO
 
 -- CAMILA (40606060)
-EXEC facturacion.GenerarCargoMembresia '40606060', '2025-06-24';
+EXEC facturacion.GenerarCargoMembresia '40606060', '2025-06-28';
 GO
 
 -- PEDRO (41111111)
-EXEC facturacion.GenerarCargoMembresia '41111111', '2025-06-24';
+EXEC facturacion.GenerarCargoMembresia '41111111', '2025-06-28';
 GO
 
 -- JULIÁN (41111112)
-EXEC facturacion.GenerarCargoMembresia '41111112', '2025-06-24';
+EXEC facturacion.GenerarCargoMembresia '41111112', '2025-06-28';
 GO
 
 -- ANDREA (42222222)
-EXEC facturacion.GenerarCargoMembresia '42222222', '2025-06-24';
+EXEC facturacion.GenerarCargoMembresia '42222222', '2025-06-28';
 GO
 
 -- SOFÍA (42222223)
-EXEC facturacion.GenerarCargoMembresia '42222223', '2025-06-24';
+EXEC facturacion.GenerarCargoMembresia '42222223', '2025-06-28';
 GO
 
 -- VALENTÍN (43333334)
-EXEC facturacion.GenerarCargoMembresia '43333334', '2025-06-24';
+EXEC facturacion.GenerarCargoMembresia '43333334', '2025-06-28';
 GO
 
 -- EMILIA (44444444)
-EXEC facturacion.GenerarCargoMembresia '44444444', '2025-06-24';
+EXEC facturacion.GenerarCargoMembresia '44444444', '2025-06-28';
 GO
 
 -- =================== CARGA DE CARGO DE CLASES ===================
@@ -282,60 +312,16 @@ GO
 EXEC facturacion.GenerarCargoClase '44444444', '2025-06-28'; -- Natación - P
 GO
 
-EXEC facturacion.GenerarCuotasMensualesPorFecha '2025-06-28';
+EXEC facturacion.GenerarCuotasMensualesPorFecha '2025-06-30';
+GO
 
-SELECT * FROM facturacion.CuotaMensual
-
+EXEC facturacion.GenerarCargosActividadExtraPorFecha '2025-06-30';
+GO
 /*
 -- =================== GENERACI�N DE FACTURA MENSUAL ===================
 EXEC facturacion.GenerarFacturaSocioMensual '45778667', '20-12345678-4';
 EXEC facturacion.GenerarFacturaSocioMensual '33444555', '20-12345678-4';
 EXEC facturacion.GenerarFacturaSocioMensual '40707070', '20-12345678-4';
-GO
-
-
-
--- =================== CARGA DE ACTIVIDADES EXTRA ===================
-
--- Insertar actividades extra para invitados
-EXEC actividades.GestionarActividadExtra 'Pileta verano', 30000, 'Dia', 'S', '2025-06-28', 'Mayor', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Colonia de verano', 30000, 'Dia', 'S', '2025-06-28', 'Mayor', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Alquiler de SUM', 30000, 'Dia', 'S', '2025-06-28', 'Mayor', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Pileta verano', 20000, 'Dia', 'S', '2025-06-28', 'Menor', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Colonia de verano', 20000, 'Dia', 'S', '2025-06-28', 'Menor', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Alquiler de SUM', 20000, 'Dia', 'S', '2025-06-28', 'Menor', 'Insertar';
-GO
--- Insertar actividades extra para socios
-EXEC actividades.GestionarActividadExtra 'Pileta verano', 25000, 'Dia', 'N', '2025-06-28', 'Mayor', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Colonia de verano', 25000, 'Dia', 'N', '2025-06-28', 'Mayor', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Alquiler de SUM', 25000, 'Dia', 'N', '2025-06-28', 'Mayor', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Pileta verano', 25000, 'Dia', 'N', '2025-06-28', 'Cadete', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Colonia de verano', 25000, 'Dia', 'N', '2025-06-28', 'Cadete', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Alquiler de SUM', 25000, 'Dia', 'N', '2025-06-28', 'Cadete', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Pileta verano', 15000, 'Dia', 'N', '2025-06-28', 'Menor', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Colonia de verano', 15000, 'Dia', 'N', '2025-06-28', 'Menor', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Alquiler de SUM', 15000, 'Dia', 'N', '2025-06-28', 'Menor', 'Insertar';
-GO
-EXEC actividades.GestionarActividadExtra 'Pileta verano', 625000, 'Mes', 'N', '2025-06-28', 'Mayor', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Colonia de verano', 625000, 'Mes', 'N', '2025-06-28', 'Mayor', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Alquiler de SUM', 625000, 'Mes', 'N', '2025-06-28', 'Mayor', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Pileta verano', 625000, 'Mes', 'N', '2025-06-28', 'Cadete', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Colonia de verano', 625000, 'Mes', 'N', '2025-06-28', 'Cadete', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Alquiler de SUM', 625000, 'Mes', 'N', '2025-06-28', 'Cadete', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Pileta verano', 375000, 'Mes', 'N', '2025-06-28', 'Menor', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Colonia de verano', 375000, 'Mes', 'N', '2025-06-28', 'Menor', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Alquiler de SUM', 375000, 'Mes', 'N', '2025-06-28', 'Menor', 'Insertar';
-
-GO
-EXEC actividades.GestionarActividadExtra 'Pileta verano', 2000000, 'Temporada', 'N', '2025-06-28', 'Mayor', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Colonia de verano', 2000000, 'Temporada', 'N', '2025-06-28', 'Mayor', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Alquiler de SUM', 2000000, 'Temporada', 'N', '2025-06-28', 'Mayor', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Pileta verano', 2000000, 'Temporada', 'N', '2025-06-28', 'Cadete', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Colonia de verano', 2000000, 'Temporada', 'N', '2025-06-28', 'Cadete', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Alquiler de SUM', 2000000, 'Temporada', 'N', '2025-06-28', 'Cadete', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Pileta verano', 1200000, 'Temporada', 'N', '2025-06-28', 'Menor', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Colonia de verano', 1200000, 'Temporada', 'N', '2025-06-28', 'Menor', 'Insertar';
-EXEC actividades.GestionarActividadExtra 'Alquiler de SUM', 1200000, 'Temporada', 'N', '2025-06-28', 'Menor', 'Insertar';
 GO
 
 -- =================== CARGA DE PRESENTISMO DE INVITADOS ===================
@@ -390,14 +376,41 @@ SELECT id_presentismo, id_inscripcion, fecha, estado
 FROM actividades.presentismoClase
 ORDER BY fecha;
 
+-- Para debug
 SELECT S.nombre, S.apellido, IC.monto
 FROM facturacion.CargoMembresias CM
 INNER JOIN actividades.InscriptoCategoriaSocio IC ON IC.id_categoria = CM.id_inscripcion_categoria
 INNER JOIN  socios.Socio S ON IC.id_socio = S.ID_SOCIO
 
 SELECT *
+FROM tarifas.TarifaColoniaVerano
+
+SELECT *
+FROM tarifas.TarifaPiletaVerano
+
+SELECT *
+FROM tarifas.TarifaReservaSum
+
+SELECT *
+FROM facturacion.CargoMembresias
+
+SELECT *
+FROM actividades.InscriptoColoniaVerano
+
+SELECT *
+FROM actividades.InscriptoPiletaVerano
+
+SELECT *
+FROM reservas.ReservaSum
+
+SELECT *
 FROM facturacion.CargoClases
 
+SELECT *
+FROM facturacion.CuotaMensual
+
+SELECT *
+FROM facturacion.CargoActividadExtra
 /*
 SELECT id_extra, , costo, periodo, categoria, es_invitado, vigencia
 FROM actividades.ActividadExtra;

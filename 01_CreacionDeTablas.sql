@@ -28,6 +28,7 @@ DROP PROCEDURE IF EXISTS cobranzas.AplicarBloqueoVencimiento;
 /* =============================
    ELIMINAR PROCEDIMIENTOS
    ============================= */
+DROP PROCEDURE IF EXISTS actividades.GestionarInscriptoPiletaVerano
 DROP PROCEDURE IF EXISTS actividades.GestionarActividad
 DROP PROCEDURE IF EXISTS actividades.GestionarActividadExtra
 DROP PROCEDURE IF EXISTS actividades.GestionarClase
@@ -40,6 +41,7 @@ DROP PROCEDURE IF EXISTS actividades.GestionarInscriptoReservaSum
 DROP PROCEDURE IF EXISTS administracion.ConsultarEstadoSocioyGrupo
 DROP PROCEDURE IF EXISTS administracion.VerCuotasPagasGrupoFamiliar
 
+DROP PROCEDURE IF EXISTS actividades.GestionarReservaSum
 DROP PROCEDURE IF EXISTS administracion.GestionarInvitado
 DROP PROCEDURE IF EXISTS administracion.GestionarSocio
 DROP PROCEDURE IF EXISTS administracion.GestionarProfesor
@@ -47,6 +49,9 @@ DROP PROCEDURE IF EXISTS administracion.GestionarPersona
 DROP PROCEDURE IF EXISTS administracion.GestionarCategoriaSocio
 DROP PROCEDURE IF EXISTS administracion.GestionarGrupoFamiliar
 
+DROP PROCEDURE IF EXISTS facturacion.GenerarCargosActividadExtraPorFecha
+DROP PROCEDURE IF EXISTS cobranzas.GenerarPagoACuenta
+DROP PROCEDURE IF EXISTS facturacion.GenerarCuotasMensualesPorFecha
 DROP PROCEDURE IF EXISTS cobranzas.GestionarMedioDePago
 DROP PROCEDURE IF EXISTS cobranzas.RegistrarMedioDePago
 DROP PROCEDURE IF EXISTS cobranzas.RegistrarCobranza
@@ -107,6 +112,7 @@ DROP TABLE IF EXISTS cobranzas.PagoACuenta;
 DROP TABLE IF EXISTS cobranzas.Reembolso;
 DROP TABLE IF EXISTS cobranzas.Pago;
 DROP TABLE IF EXISTS cobranzas.Mora;
+DROP TABLE IF EXISTS cobranzas.MedioDePago;
 
 DROP TABLE IF EXISTS facturacion.DetalleFactura;
 DROP TABLE IF EXISTS facturacion.Factura;
@@ -138,8 +144,6 @@ DROP TABLE IF EXISTS socios.Socio;
 DROP TABLE IF EXISTS socios.Invitado;
 DROP TABLE IF EXISTS socios.CategoriaSocio;
 
-DROP TABLE IF EXISTS administracion.MedioDePago;
-
 -- ===============================
 -- Eliminación segura de esquemas
 -- ===============================
@@ -153,8 +157,6 @@ DROP SCHEMA IF EXISTS tarifas;
 GO
 DROP SCHEMA IF EXISTS reservas;
 GO
-DROP SCHEMA IF EXISTS administracion;
-GO
 DROP SCHEMA IF EXISTS socios;
 GO
 
@@ -163,8 +165,6 @@ GO
 -- ===============================
 
 CREATE SCHEMA socios;
-GO
-CREATE SCHEMA administracion;
 GO
 CREATE SCHEMA actividades;
 GO
@@ -176,16 +176,6 @@ CREATE SCHEMA reservas;
 GO
 CREATE SCHEMA tarifas;
 GO
-
--- ===============================
--- Módulo: ADMINISTRACION
--- ===============================
-
-CREATE TABLE administracion.MedioDePago (
-    id_medio_pago INT IDENTITY PRIMARY KEY,
-    nombre VARCHAR(50) NOT NULL,
-    debito_automatico BIT NOT NULL
-);
 
 -- ===============================
 -- Módulo: SOCIOS
@@ -244,11 +234,12 @@ CREATE TABLE socios.Tutor (
 GO
 CREATE TABLE socios.Invitado (
     id_invitado INT IDENTITY PRIMARY KEY,
-    dni CHAR(8),
-    nombre VARCHAR(50),
-    apellido VARCHAR(50),
-    domicilio VARCHAR(150),
-    email VARCHAR(100),
+    dni CHAR(8) NOT NULL,
+    nombre VARCHAR(50) NOT NULL,
+    apellido VARCHAR(50) NOT NULL,
+    domicilio VARCHAR(150) NOT NULL,
+	categoria VARCHAR(50) NOT NULL,
+    email VARCHAR(100) NOT NULL,
     id_socio INT NOT NULL
 );
 
@@ -323,24 +314,24 @@ CREATE TABLE actividades.InscriptoPiletaVerano (
 
 CREATE TABLE tarifas.TarifaColoniaVerano (
     id_tarifa INT IDENTITY PRIMARY KEY,
-    descripcion VARCHAR(100),
-    monto DECIMAL(10,2),
+    costo DECIMAL(10,2),
 	periodo CHAR(10),
-	categoria VARCHAR(50)
+	categoria VARCHAR(50),
+	vigencia DATE
 );
 
 CREATE TABLE tarifas.TarifaReservaSum (
     id_tarifa INT IDENTITY PRIMARY KEY,
-    descripcion VARCHAR(100),
-    monto DECIMAL(10,2)
+    costo DECIMAL(10,2),
+	vigencia DATE
 );
 
 CREATE TABLE tarifas.TarifaPiletaVerano (
     id_tarifa INT IDENTITY PRIMARY KEY,
-    descripcion VARCHAR(100),
-    monto DECIMAL(10,2),
+    costo DECIMAL(10,2),
 	categoria VARCHAR(50),
-    es_invitado BIT
+    es_invitado BIT,
+	vigencia DATE
 );
 
 -- ===============================
@@ -382,7 +373,6 @@ CREATE TABLE facturacion.CuotaMensual (
 CREATE TABLE facturacion.CargoMembresias (
     id_cargo INT IDENTITY PRIMARY KEY,
     id_inscripcion_categoria INT NOT NULL,
-    id_cuota INT,
 	monto DECIMAL(10, 2) NOT NULL,
 	fecha DATE NOT NULL
 );
@@ -390,16 +380,15 @@ CREATE TABLE facturacion.CargoMembresias (
 CREATE TABLE facturacion.CargoClases (
     id_cargo INT IDENTITY PRIMARY KEY,
     id_inscripcion_clase INT NOT NULL,
-    id_cuota INT,
 	monto DECIMAL(10, 2) NOT NULL,
 	fecha DATE NOT NULL
 );
 
 CREATE TABLE facturacion.CargoActividadExtra (
     id_cargo INT IDENTITY PRIMARY KEY,
-    id_inscripcion_colonia INT,
-    id_inscripcion_pileta INT,
-    id_reserva INT
+    id_inscripcion_colonia INT DEFAULT NULL,
+    id_inscripcion_pileta INT DEFAULT NULL,
+    id_reserva INT DEFAULT NULL
 );
 
 CREATE TABLE facturacion.Factura (
@@ -460,6 +449,13 @@ CREATE TABLE cobranzas.PagoACuenta (
     fecha DATE,
     monto DECIMAL(10,2)
 );
+
+CREATE TABLE cobranzas.MedioDePago (
+    id_medio_pago INT IDENTITY PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL,
+    debito_automatico BIT NOT NULL
+);
+
 
 -- ===============================
 -- RELACIONES: SOCIOS
@@ -545,15 +541,11 @@ ADD CONSTRAINT FK_ReservaSum_Socio
 
 ALTER TABLE facturacion.CargoMembresias
 ADD CONSTRAINT FK_CargoMembresias_InscriptoCategoria
-    FOREIGN KEY (id_inscripcion_categoria) REFERENCES actividades.InscriptoCategoriaSocio(id_inscripcion),
-    CONSTRAINT FK_CargoMembresias_Cuota
-    FOREIGN KEY (id_cuota) REFERENCES facturacion.CuotaMensual(id_cuota);
+    FOREIGN KEY (id_inscripcion_categoria) REFERENCES actividades.InscriptoCategoriaSocio(id_inscripcion)
 
 ALTER TABLE facturacion.CargoClases
 ADD CONSTRAINT FK_CargoClase_InscriptoClase
-    FOREIGN KEY (id_inscripcion_clase) REFERENCES actividades.InscriptoClase(id_inscripcion),
-    CONSTRAINT FK_CargoClase_Cuota
-    FOREIGN KEY (id_cuota) REFERENCES facturacion.CuotaMensual(id_cuota);
+    FOREIGN KEY (id_inscripcion_clase) REFERENCES actividades.InscriptoClase(id_inscripcion)
 
 ALTER TABLE facturacion.CargoActividadExtra
 ADD CONSTRAINT FK_CargoExtra_Colonia

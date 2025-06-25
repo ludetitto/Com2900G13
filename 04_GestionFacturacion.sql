@@ -257,9 +257,9 @@ BEGIN
     SET NOCOUNT ON;
 
     -- Validar operación
-    IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
+    IF @operacion NOT IN ('Insertar', 'Eliminar')
     BEGIN
-        RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
+        RAISERROR('Operación inválida. Usar Insertar o Eliminar.', 16, 1);
         RETURN;
     END
 
@@ -300,22 +300,7 @@ BEGIN
         DELETE FROM actividades.InscriptoClase WHERE id_inscripcion = @id_inscripcion;
         RETURN;
     END
-
-    -- === Modificar ===
-    IF @operacion = 'Modificar'
-    BEGIN
-        IF @id_inscripcion IS NULL
-        BEGIN
-            RAISERROR('No existe la inscripción para modificar.', 16, 1);
-            RETURN;
-        END
-
-        UPDATE actividades.InscriptoClase
-        SET fecha = COALESCE(@fecha_inscripcion, fecha)
-        WHERE id_inscripcion = @id_inscripcion;
-        RETURN;
-    END
-
+	ELSE
     -- === Insertar ===
     IF @operacion = 'Insertar'
     BEGIN
@@ -502,110 +487,104 @@ END;
 GO
 
 /*____________________________________________________________________
-  __________________ GestionarTarifaColoniaFactura ___________________
+  __________________ GestionarTarifaColoniaVerano ___________________
   ____________________________________________________________________*/
 
 IF OBJECT_ID('tarifas.GestionarTarifaColoniaVerano', 'P') IS NOT NULL
     DROP PROCEDURE tarifas.GestionarTarifaColoniaVerano;
 GO
-
 CREATE PROCEDURE tarifas.GestionarTarifaColoniaVerano
-	@descripcion VARCHAR(100),
-    @monto DECIMAL(10,2),
-	@categoria VARCHAR(50),
-	@periodo CHAR(10),
-	@operacion CHAR(10)
+    @categoria VARCHAR(50),
+    @periodo CHAR(10),
+    @costo DECIMAL(10,2),
+	@vigencia DATE,
+    @operacion CHAR(10)
 AS
 BEGIN
+    SET NOCOUNT ON;
 
-	/* Verificación de operaciones válidas */
-    IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
+    IF @operacion NOT IN ('Insertar', 'Eliminar')
     BEGIN
-        RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
+        RAISERROR('Operación inválida. Usar Insertar o Eliminar.', 16, 1);
         RETURN;
     END
-	
-	IF @operacion = 'Insertar'
-	BEGIN
 
-		IF @descripcion IS NULL
-		BEGIN
-			RAISERROR('Descripción obligatoria para insertar.', 16, 1);
-			RETURN;
-		END
+    IF @operacion = 'Insertar'
+    BEGIN
+        IF @costo IS NULL
+        BEGIN
+            RAISERROR('Monto obligatorio para insertar.', 16, 1);
+            RETURN;
+        END
 
-		IF @monto IS NULL
-		BEGIN
-			RAISERROR('Monto obligatorio para insertar.', 16, 1);
-			RETURN;
-		END
+		IF @vigencia IS NULL
+        BEGIN
+            RAISERROR('La vigencia es obligatoria para insertar.', 16, 1);
+            RETURN;
+        END
 
-		IF @categoria IS NULL
-		BEGIN
-			RAISERROR('Categoria obligatoria para insertar.', 16, 1);
-			RETURN;
-		END
+        IF @categoria IS NULL
+        BEGIN
+            RAISERROR('Categoría obligatoria para insertar.', 16, 1);
+            RETURN;
+        END
 
-		IF @categoria IS NULL
-		BEGIN
-			RAISERROR('Categoria obligatoria para insertar.', 16, 1);
-			RETURN;
-		END
+        IF @periodo IS NULL
+        BEGIN
+            RAISERROR('Periodo obligatorio para insertar.', 16, 1);
+            RETURN;
+        END
 
-		IF @periodo IS NULL
-		BEGIN
-			RAISERROR('Periodo obligatoria para insertar.', 16, 1);
-			RETURN;
-		END
+        IF EXISTS (
+            SELECT 1
+            FROM tarifas.TarifaColoniaVerano
+            WHERE categoria = @categoria AND periodo = @periodo)
+        BEGIN
+            RAISERROR('Tarifa de colonia de verano ya existente.', 16, 1);
+            RETURN;
+        END
 
-		IF EXISTS (SELECT TOP 1 id_tarifa 
-				   FROM tarifas.TarifaColoniaVerano 
-				   WHERE descripcion = @descripcion
-				   AND categoria = @categoria
-				   AND periodo = @periodo)
-		BEGIN
-			RAISERROR('Tarifa de colonia de verano ya existente.', 16, 1);
-        RETURN;
+        INSERT INTO tarifas.TarifaColoniaVerano (categoria, periodo, costo, vigencia)
+        VALUES (@categoria, @periodo, @costo, @vigencia);
     END
-	END
-	ELSE IF @operacion = 'Modificar'
-	BEGIN
-		UPDATE tarifas.TarifaColoniaVerano
-		SET monto = COALESCE(@monto, monto),
-			@categoria = COALESCE(@categoria, categoria),
-			@periodo = COALESCE(@periodo, periodo)
-		WHERE descripcion = @descripcion
-	END
-	ELSE 
-	BEGIN
-		DELETE FROM tarifas.TarifaColoniaVerano
-		WHERE descripcion = @descripcion
-	END
+    ELSE -- Eliminar
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM tarifas.TarifaColoniaVerano
+            WHERE categoria = @categoria AND periodo = @periodo)
+        BEGIN
+            RAISERROR('No existe tarifa para eliminar.', 16, 1);
+            RETURN;
+        END
 
+        DELETE FROM tarifas.TarifaColoniaVerano
+        WHERE categoria = @categoria AND periodo = @periodo;
+    END
 END;
 GO
 
 /*____________________________________________________________________
   ____________________ GestionarInscriptoColonia _____________________
   ____________________________________________________________________*/
+
 IF OBJECT_ID('actividades.GestionarInscriptoColonia', 'P') IS NOT NULL
     DROP PROCEDURE actividades.GestionarInscriptoColonia;
 GO
 
 CREATE PROCEDURE actividades.GestionarInscriptoColonia
     @dni_socio VARCHAR(10),
-    @descripcion_tarifa VARCHAR(100),
-	@periodo CHAR(10),
     @descripcion_categoria VARCHAR(50),
+    @periodo CHAR(10),
     @fecha_inscripcion DATE,
     @operacion CHAR(10)
 AS
 BEGIN
     SET NOCOUNT ON;
 
-	DECLARE @id_socio INT;
-	DECLARE @id_tarifa INT;
-	DECLARE @id_inscripcion INT;
+    DECLARE @id_socio INT;
+    DECLARE @id_tarifa INT;
+    DECLARE @monto DECIMAL(18,2);
+    DECLARE @id_inscripcion INT;
 
     -- Validar operación
     IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
@@ -621,74 +600,66 @@ BEGIN
         WHERE dni = @dni_socio AND activo = 1 AND eliminado = 0
     );
 
-    -- Buscar tarifa correspondiente
+    IF @id_socio IS NULL
+    BEGIN
+        RAISERROR('El socio no existe o no está activo.', 16, 1);
+        RETURN;
+    END
+
+    -- Buscar tarifa vigente correspondiente
     SET @id_tarifa = (
-		SELECT TOP 1 id_tarifa
-		FROM tarifas.TarifaColoniaVerano
-		WHERE descripcion = @descripcion_tarifa
-		AND periodo = @periodo
-		AND categoria = @descripcion_categoria
-	)
+        SELECT TOP 1 id_tarifa
+        FROM tarifas.TarifaColoniaVerano
+        WHERE periodo = @periodo
+          AND categoria = @descripcion_categoria
+          AND vigencia >= GETDATE()
+        ORDER BY vigencia DESC
+    );
+
+    IF @id_tarifa IS NULL
+    BEGIN
+        RAISERROR('La tarifa de colonia de verano no existe con esos parámetros o no está vigente.', 16, 1);
+        RETURN;
+    END
+
+    SET @monto = (
+        SELECT TOP 1 costo -- o monto, según el nombre correcto en la tabla
+        FROM tarifas.TarifaColoniaVerano
+        WHERE id_tarifa = @id_tarifa
+    );
+
+    IF @monto IS NULL
+    BEGIN
+        RAISERROR('No se pudo obtener el monto de la tarifa.', 16, 1);
+        RETURN;
+    END
+
+    -- Buscar inscripción existente
+    SET @id_inscripcion = (
+        SELECT TOP 1 id_inscripcion
+        FROM actividades.InscriptoColoniaVerano
+        WHERE id_socio = @id_socio AND id_tarifa = @id_tarifa
+    );
 
     -- === Insertar ===
     IF @operacion = 'Insertar'
     BEGIN
-        IF @id_socio IS NULL
+        IF @id_inscripcion IS NOT NULL
         BEGIN
-            RAISERROR('El socio no existe o no está activo.', 16, 1);
-            RETURN;
-        END
-
-        IF @id_tarifa IS NULL
-        BEGIN
-            RAISERROR('La tarifa de colonia de verano no existe con esos parámetros.', 16, 1);
-            RETURN;
-        END
-
-		IF @periodo IS NULL
-        BEGIN
-            RAISERROR('El periodo de colonia de verano indicado no existe.', 16, 1);
-            RETURN;
-        END
-
-		IF @descripcion_tarifa IS NULL
-        BEGIN
-            RAISERROR('El periodo de colonia de verano indicado no existe.', 16, 1);
-            RETURN;
-        END
-
-		IF @descripcion_categoria IS NULL
-        BEGIN
-            RAISERROR('El categoria de colonia de verano indicado no existe.', 16, 1);
-            RETURN;
-        END
-
-        IF EXISTS (
-            SELECT id_inscripcion
-            FROM actividades.InscriptoColoniaVerano
-            WHERE id_socio = @id_socio AND id_tarifa = @id_tarifa
-        )
-        BEGIN
-            RAISERROR('El socio ya está inscripto en esa clase.', 16, 1);
+            RAISERROR('El socio ya está inscripto en esa tarifa de colonia.', 16, 1);
             RETURN;
         END
 
         IF @fecha_inscripcion IS NULL
             SET @fecha_inscripcion = GETDATE();
 
-        INSERT INTO actividades.InscriptoColoInscriptoColoniaVerano(id_socio, id_tarifa, fecha, monto)
-        VALUES (
-			@id_socio, 
-			@id_tarifa, 
-			@fecha_inscripcion, 
-			(SELECT TOP 1 monto
-			 FROM tarifas.TarifaColoniaVerano
-			 WHERE descripcion = @descripcion_tarifa
-			 AND periodo = @periodo
-			 AND categoria = @descripcion_categoria));
+        INSERT INTO actividades.InscriptoColoniaVerano(id_socio, id_tarifa, fecha, monto)
+        VALUES (@id_socio, @id_tarifa, @fecha_inscripcion, @monto);
+
         RETURN;
     END
-	-- === Modificar ===
+
+    -- === Modificar ===
     ELSE IF @operacion = 'Modificar'
     BEGIN
         IF @id_inscripcion IS NULL
@@ -700,17 +671,13 @@ BEGIN
         UPDATE actividades.InscriptoColoniaVerano
         SET fecha = COALESCE(@fecha_inscripcion, fecha)
         WHERE id_inscripcion = @id_inscripcion;
+
         RETURN;
     END
-	-- === Eliminar ===
+
+    -- === Eliminar ===
     ELSE IF @operacion = 'Eliminar'
     BEGIN
-
-		SET @id_inscripcion = (SELECT id_inscripcion
-							   FROM actividades.InscriptoColoniaVerano
-							   WHERE id_tarifa = @id_tarifa
-							   AND id_socio = @id_socio)
-
         IF @id_inscripcion IS NULL
         BEGIN
             RAISERROR('No existe la inscripción para eliminar.', 16, 1);
@@ -718,7 +685,8 @@ BEGIN
         END
 
         DELETE FROM actividades.InscriptoColoniaVerano
-		WHERE id_inscripcion = @id_inscripcion;
+        WHERE id_inscripcion = @id_inscripcion;
+
         RETURN;
     END
 END;
@@ -727,93 +695,234 @@ GO
 /*____________________________________________________________________
   ____________________ GestionarTarifaReservaSum _____________________
   ____________________________________________________________________*/
-
 IF OBJECT_ID('tarifas.GestionarTarifaReservaSum', 'P') IS NOT NULL
     DROP PROCEDURE tarifas.GestionarTarifaReservaSum;
 GO
 
 CREATE PROCEDURE tarifas.GestionarTarifaReservaSum
-	@descripcion VARCHAR(100),
-    @monto DECIMAL(10,2),
+	@costo DECIMAL(10,2),
+	@vigencia DATE,
 	@operacion CHAR(10)
 AS
 BEGIN
+    SET NOCOUNT ON;
 
 	DECLARE @id_tarifa INT;
 
-	/* Verificación de operaciones válidas */
     IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
     BEGIN
         RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
         RETURN;
     END
 
+	-- === INSERTAR ===
 	IF @operacion = 'Insertar'
 	BEGIN
-		IF @descripcion IS NULL
+		IF @costo IS NULL OR @vigencia IS NULL
 		BEGIN
-			RAISERROR('Descripción obligatoria para insertar.', 16, 1);
+			RAISERROR('Costo y vigencia son obligatorios para insertar.', 16, 1);
 			RETURN;
 		END
 
-		IF @monto IS NULL
+		IF EXISTS (
+			SELECT 1 FROM tarifas.TarifaReservaSum
+			WHERE vigencia = @vigencia
+		)
 		BEGIN
-			RAISERROR('Monto obligatorio para insertar.', 16, 1);
+			RAISERROR('Ya existe una tarifa con esa vigencia.', 16, 1);
 			RETURN;
 		END
 
-		IF EXISTS (SELECT TOP 1 id_tarifa 
-			       FROM tarifas.TarifaReservaSum 
-				   WHERE descripcion = @descripcion)
-		BEGIN
-			RAISERROR('Tarifa de reserva de SUM ya existente.', 16, 1);
-        RETURN;
-    END
+		INSERT INTO tarifas.TarifaReservaSum (costo, vigencia)
+		VALUES (@costo, @vigencia);
+		RETURN;
 	END
+
+	-- === MODIFICAR ===
 	ELSE IF @operacion = 'Modificar'
 	BEGIN
-		UPDATE tarifas.TarifaReservaSum
-		SET monto = COALESCE(@monto, monto)
-		WHERE descripcion = @descripcion
-	END
-	ELSE 
-	BEGIN
-		
-		SET @id_tarifa = (SELECT id_tarifa
-						  FROM tarifas.TarifaReservaSum
-						  WHERE descripcion = @descripcion)
+		IF NOT EXISTS (
+			SELECT 1 FROM tarifas.TarifaReservaSum
+			WHERE vigencia = @vigencia
+		)
+		BEGIN
+			RAISERROR('No existe una tarifa con esa vigencia para modificar.', 16, 1);
+			RETURN;
+		END
 
-        IF @id_tarifa IS NULL
+		UPDATE tarifas.TarifaReservaSum
+		SET costo = COALESCE(@costo, costo)
+		WHERE vigencia = @vigencia;
+		RETURN;
+	END
+
+	-- === ELIMINAR ===
+	ELSE
+	BEGIN
+		IF NOT EXISTS (
+			SELECT 1 FROM tarifas.TarifaReservaSum
+			WHERE vigencia = @vigencia
+		)
+		BEGIN
+			RAISERROR('No existe una tarifa con esa vigencia para eliminar.', 16, 1);
+			RETURN;
+		END
+
+		DELETE FROM tarifas.TarifaReservaSum
+		WHERE vigencia = @vigencia;
+		RETURN;
+	END
+END;
+GO
+
+
+/*____________________________________________________________________
+  _______________________ GestionarReservaSum ________________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('actividades.GestionarReservaSum', 'P') IS NOT NULL
+    DROP PROCEDURE actividades.GestionarReservaSum;
+GO
+
+CREATE PROCEDURE actividades.GestionarReservaSum
+    @dni_socio VARCHAR(10),
+    @fecha_inscripcion DATE,
+    @hora_inicio TIME,
+    @hora_fin TIME,
+    @operacion CHAR(10)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @id_socio INT;
+    DECLARE @id_tarifa INT;
+    DECLARE @id_reserva INT;
+
+    -- Validar operación
+    IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
+    BEGIN
+        RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
+        RETURN;
+    END
+
+    -- Buscar ID de socio activo
+    SET @id_socio = (
+        SELECT TOP 1 id_socio
+        FROM socios.Socio
+        WHERE dni = @dni_socio AND activo = 1 AND eliminado = 0
+    );
+
+    IF @id_socio IS NULL
+    BEGIN
+        RAISERROR('El socio no existe o no está activo.', 16, 1);
+        RETURN;
+    END
+
+    -- Buscar tarifa vigente para reserva SUM
+    SET @id_tarifa = (
+        SELECT TOP 1 id_tarifa
+        FROM tarifas.TarifaReservaSum
+        WHERE vigencia > GETDATE()
+        ORDER BY vigencia DESC
+    );
+
+    IF @id_tarifa IS NULL
+    BEGIN
+        RAISERROR('No hay una tarifa vigente para la reserva del SUM.', 16, 1);
+        RETURN;
+    END
+
+    -- Buscar reserva existente para el socio, misma fecha y horario
+    SET @id_reserva = (
+        SELECT TOP 1 id_reserva
+        FROM reservas.ReservaSum
+        WHERE id_tarifa = @id_tarifa
+          AND id_socio = @id_socio
+          AND fecha = @fecha_inscripcion
+          AND hora_inicio = @hora_inicio
+          AND hora_fin = @hora_fin
+    );
+
+    -- === Insertar ===
+    IF @operacion = 'Insertar'
+    BEGIN
+        IF @id_reserva IS NOT NULL
         BEGIN
-            RAISERROR('No existe la tarifa para eliminar.', 16, 1);
+            RAISERROR('El socio ya tiene una reserva con la tarifa vigente en esa fecha y horario.', 16, 1);
             RETURN;
         END
-		
-		DELETE FROM tarifas.TarifaReservaSum
-		WHERE descripcion = @descripcion
-	END
 
+        IF @fecha_inscripcion IS NULL
+            SET @fecha_inscripcion = GETDATE();
+
+        IF @hora_inicio IS NULL OR @hora_fin IS NULL
+        BEGIN
+            RAISERROR('Debe especificar hora_inicio y hora_fin para la reserva.', 16, 1);
+            RETURN;
+        END
+
+        INSERT INTO reservas.ReservaSum(id_socio, id_tarifa, fecha, hora_inicio, hora_fin)
+        VALUES (
+            @id_socio, 
+            @id_tarifa,
+            @fecha_inscripcion,
+            @hora_inicio,
+            @hora_fin
+        );
+        RETURN;
+    END
+
+    -- === Modificar ===
+    ELSE IF @operacion = 'Modificar'
+    BEGIN
+        IF @id_reserva IS NULL
+        BEGIN
+            RAISERROR('No existe la reserva para modificar.', 16, 1);
+            RETURN;
+        END
+
+        UPDATE reservas.ReservaSum
+        SET 
+            fecha = COALESCE(@fecha_inscripcion, fecha),
+            hora_inicio = COALESCE(@hora_inicio, hora_inicio),
+            hora_fin = COALESCE(@hora_fin, hora_fin)
+        WHERE id_reserva = @id_reserva;
+        RETURN;
+    END
+
+    -- === Eliminar ===
+    ELSE IF @operacion = 'Eliminar'
+    BEGIN
+        IF @id_reserva IS NULL
+        BEGIN
+            RAISERROR('No existe la reserva para eliminar.', 16, 1);
+            RETURN;
+        END
+
+        DELETE FROM reservas.ReservaSum 
+        WHERE id_reserva = @id_reserva;
+        RETURN;
+    END
 END;
 GO
 
 /*____________________________________________________________________
   __________________ GestionarTarifaColoniaVerano ____________________
   ____________________________________________________________________*/
-
+/*
 IF OBJECT_ID('tarifas.GestionarTarifaColoniaVerano', 'P') IS NOT NULL
     DROP PROCEDURE tarifas.GestionarTarifaColoniaVerano;
 GO
 
 CREATE PROCEDURE tarifas.GestionarTarifaColoniaVerano
-	@descripcion VARCHAR(100),
-    @monto DECIMAL(10,2),
 	@categoria VARCHAR(50),
 	@periodo CHAR(10),
+	@costo DECIMAL(10,2),
 	@operacion CHAR(10)
 AS
 BEGIN
 
-	/* Verificación de operaciones válidas */
+	--Verificación de operaciones válidas
     IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
     BEGIN
         RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
@@ -823,13 +932,7 @@ BEGIN
 	IF @operacion = 'Insertar'
 	BEGIN
 
-		IF @descripcion IS NULL
-		BEGIN
-			RAISERROR('Descripción obligatoria para insertar.', 16, 1);
-			RETURN;
-		END
-
-		IF @monto IS NULL
+		IF @costo IS NULL
 		BEGIN
 			RAISERROR('Monto obligatorio para insertar.', 16, 1);
 			RETURN;
@@ -855,8 +958,7 @@ BEGIN
 
 		IF EXISTS (SELECT TOP 1 id_tarifa 
 				   FROM tarifas.TarifaColoniaVerano 
-				   WHERE descripcion = @descripcion
-				   AND categoria = @categoria
+				   WHERE categoria = @categoria
 				   AND periodo = @periodo)
 		BEGIN
 			RAISERROR('Tarifa de colonia de verano ya existente.', 16, 1);
@@ -866,33 +968,134 @@ BEGIN
 	ELSE IF @operacion = 'Modificar'
 	BEGIN
 		UPDATE tarifas.TarifaColoniaVerano
-		SET monto = COALESCE(@monto, monto),
-			@categoria = COALESCE(@categoria, categoria),
-			@periodo = COALESCE(@periodo, periodo)
-		WHERE descripcion = @descripcion
+		SET costo = COALESCE(@costo, costo)
+		WHERE categoria = @categoria
+		AND periodo = @periodo
 	END
 	ELSE 
 	BEGIN
 		DELETE FROM tarifas.TarifaColoniaVerano
-		WHERE descripcion = @descripcion
+		WHERE categoria = @categoria
+		AND periodo = @periodo
 	END
 
 END;
 GO
+*/
 
 /*____________________________________________________________________
-  ____________________ GestionarInscriptoPileta ______________________
+  ___________________ GestionarTarifaPiletaVerano ____________________
   ____________________________________________________________________*/
-IF OBJECT_ID('actividades.GestionarInscriptoPileta', 'P') IS NOT NULL
-    DROP PROCEDURE actividades.GestionarInscriptoPileta;
+
+IF OBJECT_ID('tarifas.GestionarTarifaPiletaVerano', 'P') IS NOT NULL
+    DROP PROCEDURE tarifas.GestionarTarifaPiletaVerano;
 GO
 
-CREATE PROCEDURE actividades.GestionarInscriptoPileta
-    @dni_socio VARCHAR(10),
-    @descripcion_tarifa VARCHAR(100),
-	@periodo CHAR(10),
-    @descripcion_categoria VARCHAR(50),
+CREATE PROCEDURE tarifas.GestionarTarifaPiletaVerano
+	@categoria VARCHAR(50),
 	@es_invitado BIT,
+	@costo DECIMAL(10,2),
+	@vigencia DATE,
+	@operacion CHAR(10)
+AS
+BEGIN
+	SET NOCOUNT ON;
+
+	DECLARE @id_tarifa INT;
+
+	IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
+	BEGIN
+		RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
+		RETURN;
+	END
+
+	-- === INSERTAR ===
+	IF @operacion = 'Insertar'
+	BEGIN
+		IF @costo IS NULL
+			RAISERROR('Costo obligatorio para insertar.', 16, 1);
+		IF @vigencia IS NULL
+			RAISERROR('La vigencia es obligatoria para insertar.', 16, 1);
+		IF @categoria IS NULL
+			RAISERROR('Categoría obligatoria para insertar.', 16, 1);
+		IF @es_invitado IS NULL
+			RAISERROR('Condición de invitado obligatoria para insertar.', 16, 1);
+
+		IF EXISTS (
+			SELECT 1
+			FROM tarifas.TarifaPiletaVerano
+			WHERE categoria = @categoria AND es_invitado = @es_invitado
+		)
+		BEGIN
+			RAISERROR('Ya existe una tarifa para esa categoría y condición.', 16, 1);
+			RETURN;
+		END
+
+		INSERT INTO tarifas.TarifaPiletaVerano (categoria, es_invitado, costo, vigencia)
+		VALUES (@categoria, @es_invitado, @costo, @vigencia);
+		RETURN;
+	END
+
+	-- === MODIFICAR ===
+	ELSE IF @operacion = 'Modificar'
+	BEGIN
+		IF NOT EXISTS (
+			SELECT 1
+			FROM tarifas.TarifaPiletaVerano
+			WHERE categoria = @categoria AND es_invitado = @es_invitado
+		)
+		BEGIN
+			RAISERROR('No existe una tarifa con esa categoría y condición para modificar.', 16, 1);
+			RETURN;
+		END
+
+		UPDATE tarifas.TarifaPiletaVerano
+		SET costo = COALESCE(@costo, costo),
+			vigencia = COALESCE(@vigencia, vigencia)
+		WHERE categoria = @categoria AND es_invitado = @es_invitado;
+		RETURN;
+	END
+
+	-- === ELIMINAR ===
+	ELSE
+	BEGIN
+		SET @id_tarifa = (
+			SELECT id_tarifa
+			FROM tarifas.TarifaPiletaVerano
+			WHERE categoria = @categoria AND es_invitado = @es_invitado
+		);
+
+		IF @id_tarifa IS NULL
+		BEGIN
+			RAISERROR('No existe la tarifa para eliminar.', 16, 1);
+			RETURN;
+		END
+
+		DELETE FROM tarifas.TarifaPiletaVerano
+		WHERE id_tarifa = @id_tarifa;
+		RETURN;
+	END
+END;
+GO
+
+
+
+/*____________________________________________________________________
+  ________________ GestionarInscriptoPiletaVerano ____________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('actividades.GestionarInscriptoPiletaVerano', 'P') IS NOT NULL
+    DROP PROCEDURE actividades.GestionarInscriptoPiletaVerano;
+GO
+
+CREATE PROCEDURE actividades.GestionarInscriptoPiletaVerano
+    @dni_socio VARCHAR(10),
+	@dni_invitado  CHAR(10),
+	@nombre CHAR(50),
+	@apellido CHAR(50),
+	@categoria VARCHAR(50),
+	@email VARCHAR(70),
+	@domicilio VARCHAR(200),
     @fecha_inscripcion DATE,
     @operacion CHAR(10)
 AS
@@ -900,8 +1103,9 @@ BEGIN
     SET NOCOUNT ON;
 
 	DECLARE @id_socio INT;
-	DECLARE @id_tarifa INT;
+	DECLARE @id_invitado INT;
 	DECLARE @id_inscripcion INT;
+	DECLARE @id_tarifa INT;
 
     -- Validar operación
     IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
@@ -910,81 +1114,110 @@ BEGIN
         RETURN;
     END
 
-    -- Buscar ID de socio activo
-    SET @id_socio = (
-        SELECT TOP 1 id_socio
-        FROM socios.Socio
-        WHERE dni = @dni_socio AND activo = 1 AND eliminado = 0
-    );
-
-    -- Buscar tarifa correspondiente
-    SET @id_tarifa = (
-		SELECT TOP 1 id_tarifa
-		FROM tarifas.TarifaPiletaVerano
-		WHERE descripcion = @descripcion_tarifa
-		AND categoria = @descripcion_categoria
-	)
-	-- Buscar ID de inscripcion
-	SET @id_inscripcion = (SELECT id_inscripcion
-						   FROM actividades.InscriptoPiletaVerano
-						   WHERE id_tarifa = @id_tarifa
-						   AND id_socio = @id_socio)
-
-    -- === Insertar ===
-    IF @operacion = 'Insertar'
+    -- Validar que venga al menos socio o invitado
+    IF @dni_socio IS NULL AND @dni_invitado IS NULL
     BEGIN
-
-        IF @id_tarifa IS NULL
-        BEGIN
-            RAISERROR('La tarifa de colonia de verano no existe con esos parámetros.', 16, 1);
-            RETURN;
-        END
-
-		IF @periodo IS NULL
-        BEGIN
-            RAISERROR('El periodo de colonia de verano indicado no existe.', 16, 1);
-            RETURN;
-        END
-
-		IF @descripcion_tarifa IS NULL
-        BEGIN
-            RAISERROR('El periodo de colonia de verano indicado no existe.', 16, 1);
-            RETURN;
-        END
-
-		IF @es_invitado IS NULL
-        BEGIN
-            RAISERROR('La condición de invitado indicado no existe.', 16, 1);
-            RETURN;
-        END
-
-        IF EXISTS (
-            SELECT id_inscripcion
-            FROM actividades.InscriptoPiletaVerano
-            WHERE id_socio = @id_socio AND id_tarifa = @id_tarifa
-        )
-        BEGIN
-            RAISERROR('El socio ya está inscripto en esa clase.', 16, 1);
-            RETURN;
-        END
-
-        IF @fecha_inscripcion IS NULL
-            SET @fecha_inscripcion = GETDATE();
-
-        INSERT INTO actividades.InscriptoPiletaVerano(id_socio, id_tarifa, fecha, monto)
-        VALUES (
-			@id_socio, 
-			@id_tarifa,
-			@fecha_inscripcion, 
-			(SELECT TOP 1 monto
-			 FROM tarifas.TarifaColoniaVerano
-			 WHERE descripcion = @descripcion_tarifa
-			 AND periodo = @periodo
-			 AND categoria = @descripcion_categoria));
+        RAISERROR('Debe indicarse el DNI del socio o del invitado.', 16, 1);
         RETURN;
     END
-	-- === Modificar ===
-    ELSE IF @operacion = 'Modificar'
+
+	SET @id_socio = (
+		SELECT TOP 1 id_socio
+		FROM socios.Socio
+		WHERE dni = @dni_socio AND activo = 1 AND eliminado = 0
+	);
+
+	IF @id_socio IS NULL
+	BEGIN
+		RAISERROR('No se encontró un socio válido con ese DNI.', 16, 1);
+		RETURN;
+	END
+
+    -- === Caso Socio ===
+	IF @dni_invitado IS NULL
+	BEGIN
+
+		SET @id_tarifa = (
+			SELECT TOP 1 id_tarifa
+			FROM tarifas.TarifaPiletaVerano
+			WHERE categoria = (
+				SELECT CASE 
+							WHEN CS.descripcion IN ('Mayor', 'Cadete') THEN 'Mayor'
+							ELSE CS.descripcion
+					   END
+				FROM socios.Socio S
+				JOIN socios.CategoriaSocio CS ON S.id_categoria = CS.id_categoria
+				WHERE S.id_socio = @id_socio
+			)
+			AND es_invitado = 0
+			AND vigencia > GETDATE()
+			ORDER BY vigencia DESC
+		);
+	END
+	-- === Caso Invitado ===
+	ELSE
+	BEGIN
+		SET @id_invitado = (
+			SELECT id_invitado
+			FROM socios.Invitado
+			WHERE dni = @dni_invitado
+		);
+
+		IF @id_invitado IS NULL
+		BEGIN
+			IF @nombre IS NULL OR @apellido IS NULL OR @categoria IS NULL OR @email IS NULL OR @domicilio IS NULL
+			BEGIN
+				RAISERROR('Faltan datos obligatorios para registrar al invitado.', 16, 1);
+				RETURN;
+			END
+
+			INSERT INTO socios.Invitado(id_socio, dni, nombre, apellido, categoria, email, domicilio)
+			VALUES(@id_socio, @dni_invitado, @nombre, @apellido, @categoria, @email, @domicilio);
+
+			SET @id_invitado = SCOPE_IDENTITY();
+		END
+
+		SET @id_tarifa = (
+			SELECT TOP 1 id_tarifa
+			FROM tarifas.TarifaPiletaVerano
+			WHERE categoria = @categoria
+			AND es_invitado = 1
+			AND vigencia > GETDATE()
+			ORDER BY vigencia DESC
+		);
+	END
+
+	-- Validar tarifa encontrada
+	IF @id_tarifa IS NULL
+	BEGIN
+		RAISERROR('No se encontró una tarifa válida para la categoría y condición.', 16, 1);
+		RETURN;
+	END
+
+	-- Buscar inscripción existente
+    SET @id_inscripcion = (
+        SELECT TOP 1 id_inscripcion
+        FROM actividades.InscriptoPiletaVerano
+        WHERE (id_socio = @id_socio OR id_invitado = @id_invitado)
+        AND fecha = @fecha_inscripcion
+    );
+
+    -- === Eliminar ===
+    IF @operacion = 'Eliminar'
+    BEGIN
+        IF @id_inscripcion IS NULL
+        BEGIN
+            RAISERROR('No existe la inscripción para eliminar.', 16, 1);
+            RETURN;
+        END
+
+        DELETE FROM actividades.InscriptoPiletaVerano 
+        WHERE id_inscripcion = @id_inscripcion;
+        RETURN;
+    END
+
+    -- === Modificar ===
+    IF @operacion = 'Modificar'
     BEGIN
         IF @id_inscripcion IS NULL
         BEGIN
@@ -997,226 +1230,29 @@ BEGIN
         WHERE id_inscripcion = @id_inscripcion;
         RETURN;
     END
-	-- === Eliminar ===
-    ELSE IF @operacion = 'Eliminar'
-    BEGIN
-		IF @id_inscripcion IS NULL
-        BEGIN
-            RAISERROR('No existe la inscripción para eliminar.', 16, 1);
-            RETURN;
-        END
-
-        DELETE FROM actividades.InscriptoPiletaVerano 
-		WHERE id_inscripcion = @id_inscripcion;
-        RETURN;
-    END
-END;
-GO
-
-/*____________________________________________________________________
-  ___________________ GestionarTarifaPiletaVerano ____________________
-  ____________________________________________________________________*/
-
-IF OBJECT_ID('tarifas.GestionarTarifaPiletaVerano', 'P') IS NOT NULL
-    DROP PROCEDURE tarifas.GestionarTarifaPiletaVerano;
-GO
-
-CREATE PROCEDURE tarifas.GestionarTarifaPiletaVerano
-	@descripcion VARCHAR(100),
-    @monto DECIMAL(10,2),
-	@categoria VARCHAR(50),
-	@es_invitado BIT,
-	@operacion CHAR(10)
-AS
-BEGIN
-	
-	DECLARE @id_tarifa INT;
-
-	/* Verificación de operaciones válidas */
-	IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
-	BEGIN
-		RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
-		RETURN;
-	END
-
-	IF @operacion = 'Insertar'
-	BEGIN
-
-		IF @descripcion IS NULL
-		BEGIN
-			RAISERROR('Descripción obligatoria para insertar.', 16, 1);
-			RETURN;
-		END
-
-		IF @monto IS NULL
-		BEGIN
-			RAISERROR('Monto obligatorio para insertar.', 16, 1);
-			RETURN;
-		END
-
-		IF @categoria IS NULL
-		BEGIN
-			RAISERROR('Categoria obligatoria para insertar.', 16, 1);
-			RETURN;
-		END
-
-		IF @es_invitado IS NULL
-		BEGIN
-			RAISERROR('Condicion de invitado obligatoria para insertar.', 16, 1);
-			RETURN;
-		END
-
-		IF EXISTS (SELECT TOP 1 id_tarifa 
-				   FROM tarifas.TarifaPiletaVerano
-				   WHERE descripcion = @descripcion
-				   AND @es_invitado = @es_invitado
-				   AND @categoria = categoria)
-		BEGIN
-			RAISERROR('Tarifa de pileta de verano ya existente.', 16, 1);
-        RETURN;
-    END
-	END
-	ELSE IF @operacion = 'Modificar'
-	BEGIN
-		UPDATE tarifas.TarifaPiletaVerano
-		SET 
-			monto = COALESCE(@monto, monto),
-			es_invitado = COALESCE(@es_invitado, es_invitado),
-			categoria = COALESCE(@categoria, categoria)
-		WHERE descripcion = @descripcion
-	END
-	ELSE 
-	BEGIN
-
-		SET @id_tarifa = (SELECT id_tarifa
-						  FROM tarifas.TarifaPiletaVerano
-						  WHERE descripcion = @descripcion
-						  AND es_invitado = @es_invitado
-						  AND categoria = @categoria)
-
-        IF @id_tarifa IS NULL
-        BEGIN
-            RAISERROR('No existe la tarifa para eliminar.', 16, 1);
-            RETURN;
-        END
-
-		DELETE FROM tarifas.TarifaPiletaVerano
-		WHERE descripcion = @descripcion
-	END
-
-END;
-GO
-
-/*____________________________________________________________________
-  ____________________ GestionarInscriptoReservaSum ______________________
-  ____________________________________________________________________*/
-IF OBJECT_ID('actividades.GestionarInscriptoReservaSum', 'P') IS NOT NULL
-    DROP PROCEDURE actividades.GestionarInscriptoReservaSum;
-GO
-
-CREATE PROCEDURE actividades.GestionarInscriptoReservaSum
-    @dni_socio VARCHAR(10),
-    @descripcion_tarifa VARCHAR(100),
-	@periodo CHAR(10),
-    @fecha_inscripcion DATE,
-    @operacion CHAR(10)
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-	DECLARE @id_socio INT;
-	DECLARE @id_tarifa INT;
-	DECLARE @id_inscripcion INT;
-
-    -- Validar operación
-    IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
-    BEGIN
-        RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
-        RETURN;
-    END
-
-    -- Buscar ID de socio activo
-    SET @id_socio = (
-        SELECT TOP 1 id_socio
-        FROM socios.Socio
-        WHERE dni = @dni_socio AND activo = 1 AND eliminado = 0
-    );
-
-    -- Buscar tarifa correspondiente
-    SET @id_tarifa = (
-		SELECT TOP 1 id_tarifa
-		FROM tarifas.TarifaReservaSum
-		WHERE descripcion = @descripcion_tarifa
-	)
-	-- Buscar ID de inscripcion
-	SET @id_inscripcion = (SELECT id_inscripcion
-						   FROM actividades.InscriptoPiletaVerano
-						   WHERE id_tarifa = @id_tarifa
-						   AND id_socio = @id_socio)
 
     -- === Insertar ===
     IF @operacion = 'Insertar'
     BEGIN
-        IF @id_socio IS NULL
+        IF @id_inscripcion IS NOT NULL
         BEGIN
-            RAISERROR('El socio no existe o no está activo.', 16, 1);
-            RETURN;
-        END
-
-        IF @id_tarifa IS NULL
-        BEGIN
-            RAISERROR('La tarifa de colonia de verano no existe con esos parámetros.', 16, 1);
-            RETURN;
-        END
-
-        IF EXISTS (
-            SELECT id_inscripcion
-            FROM actividades.InscriptoPiletaVerano
-            WHERE id_socio = @id_socio AND id_tarifa = @id_tarifa
-        )
-        BEGIN
-            RAISERROR('El socio ya está inscripto en esa clase.', 16, 1);
+            RAISERROR('Ya existe una inscripción para ese día.', 16, 1);
             RETURN;
         END
 
         IF @fecha_inscripcion IS NULL
             SET @fecha_inscripcion = GETDATE();
 
-        INSERT INTO actividades.InscriptoReservaSum(id_socio, id_tarifa, fecha, monto)
+        INSERT INTO actividades.InscriptoPiletaVerano(id_socio, id_invitado, id_tarifa, fecha, monto)
         VALUES (
-			@id_socio, 
+			@id_socio,
+			@id_invitado,
 			@id_tarifa,
-			@fecha_inscripcion, 
-			(SELECT TOP 1 monto
-			 FROM tarifas.TarifaColoniaVerano
-			 WHERE descripcion = @descripcion_tarifa));
-        RETURN;
-    END
-	-- === Modificar ===
-    ELSE IF @operacion = 'Modificar'
-    BEGIN
-        IF @id_inscripcion IS NULL
-        BEGIN
-            RAISERROR('No existe la inscripción para modificar.', 16, 1);
-            RETURN;
-        END
-
-        UPDATE actividades.InscriptoReservaSum
-        SET fecha = COALESCE(@fecha_inscripcion, fecha)
-        WHERE id_inscripcion = @id_inscripcion;
-        RETURN;
-    END
-	-- === Eliminar ===
-    ELSE IF @operacion = 'Eliminar'
-    BEGIN
-		IF @id_inscripcion IS NULL
-        BEGIN
-            RAISERROR('No existe la inscripción para eliminar.', 16, 1);
-            RETURN;
-        END
-
-        DELETE FROM actividades.InscriptoReservaSum 
-		WHERE id_inscripcion = @id_inscripcion;
+			@fecha_inscripcion,
+			(SELECT costo
+			 FROM tarifas.TarifaPiletaVerano
+			 WHERE id_tarifa = @id_tarifa)
+		);
         RETURN;
     END
 END;
@@ -1384,7 +1420,6 @@ BEGIN
 	INSERT INTO facturacion.CargoMembresias
 	VALUES (
 		@id_inscripcion_categoria,
-		NULL,
 		(SELECT monto
 		 FROM actividades.InscriptoCategoriaSocio
 		 WHERE id_inscripcion = @id_inscripcion_categoria),
@@ -1430,10 +1465,9 @@ BEGIN
     END
 
     -- Insertar un cargo por cada clase en la que esté inscripto ese día (sin duplicados)
-    INSERT INTO facturacion.CargoClases (id_inscripcion_clase, id_cuota, monto, fecha)
+    INSERT INTO facturacion.CargoClases (id_inscripcion_clase, monto, fecha)
     SELECT
         IC.id_inscripcion,
-        NULL,
         A.costo,
         @fecha
     FROM actividades.InscriptoClase IC
@@ -1454,11 +1488,6 @@ GO
 /*____________________________________________________________________
   ___________________ GenerarCuotasMensualesPorFecha _________________
   ____________________________________________________________________*/
-
-
-IF OBJECT_ID('facturacion.GenerarCuotasMensualesPorFecha', 'P') IS NOT NULL
-    DROP PROCEDURE facturacion.GenerarCuotasMensualesPorFecha;
-GO
 
 IF OBJECT_ID('facturacion.GenerarCuotasMensualesPorFecha', 'P') IS NOT NULL
     DROP PROCEDURE facturacion.GenerarCuotasMensualesPorFecha;
@@ -1533,6 +1562,61 @@ BEGIN
         SELECT 1 FROM facturacion.CuotaMensual CM
         WHERE CM.fecha = @ultimo_dia_mes
     );
+
+END;
+GO
+
+/*____________________________________________________________________
+  ________________ GenerarCargosActividadExtraPorFecha _______________
+  ____________________________________________________________________*/
+IF OBJECT_ID('facturacion.GenerarCargosActividadExtraPorFecha', 'P') IS NOT NULL
+    DROP PROCEDURE facturacion.GenerarCargosActividadExtraPorFecha;
+GO
+
+CREATE PROCEDURE facturacion.GenerarCargosActividadExtraPorFecha
+    @fecha DATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF @fecha IS NULL
+    BEGIN
+        RAISERROR('La fecha ingresada es inválida.', 16, 1);
+        RETURN;
+    END
+
+    DECLARE @primer_dia_mes DATE = DATEFROMPARTS(YEAR(@fecha), MONTH(@fecha), 1);
+    DECLARE @ultimo_dia_mes DATE = EOMONTH(@fecha);
+
+    -- Insertar cargos para Colonias (por inscripción)
+    INSERT INTO facturacion.CargoActividadExtra (id_inscripcion_colonia)
+    SELECT IC.id_inscripcion
+    FROM actividades.InscriptoColoniaVerano IC
+    WHERE IC.fecha BETWEEN @primer_dia_mes AND @ultimo_dia_mes
+      AND NOT EXISTS (
+          SELECT 1 FROM facturacion.CargoActividadExtra CAE
+          WHERE CAE.id_inscripcion_colonia = IC.id_inscripcion
+      );
+
+    -- Insertar cargos para Pileta (por inscripción)
+    INSERT INTO facturacion.CargoActividadExtra (id_inscripcion_pileta)
+    SELECT IP.id_inscripcion
+    FROM actividades.InscriptoPiletaVerano IP
+    WHERE IP.fecha BETWEEN @primer_dia_mes AND @ultimo_dia_mes
+      AND NOT EXISTS (
+          SELECT 1 FROM facturacion.CargoActividadExtra CAE
+          WHERE CAE.id_inscripcion_pileta = IP.id_inscripcion
+      );
+
+    -- Insertar cargos para Reserva SUM (por inscripción)
+    INSERT INTO facturacion.CargoActividadExtra (id_reserva)
+    SELECT R.id_reserva
+    FROM reservas.ReservaSum R
+    WHERE R.fecha BETWEEN @primer_dia_mes AND @ultimo_dia_mes
+      AND NOT EXISTS (
+          SELECT 1 FROM facturacion.CargoActividadExtra CAE
+          WHERE CAE.id_reserva = R.id_reserva
+      );
 
 END;
 GO

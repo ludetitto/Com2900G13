@@ -25,7 +25,7 @@ EXEC cobranzas.GestionarMedioDePago
     @nombre = 'Visa',
     @debito_automatico = 1,
     @operacion = 'Insertar';
-SELECT * FROM administracion.MedioDePago;
+SELECT * FROM cobranzas.MedioDePago;
 GO
 
 -- ❌ Insertar duplicado
@@ -33,7 +33,7 @@ EXEC cobranzas.GestionarMedioDePago
     @nombre = 'Visa',
     @debito_automatico = 1,
     @operacion = 'Insertar';
-SELECT * FROM administracion.MedioDePago;
+SELECT * FROM cobranzas.MedioDePago;
 GO
 
 -- ✅ Modificar debito_automatico a 0
@@ -41,7 +41,7 @@ EXEC cobranzas.GestionarMedioDePago
     @nombre = 'Visa',
     @debito_automatico = 0,
     @operacion = 'Modificar';
-SELECT * FROM administracion.MedioDePago;
+SELECT * FROM cobranzas.MedioDePago;
 GO
 
 -- ❌ Modificar medio inexistente
@@ -49,21 +49,21 @@ EXEC cobranzas.GestionarMedioDePago
     @nombre = 'NoExiste',
     @debito_automatico = 1,
     @operacion = 'Modificar';
-SELECT * FROM administracion.MedioDePago;
+SELECT * FROM cobranzas.MedioDePago;
 GO
 
 -- ✅ Eliminar medio existente
 EXEC cobranzas.GestionarMedioDePago 
     @nombre = 'Visa',
     @operacion = 'Eliminar';
-SELECT * FROM administracion.MedioDePago;
+SELECT * FROM cobranzas.MedioDePago;
 GO
 
 -- ❌ Eliminar medio inexistente
 EXEC cobranzas.GestionarMedioDePago 
     @nombre = 'NoExiste',
     @operacion = 'Eliminar';
-SELECT * FROM administracion.MedioDePago;
+SELECT * FROM cobranzas.MedioDePago;
 GO
 
 -- ================================================
