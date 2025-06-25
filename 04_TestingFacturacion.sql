@@ -368,6 +368,177 @@ SELECT * FROM facturacion.EmisorFactura
 GO
 
 /*_____________________________________________________________________
+  _____________ PRUEBAS GestionarInscriptoPiletaVerano ________________
+  _____________________________________________________________________*/
+
+
+-- ✅ PRUEBA 1: Inserción válida de socio categoría Mayor
+-- Esperado: Se registra correctamente con tarifa de "Mayor"
+EXEC actividades.GestionarInscriptoPiletaVerano
+    @dni_socio = '30111222',
+    @dni_invitado = NULL,
+    @nombre = NULL,
+    @apellido = NULL,
+    @categoria = NULL,
+    @email = NULL,
+    @domicilio = NULL,
+    @fecha_inscripcion = '2025-12-01',
+    @operacion = 'Insertar';
+GO
+
+SELECT * FROM actividades.InscriptoPiletaVerano;
+GO
+
+
+-- ✅ PRUEBA 2: Inserción válida de socio categoría Cadete
+-- Esperado: Se registra correctamente con tarifa de "Mayor"
+EXEC actividades.GestionarInscriptoPiletaVerano
+    @dni_socio = '30444555',
+    @dni_invitado = NULL,
+    @nombre = NULL,
+    @apellido = NULL,
+    @categoria = NULL,
+    @email = NULL,
+    @domicilio = NULL,
+    @fecha_inscripcion = '2025-12-02',
+    @operacion = 'Insertar';
+GO
+
+SELECT * FROM actividades.InscriptoPiletaVerano;
+GO
+
+
+-- ✅ PRUEBA 3: Inserción válida de invitado nuevo
+-- Esperado: Se registra nuevo invitado y se lo inscribe
+EXEC actividades.GestionarInscriptoPiletaVerano
+    @dni_socio = NULL,
+    @dni_invitado = '40999888',
+    @nombre = 'Ana',
+    @apellido = 'González',
+    @categoria = 'Menor',
+    @email = 'ana@example.com',
+    @domicilio = 'Calle Falsa 123',
+    @fecha_inscripcion = '2025-12-03',
+    @operacion = 'Insertar';
+GO
+
+SELECT * FROM socios.Invitado;
+SELECT * FROM actividades.InscriptoPiletaVerano;
+GO
+
+
+-- ✅ PRUEBA 4: Inserción de invitado existente (sin duplicar)
+-- Esperado: Se utiliza el invitado ya existente
+EXEC actividades.GestionarInscriptoPiletaVerano
+    @dni_socio = NULL,
+    @dni_invitado = '40999888',
+    @nombre = NULL,
+    @apellido = NULL,
+    @categoria = 'Menor',
+    @email = NULL,
+    @domicilio = NULL,
+    @fecha_inscripcion = '2025-12-04',
+    @operacion = 'Insertar';
+GO
+
+SELECT * FROM actividades.InscriptoPiletaVerano;
+GO
+
+
+-- ❌ PRUEBA 5: Operación inválida
+-- Esperado: Error lanzado por RAISERROR de operación inválida
+EXEC actividades.GestionarInscriptoPiletaVerano
+    @dni_socio = '30111222',
+    @dni_invitado = NULL,
+    @nombre = NULL,
+    @apellido = NULL,
+    @categoria = NULL,
+    @email = NULL,
+    @domicilio = NULL,
+    @fecha_inscripcion = '2025-12-01',
+    @operacion = 'Registrar';
+GO
+
+
+-- ❌ PRUEBA 6: Invitado sin datos suficientes
+-- Esperado: Error lanzado por RAISERROR por datos incompletos
+EXEC actividades.GestionarInscriptoPiletaVerano
+    @dni_socio = NULL,
+    @dni_invitado = '50111222',
+    @nombre = NULL,
+    @apellido = NULL,
+    @categoria = NULL,
+    @email = NULL,
+    @domicilio = NULL,
+    @fecha_inscripcion = '2025-12-05',
+    @operacion = 'Insertar';
+GO
+
+
+-- ❌ PRUEBA 7: Eliminar inscripción inexistente
+-- Esperado: Error lanzado por RAISERROR
+EXEC actividades.GestionarInscriptoPiletaVerano
+    @dni_socio = '30111222',
+    @dni_invitado = NULL,
+    @nombre = NULL,
+    @apellido = NULL,
+    @categoria = NULL,
+    @email = NULL,
+    @domicilio = NULL,
+    @fecha_inscripcion = '2030-01-01',
+    @operacion = 'Eliminar';
+GO
+
+
+-- ❌ PRUEBA 8: Modificar inscripción inexistente
+-- Esperado: Error lanzado por RAISERROR
+EXEC actividades.GestionarInscriptoPiletaVerano
+    @dni_socio = '30444555',
+    @dni_invitado = NULL,
+    @nombre = NULL,
+    @apellido = NULL,
+    @categoria = NULL,
+    @email = NULL,
+    @domicilio = NULL,
+    @fecha_inscripcion = '2030-01-01',
+    @operacion = 'Modificar';
+GO
+
+
+-- ❌ PRUEBA 9: Intento de inserción duplicada
+-- Esperado: Error lanzado por RAISERROR
+EXEC actividades.GestionarInscriptoPiletaVerano
+    @dni_socio = '30111222',
+    @dni_invitado = NULL,
+    @nombre = NULL,
+    @apellido = NULL,
+    @categoria = NULL,
+    @email = NULL,
+    @domicilio = NULL,
+    @fecha_inscripcion = '2025-12-01',
+    @operacion = 'Insertar';
+GO
+
+
+-- ✅ PRUEBA 10: Eliminación válida de inscripción
+-- Esperado: Se elimina correctamente
+EXEC actividades.GestionarInscriptoPiletaVerano
+    @dni_socio = '30444555',
+    @dni_invitado = NULL,
+    @nombre = NULL,
+    @apellido = NULL,
+    @categoria = NULL,
+    @email = NULL,
+    @domicilio = NULL,
+    @fecha_inscripcion = '2025-12-02',
+    @operacion = 'Eliminar';
+GO
+
+SELECT * FROM actividades.InscriptoPiletaVerano;
+GO
+
+
+/*_____________________________________________________________________
   _________________ PRUEBAS GenerarFacturaSocioMensual ________________
   _____________________________________________________________________*/
 
