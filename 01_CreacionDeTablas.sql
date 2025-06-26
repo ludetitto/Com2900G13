@@ -49,6 +49,7 @@ DROP PROCEDURE IF EXISTS administracion.GestionarPersona
 DROP PROCEDURE IF EXISTS administracion.GestionarCategoriaSocio
 DROP PROCEDURE IF EXISTS administracion.GestionarGrupoFamiliar
 
+DROP PROCEDURE IF EXISTS facturacion.GenerarFacturasMensualesPorFecha
 DROP PROCEDURE IF EXISTS facturacion.GenerarCargosActividadExtraPorFecha
 DROP PROCEDURE IF EXISTS cobranzas.GenerarPagoACuenta
 DROP PROCEDURE IF EXISTS facturacion.GenerarCuotasMensualesPorFecha
@@ -405,7 +406,7 @@ CREATE TABLE facturacion.Factura (
 	tipo_factura CHAR,
 	dni_receptor CHAR(13), 
 	condicion_iva_receptor CHAR(50) NOT NULL,
-	cae CHAR(14), 
+	cae CHAR(14) UNIQUE, 
     monto_total DECIMAL(10,2),
     fecha_emision DATE,
     fecha_vencimiento1 DATE,
@@ -525,21 +526,21 @@ ALTER TABLE facturacion.Factura
 ADD CONSTRAINT FK_Factura_CargoActividadExtra
     FOREIGN KEY (id_cargo_actividad_extra) REFERENCES facturacion.CargoActividadExtra(id_cargo_extra);
 
-ALTER TABLE facturacion.Factura
-ADD CONSTRAINT FK_Factura_DetalleFactura
-    FOREIGN KEY (id_factura) REFERENCES facturacion.DetalleFactura(id_detalle);
+ALTER TABLE facturacion.DetalleFactura
+ADD CONSTRAINT FK_DetalleFactura_Factura
+    FOREIGN KEY (id_factura) REFERENCES facturacion.Factura(id_factura);
 
 ALTER TABLE facturacion.Factura
 ADD CONSTRAINT FK_Factura_EmisorFactura
     FOREIGN KEY (id_emisor) REFERENCES facturacion.EmisorFactura(id_emisor);
 
-ALTER TABLE facturacion.Factura
-ADD CONSTRAINT FK_Factura_Mora
-    FOREIGN KEY (id_factura) REFERENCES cobranzas.Mora(id_mora);
+ALTER TABLE cobranzas.Mora
+ADD CONSTRAINT FK_Mora_Factura
+    FOREIGN KEY (id_factura) REFERENCES facturacion.Factura(id_factura);
 
-ALTER TABLE facturacion.Factura
-ADD CONSTRAINT FK_Factura_Pago
-    FOREIGN KEY (id_factura) REFERENCES cobranzas.Pago(id_pago);
+ALTER TABLE cobranzas.Pago
+ADD CONSTRAINT FK_Pago_Factura
+    FOREIGN KEY (id_factura) REFERENCES facturacion.Factura(id_factura);
 
 ALTER TABLE facturacion.CuotaMensual
 ADD CONSTRAINT FK_CuotaMensual_InscriptoCategoriaSocio

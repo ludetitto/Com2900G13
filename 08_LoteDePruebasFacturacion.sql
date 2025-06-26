@@ -276,6 +276,13 @@ GO
 
 EXEC facturacion.GenerarCargosActividadExtraPorFecha '2025-06-30';
 GO
+
+EXEC facturacion.GenerarFacturasMensualesPorFecha '2025-06-30';
+GO
+
+EXEC facturacion.GenerarFacturasActividadesExtraPorFecha '2025-06-30';
+GO
+
 /*
 -- =================== GENERACI�N DE FACTURA MENSUAL ===================
 EXEC facturacion.GenerarFacturaSocioMensual '45778667', '20-12345678-4';
@@ -362,6 +369,18 @@ FROM facturacion.CuotaMensual
 
 SELECT *
 FROM facturacion.CargoActividadExtra
+
+SELECT *
+FROM facturacion.vw_FacturasDetalladasConResponsables
+ORDER BY id_factura ASC
+GO
+
+SELECT *
+FROM facturacion.Factura
+
+SELECT *
+FROM facturacion.DetalleFactura
+
 /*
 SELECT id_extra, , costo, periodo, categoria, es_invitado, vigencia
 FROM actividades.ActividadExtra;
