@@ -476,8 +476,9 @@ BEGIN
             RETURN;
         END
 
-        INSERT INTO actividades.presentismoClase (id_inscripcion, fecha, estado)
+        INSERT INTO actividades.presentismoClase (id_socio, id_inscripcion, fecha, estado)
         VALUES (
+			@id_socio,
 			@id_inscripcion, 
 			@fecha, 
 			@estado);
@@ -907,83 +908,6 @@ END;
 GO
 
 /*____________________________________________________________________
-  __________________ GestionarTarifaColoniaVerano ____________________
-  ____________________________________________________________________*/
-/*
-IF OBJECT_ID('tarifas.GestionarTarifaColoniaVerano', 'P') IS NOT NULL
-    DROP PROCEDURE tarifas.GestionarTarifaColoniaVerano;
-GO
-
-CREATE PROCEDURE tarifas.GestionarTarifaColoniaVerano
-	@categoria VARCHAR(50),
-	@periodo CHAR(10),
-	@costo DECIMAL(10,2),
-	@operacion CHAR(10)
-AS
-BEGIN
-
-	--Verificación de operaciones válidas
-    IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
-    BEGIN
-        RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
-        RETURN;
-    END
-	
-	IF @operacion = 'Insertar'
-	BEGIN
-
-		IF @costo IS NULL
-		BEGIN
-			RAISERROR('Monto obligatorio para insertar.', 16, 1);
-			RETURN;
-		END
-
-		IF @categoria IS NULL
-		BEGIN
-			RAISERROR('Categoria obligatoria para insertar.', 16, 1);
-			RETURN;
-		END
-
-		IF @categoria IS NULL
-		BEGIN
-			RAISERROR('Categoria obligatoria para insertar.', 16, 1);
-			RETURN;
-		END
-
-		IF @periodo IS NULL
-		BEGIN
-			RAISERROR('Periodo obligatoria para insertar.', 16, 1);
-			RETURN;
-		END
-
-		IF EXISTS (SELECT TOP 1 id_tarifa 
-				   FROM tarifas.TarifaColoniaVerano 
-				   WHERE categoria = @categoria
-				   AND periodo = @periodo)
-		BEGIN
-			RAISERROR('Tarifa de colonia de verano ya existente.', 16, 1);
-        RETURN;
-    END
-	END
-	ELSE IF @operacion = 'Modificar'
-	BEGIN
-		UPDATE tarifas.TarifaColoniaVerano
-		SET costo = COALESCE(@costo, costo)
-		WHERE categoria = @categoria
-		AND periodo = @periodo
-	END
-	ELSE 
-	BEGIN
-		DELETE FROM tarifas.TarifaColoniaVerano
-		WHERE categoria = @categoria
-		AND periodo = @periodo
-	END
-
-END;
-GO
-*/
-
-/*____________________________________________________________________
   ___________________ GestionarTarifaPiletaVerano ____________________
   ____________________________________________________________________*/
 
@@ -1345,14 +1269,6 @@ BEGIN
 END;
 GO
 
-/*
-DROP TABLE IF EXISTS facturacion.DetalleFactura;
-DROP TABLE IF EXISTS facturacion.Factura;
-DROP TABLE IF EXISTS facturacion.CargoActividadExtra;
-DROP TABLE IF EXISTS facturacion.CargoClases;
-DROP TABLE IF EXISTS facturacion.CargoMembresias;
-DROP TABLE IF EXISTS facturacion.CuotaMensual;*/
-
 /*____________________________________________________________________
   _______________________ GenerarCargoMembresia ______________________
   ____________________________________________________________________*/
@@ -1622,88 +1538,5 @@ END;
 GO
 
 /*____________________________________________________________________
-  ______________________ GenerarFacturasMensuales ____________________
+  _____________________ GenerarFacturacionMensual ____________________
   ____________________________________________________________________*/
-  /*
-IF OBJECT_ID('facturacion.GenerarFacturasMensuales', 'P') IS NOT NULL
-    DROP PROCEDURE facturacion.GenerarFacturasMensuales;
-GO
-
-CREATE PROCEDURE facturacion.GenerarFacturasDesdeCuotasMensuales
-    @fecha DATE
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    -- Validar fecha
-    IF @fecha IS NULL
-    BEGIN
-        RAISERROR('La fecha ingresada es inválida.', 16, 1);
-        RETURN;
-    END
-
-    DECLARE @id_emisor INT;
-    SELECT TOP 1 @id_emisor = id_emisor FROM facturacion.EmisorFactura;
-
-    IF @id_emisor IS NULL
-    BEGIN
-        RAISERROR('No se encontró un emisor de facturas.', 16, 1);
-        RETURN;
-    END
-
-    DECLARE @fecha_vto1 DATE = DATEADD(DAY, 5, @fecha);
-    DECLARE @fecha_vto2 DATE = DATEADD(DAY, 10, @fecha);
-
-    ;WITH CuotasConResponsables AS (
-        SELECT
-            GM.id_grupo,
-            GM.id_socio_rp,
-            T.id_tutor,
-            CM.id_cuota,
-            CM.monto_membresia,
-            CM.monto_actividad,
-            CM.fecha,
-            ISNULL(S.saldo, 0) AS saldo_anterior
-        FROM facturacion.CuotaMensual CM
-        JOIN socios.GrupoFamiliar GM ON GM.id_grupo = CM.id_cuota
-        LEFT JOIN socios.Socio S ON S.id_socio = GM.id_socio_rp
-        LEFT JOIN socios.Tutor T ON T.id_grupo = GM.id_grupo
-        WHERE CM.fecha = @fecha
-    )
-    INSERT INTO facturacion.Factura (
-        id_emisor, id_socio, monto_total, saldo_anterior,
-        fecha_emision, fecha_vencimiento1, fecha_vencimiento2,
-        estado, id_cuota, id_cargo_actividad_extra
-    )
-    OUTPUT INSERTED.id_factura, 
-           C.monto_membresia, 
-           C.monto_actividad
-    INTO #FacturasGeneradas (id_factura, monto_membresia, monto_actividad)
-    SELECT
-        @id_emisor,
-        ISNULL(C.id_socio_rp, T.id_tutor), -- Prioridad responsable > tutor
-        C.monto_membresia + C.monto_actividad,
-        C.saldo_anterior,
-        C.fecha,
-        @fecha_vto1,
-        @fecha_vto2,
-        'Emitida',
-        C.id_cuota,
-        NULL
-    FROM CuotasConResponsables C
-    LEFT JOIN socios.Tutor T ON T.id_grupo = C.id_grupo;
-
-    -- Insertar detalles de factura
-    INSERT INTO facturacion.DetalleFactura (id_factura, concepto, monto, tipo_concepto)
-    SELECT id_factura, 'Membresía mensual', monto_membresia, 'Membresía'
-    FROM #FacturasGeneradas
-    WHERE monto_membresia > 0
-
-    UNION ALL
-
-    SELECT id_factura, 'Actividades del mes', monto_actividad, 'Actividad'
-    FROM #FacturasGeneradas
-    WHERE monto_actividad > 0;
-END;
-GO
-*/

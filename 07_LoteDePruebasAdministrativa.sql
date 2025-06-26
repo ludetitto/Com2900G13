@@ -39,9 +39,21 @@ DBCC CHECKIDENT ('actividades.Clase', RESEED, 0);
 DELETE FROM facturacion.CargoMembresias;
 DBCC CHECKIDENT ('facturacion.CargoMembresias', RESEED, 0);
 
+DELETE FROM facturacion.CargoActividadExtra;
+DBCC CHECKIDENT ('facturacion.CargoActividadExtra', RESEED, 0);
+
 -- 3. Inscripciones a categorías
 DELETE FROM actividades.InscriptoCategoriaSocio;
 DBCC CHECKIDENT ('actividades.InscriptoCategoriaSocio', RESEED, 0);
+
+DELETE FROM actividades.InscriptoPiletaVerano;
+DBCC CHECKIDENT ('actividades.InscriptoPiletaVerano', RESEED, 0);
+
+DELETE FROM actividades.InscriptoColoniaVerano;
+DBCC CHECKIDENT ('actividades.InscriptoColoniaVerano', RESEED, 0);
+
+DELETE FROM reservas.ReservaSum;
+DBCC CHECKIDENT ('reservas.ReservaSum', RESEED, 0);
 
 -- 4. Grupo Familiar - relaciones y tutores
 DELETE FROM socios.GrupoFamiliarSocio;
@@ -51,6 +63,10 @@ DBCC CHECKIDENT ('socios.Tutor', RESEED, 0);
 -- 5. Grupos familiares
 DELETE FROM socios.GrupoFamiliar;
 DBCC CHECKIDENT ('socios.GrupoFamiliar', RESEED, 0);
+
+-- 6. Socios
+DELETE FROM socios.Invitado;
+DBCC CHECKIDENT ('socios.Invitado', RESEED, 0);
 
 -- 6. Socios
 DELETE FROM socios.Socio;

@@ -6,13 +6,10 @@ Práctico integrador para la materia Bases de Datos Aplicadas.
   
   <ins>Nombre y apellido</ins>: Francisco Vignardel ---> <ins>Alias</ins>: Cisco
   
-<<<<<<< HEAD
-  <ins>Nombre y apellido</ins>: Sebastián Rodriguez ---> <ins>Alias</ins>: Sez003
-
-  <ins>Nombre y apellido</ins>: Borja Tomas ---> <ins>Alias</ins>: 
---------
   <ins>Nombre y apellido</ins>: Camila Antonio Vallejos ---> <ins>Alias</ins>:  Camila
   
   <ins>Nombre y apellido</ins>: Franco Benvenuto ---> <ins>Alias</ins>:  Franco
 
--------- origin/qa
+  <ins>Nombre y apellido</ins>: Sebastián Rodriguez ---> <ins>Alias</ins>: Sez003
+
+  <ins>Nombre y apellido</ins>: Borja Tomas ---> <ins>Alias</ins>: 

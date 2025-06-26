@@ -409,9 +409,10 @@ CREATE TABLE facturacion.Factura (
 CREATE TABLE facturacion.DetalleFactura (
     id_detalle INT IDENTITY PRIMARY KEY,
     id_factura INT NOT NULL,
-    concepto VARCHAR(100),
+    descripcion VARCHAR(100),
     monto DECIMAL(10,2),
-    tipo_concepto VARCHAR(50)
+    tipo_item VARCHAR(50),
+	cantidad INT
 );
 
 -- ===============================
