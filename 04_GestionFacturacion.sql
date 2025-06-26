@@ -41,25 +41,18 @@ BEGIN
     -- Eliminar actividad y clases asociadas
     IF @operacion = 'Eliminar'
     BEGIN
-        IF NOT EXISTS (SELECT 1 FROM actividades.Actividad WHERE descripcion = @nombre)
+        IF NOT EXISTS (SELECT 1 FROM actividades.Actividad WHERE nombre = @nombre)
         BEGIN
             RAISERROR('No existe la actividad para eliminar.', 16, 1);
             RETURN;
         END
 
         DECLARE @id_actividad INT = (
-            SELECT id_actividad FROM actividades.Actividad WHERE descripcion = @nombre
+            SELECT id_actividad FROM actividades.Actividad WHERE nombre = @nombre
         );
 
         BEGIN TRY
             BEGIN TRANSACTION;
-
-            -- Eliminar presentismo
-            DELETE pc
-            FROM actividades.presentismoClase AS pc
-			INNER JOIN actividades.InscriptoClase ic ON ic.id_inscripcion = pc.id_inscripcion
-            INNER JOIN actividades.Clase AS c ON ic.id_clase = c.id_clase
-            WHERE c.id_actividad = @id_actividad;
 
             -- Eliminar inscripciones
             DELETE ic
@@ -86,7 +79,7 @@ BEGIN
     -- Modificar valores base
     IF @operacion = 'Modificar'
     BEGIN
-        IF NOT EXISTS (SELECT 1 FROM actividades.Actividad WHERE descripcion = @nombre)
+        IF NOT EXISTS (SELECT 1 FROM actividades.Actividad WHERE nombre = @nombre)
         BEGIN
             RAISERROR('No existe la actividad para modificar.', 16, 1);
             RETURN;
@@ -96,7 +89,7 @@ BEGIN
         SET 
             costo    = COALESCE(@costo, costo),
             vigencia = COALESCE(@vigencia, vigencia)
-        WHERE descripcion = @nombre;
+        WHERE nombre = @nombre;
 
         RETURN;
     END
@@ -116,13 +109,13 @@ BEGIN
             RETURN;
         END
 
-        IF EXISTS (SELECT 1 FROM actividades.Actividad WHERE descripcion = @nombre)
+        IF EXISTS (SELECT 1 FROM actividades.Actividad WHERE nombre = @nombre)
         BEGIN
             RAISERROR('Ya existe una actividad con ese nombre.', 16, 1);
             RETURN;
         END
 
-        INSERT INTO actividades.Actividad (descripcion, costo, vigencia)
+        INSERT INTO actividades.Actividad (nombre, costo, vigencia)
         VALUES (@nombre, @costo, @vigencia);
         RETURN;
     END
@@ -160,9 +153,9 @@ BEGIN
 
     /* Obtener IDs */
     
-    SET @id_categoria = (SELECT id_categoria FROM socios.CategoriaSocio WHERE descripcion = @nombre_categoria);
+    SET @id_categoria = (SELECT id_categoria FROM socios.CategoriaSocio WHERE nombre = @nombre_categoria);
 
-	SET @id_actividad = (SELECT id_actividad FROM actividades.Actividad WHERE descripcion = @nombre_actividad)
+	SET @id_actividad = (SELECT id_actividad FROM actividades.Actividad WHERE nombre = @nombre_actividad)
 
 	IF @operacion = 'Insertar'
     BEGIN
@@ -276,14 +269,14 @@ BEGIN
         FROM actividades.Clase C
         JOIN actividades.Actividad A ON A.id_actividad = C.id_actividad
         JOIN socios.CategoriaSocio Ca ON Ca.id_categoria = C.id_categoria
-        WHERE A.descripcion = @nombre_actividad
+        WHERE A.nombre = @nombre_actividad
           AND C.horario = @horario
-          AND Ca.descripcion = @nombre_categoria
+          AND Ca.nombre = @nombre_categoria
     );
 
     -- Buscar inscripción existente
     DECLARE @id_inscripcion INT = (
-        SELECT TOP 1 IC.id_inscripcion
+        SELECT TOP 1 IC.id_inscripto_clase
         FROM actividades.InscriptoClase IC
         WHERE IC.id_socio = @id_socio AND IC.id_clase = @id_clase
     );
@@ -297,7 +290,7 @@ BEGIN
             RETURN;
         END
 
-        DELETE FROM actividades.InscriptoClase WHERE id_inscripcion = @id_inscripcion;
+        DELETE FROM actividades.InscriptoClase WHERE id_inscripto_clase = @id_inscripcion;
         RETURN;
     END
 	ELSE
@@ -329,7 +322,7 @@ BEGIN
         IF @fecha_inscripcion IS NULL
             SET @fecha_inscripcion = GETDATE();
 
-        INSERT INTO actividades.InscriptoClase (id_socio, id_clase, fecha)
+        INSERT INTO actividades.InscriptoClase (id_socio, id_clase, fecha_inscripcion)
         VALUES (@id_socio, @id_clase, @fecha_inscripcion);
         RETURN;
     END
@@ -374,9 +367,9 @@ BEGIN
         FROM actividades.Clase C
         JOIN actividades.Actividad A ON A.id_actividad = C.id_actividad
         JOIN socios.CategoriaSocio Ca ON Ca.id_categoria = C.id_categoria
-        WHERE A.descripcion = @nombre_actividad
+        WHERE A.nombre = @nombre_actividad
           AND C.horario = @horario
-          AND Ca.descripcion = @nombre_categoria
+          AND Ca.nombre = @nombre_categoria
     );
 
     -- Obtener ID del socio
@@ -388,7 +381,7 @@ BEGIN
 
 	-- Buscar inscripción existente
     SET @id_inscripcion = (
-        SELECT TOP 1 id_inscripcion 
+        SELECT TOP 1 id_inscripto_clase 
 		FROM actividades.InscriptoClase IC
 		INNER JOIN actividades.Clase C ON C.id_clase = IC.id_clase
 		WHERE C.id_clase = @id_clase AND IC.id_socio = @id_socio
@@ -398,9 +391,9 @@ BEGIN
     SET @id_presentismo = (
         SELECT TOP 1 id_presentismo
         FROM actividades.presentismoClase PC
-		INNER JOIN actividades.InscriptoClase IC ON IC.id_inscripcion = PC.id_inscripcion
-		INNER JOIN actividades.Clase C ON C.id_clase = IC.id_clase
-        WHERE C.id_clase = @id_clase AND IC.id_inscripcion = @id_inscripcion AND PC.fecha = @fecha
+		INNER JOIN actividades.Clase C ON C.id_clase = PC.id_clase
+		INNER JOIN actividades.InscriptoClase IC ON IC.id_clase = C.id_clase
+        WHERE C.id_clase = @id_clase AND IC.id_inscripto_clase = @id_inscripcion AND PC.fecha = @fecha
     );
 
     -- === Eliminar ===
@@ -426,7 +419,7 @@ BEGIN
         END
 
         UPDATE actividades.presentismoClase
-        SET id_inscripcion = COALESCE(@id_inscripcion, id_inscripcion),
+        SET id_clase = COALESCE(@id_clase, id_clase),
             fecha = COALESCE(@fecha, fecha),
             estado = COALESCE(@estado, estado)
         WHERE id_presentismo = @id_presentismo;
@@ -467,18 +460,19 @@ BEGIN
         IF EXISTS (
             SELECT 1
             FROM actividades.presentismoClase PC
-            INNER JOIN actividades.InscriptoClase IC ON IC.id_inscripcion = PC.id_inscripcion
-			INNER JOIN actividades.Clase C ON C.id_clase = IC.id_clase
-			WHERE C.id_clase = @id_clase AND IC.id_inscripcion = @id_inscripcion AND PC.fecha = @fecha
+			INNER JOIN actividades.Clase C ON C.id_clase = PC.id_clase
+			INNER JOIN actividades.InscriptoClase IC ON IC.id_clase = C.id_clase
+			WHERE C.id_clase = @id_clase AND IC.id_inscripto_clase = @id_inscripcion AND PC.fecha = @fecha
         )
         BEGIN
             RAISERROR('Ya existe un presentismo registrado para esa clase, socio y fecha.', 16, 1);
             RETURN;
         END
 
-        INSERT INTO actividades.presentismoClase (id_inscripcion, fecha, estado)
+        INSERT INTO actividades.presentismoClase (id_clase, id_socio, fecha, estado)
         VALUES (
-			@id_inscripcion, 
+			@id_clase, 
+			@id_socio,
 			@fecha, 
 			@estado);
         RETURN;
@@ -608,7 +602,7 @@ BEGIN
 
     -- Buscar tarifa vigente correspondiente
     SET @id_tarifa = (
-        SELECT TOP 1 id_tarifa
+        SELECT TOP 1 id_tarifa_colonia
         FROM tarifas.TarifaColoniaVerano
         WHERE periodo = @periodo
           AND categoria = @descripcion_categoria
@@ -625,7 +619,7 @@ BEGIN
     SET @monto = (
         SELECT TOP 1 costo -- o monto, según el nombre correcto en la tabla
         FROM tarifas.TarifaColoniaVerano
-        WHERE id_tarifa = @id_tarifa
+        WHERE id_tarifa_colonia = @id_tarifa
     );
 
     IF @monto IS NULL
@@ -636,9 +630,9 @@ BEGIN
 
     -- Buscar inscripción existente
     SET @id_inscripcion = (
-        SELECT TOP 1 id_inscripcion
+        SELECT TOP 1 id_inscripto_colonia
         FROM actividades.InscriptoColoniaVerano
-        WHERE id_socio = @id_socio AND id_tarifa = @id_tarifa
+        WHERE id_socio = @id_socio AND id_tarifa_colonia = @id_tarifa
     );
 
     -- === Insertar ===
@@ -653,7 +647,7 @@ BEGIN
         IF @fecha_inscripcion IS NULL
             SET @fecha_inscripcion = GETDATE();
 
-        INSERT INTO actividades.InscriptoColoniaVerano(id_socio, id_tarifa, fecha, monto)
+        INSERT INTO actividades.InscriptoColoniaVerano(id_socio, id_tarifa_colonia, fecha, monto)
         VALUES (@id_socio, @id_tarifa, @fecha_inscripcion, @monto);
 
         RETURN;
@@ -670,7 +664,7 @@ BEGIN
 
         UPDATE actividades.InscriptoColoniaVerano
         SET fecha = COALESCE(@fecha_inscripcion, fecha)
-        WHERE id_inscripcion = @id_inscripcion;
+        WHERE id_inscripto_colonia = @id_inscripcion;
 
         RETURN;
     END
@@ -685,7 +679,7 @@ BEGIN
         END
 
         DELETE FROM actividades.InscriptoColoniaVerano
-        WHERE id_inscripcion = @id_inscripcion;
+        WHERE id_inscripto_colonia = @id_inscripcion;
 
         RETURN;
     END
@@ -820,7 +814,7 @@ BEGIN
 
     -- Buscar tarifa vigente para reserva SUM
     SET @id_tarifa = (
-        SELECT TOP 1 id_tarifa
+        SELECT TOP 1 id_tarifa_sum
         FROM tarifas.TarifaReservaSum
         WHERE vigencia > GETDATE()
         ORDER BY vigencia DESC
@@ -834,9 +828,9 @@ BEGIN
 
     -- Buscar reserva existente para el socio, misma fecha y horario
     SET @id_reserva = (
-        SELECT TOP 1 id_reserva
+        SELECT TOP 1 id_reserva_sum
         FROM reservas.ReservaSum
-        WHERE id_tarifa = @id_tarifa
+        WHERE id_tarifa_sum = @id_tarifa
           AND id_socio = @id_socio
           AND fecha = @fecha_inscripcion
           AND hora_inicio = @hora_inicio
@@ -861,7 +855,7 @@ BEGIN
             RETURN;
         END
 
-        INSERT INTO reservas.ReservaSum(id_socio, id_tarifa, fecha, hora_inicio, hora_fin)
+        INSERT INTO reservas.ReservaSum(id_socio, id_tarifa_sum, fecha, hora_inicio, hora_fin)
         VALUES (
             @id_socio, 
             @id_tarifa,
@@ -886,7 +880,7 @@ BEGIN
             fecha = COALESCE(@fecha_inscripcion, fecha),
             hora_inicio = COALESCE(@hora_inicio, hora_inicio),
             hora_fin = COALESCE(@hora_fin, hora_fin)
-        WHERE id_reserva = @id_reserva;
+        WHERE id_reserva_sum = @id_reserva;
         RETURN;
     END
 
@@ -900,7 +894,7 @@ BEGIN
         END
 
         DELETE FROM reservas.ReservaSum 
-        WHERE id_reserva = @id_reserva;
+        WHERE id_reserva_sum = @id_reserva;
         RETURN;
     END
 END;
@@ -1060,7 +1054,7 @@ BEGIN
 	ELSE
 	BEGIN
 		SET @id_tarifa = (
-			SELECT id_tarifa
+			SELECT id_tarifa_pileta
 			FROM tarifas.TarifaPiletaVerano
 			WHERE categoria = @categoria AND es_invitado = @es_invitado
 		);
@@ -1072,7 +1066,7 @@ BEGIN
 		END
 
 		DELETE FROM tarifas.TarifaPiletaVerano
-		WHERE id_tarifa = @id_tarifa;
+		WHERE id_tarifa_pileta = @id_tarifa;
 		RETURN;
 	END
 END;
@@ -1138,15 +1132,16 @@ BEGIN
 	BEGIN
 
 		SET @id_tarifa = (
-			SELECT TOP 1 id_tarifa
+			SELECT TOP 1 id_tarifa_pileta
 			FROM tarifas.TarifaPiletaVerano
 			WHERE categoria = (
 				SELECT CASE 
-							WHEN CS.descripcion IN ('Mayor', 'Cadete') THEN 'Mayor'
-							ELSE CS.descripcion
+							WHEN CS.nombre IN ('Mayor', 'Cadete') THEN 'Mayor'
+							ELSE CS.nombre
 					   END
 				FROM socios.Socio S
-				JOIN socios.CategoriaSocio CS ON S.id_categoria = CS.id_categoria
+				JOIN InscriptoCategoriaSocio ICS ON ICS.id_socio = S.id_socio
+				JOIN socios.CategoriaSocio CS ON CS.id_categoria = ICS.id_categoria
 				WHERE S.id_socio = @id_socio
 			)
 			AND es_invitado = 0
@@ -1178,7 +1173,7 @@ BEGIN
 		END
 
 		SET @id_tarifa = (
-			SELECT TOP 1 id_tarifa
+			SELECT TOP 1 id_tarifa_pileta
 			FROM tarifas.TarifaPiletaVerano
 			WHERE categoria = @categoria
 			AND es_invitado = 1
@@ -1196,7 +1191,7 @@ BEGIN
 
 	-- Buscar inscripción existente
     SET @id_inscripcion = (
-        SELECT TOP 1 id_inscripcion
+        SELECT TOP 1 id_inscripto_pileta
         FROM actividades.InscriptoPiletaVerano
         WHERE (id_socio = @id_socio OR id_invitado = @id_invitado)
         AND fecha = @fecha_inscripcion
@@ -1212,7 +1207,7 @@ BEGIN
         END
 
         DELETE FROM actividades.InscriptoPiletaVerano 
-        WHERE id_inscripcion = @id_inscripcion;
+        WHERE id_inscripto_pileta = @id_inscripcion;
         RETURN;
     END
 
@@ -1227,7 +1222,7 @@ BEGIN
 
         UPDATE actividades.InscriptoPiletaVerano
         SET fecha = COALESCE(@fecha_inscripcion, fecha)
-        WHERE id_inscripcion = @id_inscripcion;
+        WHERE id_inscripto_pileta = @id_inscripcion;
         RETURN;
     END
 
@@ -1243,7 +1238,7 @@ BEGIN
         IF @fecha_inscripcion IS NULL
             SET @fecha_inscripcion = GETDATE();
 
-        INSERT INTO actividades.InscriptoPiletaVerano(id_socio, id_invitado, id_tarifa, fecha, monto)
+        INSERT INTO actividades.InscriptoPiletaVerano(id_socio, id_invitado, id_tarifa_pileta, fecha, monto)
         VALUES (
 			@id_socio,
 			@id_invitado,
@@ -1251,7 +1246,7 @@ BEGIN
 			@fecha_inscripcion,
 			(SELECT costo
 			 FROM tarifas.TarifaPiletaVerano
-			 WHERE id_tarifa = @id_tarifa)
+			 WHERE id_tarifa_pileta = @id_tarifa)
 		);
         RETURN;
     END
@@ -1289,7 +1284,7 @@ BEGIN
     DECLARE @id_emisor INT = (
         SELECT id_emisor 
         FROM facturacion.EmisorFactura 
-        WHERE cuil = @cuil
+        WHERE cuit_emisor = @cuil
     );
 
     /* CASO 1: Eliminar */
@@ -1331,16 +1326,16 @@ BEGIN
             RETURN;
         END
 
-        IF EXISTS (SELECT 1 FROM facturacion.EmisorFactura WHERE cuil = @cuil)
+        IF EXISTS (SELECT 1 FROM facturacion.EmisorFactura WHERE cuit_emisor = @cuil)
         BEGIN
             RAISERROR('Ya existe un emisor con ese CUIL.', 16, 1);
             RETURN;
         END
 
         INSERT INTO facturacion.EmisorFactura 
-            (razon_social, cuil, direccion, pais, localidad, codigo_postal)
+            (razon_social, cuit_emisor, direccion, pais, localidad, codigo_postal, condicion_iva_emisor)
         VALUES
-            (@razon_social, @cuil, @direccion, @pais, @localidad, @codigo_postal);
+            (@razon_social, @cuil, @direccion, @pais, @localidad, @codigo_postal, 'Responsable inscripto');
     END
 END;
 GO
@@ -1392,7 +1387,7 @@ BEGIN
 	END
 
 	-- Se busca LA INSCRIPCION al que se le quiere generar el cargo
-	SET @id_inscripcion_categoria = (SELECT TOP 1 id_inscripcion
+	SET @id_inscripcion_categoria = (SELECT TOP 1 id_inscripto_categoria
 									 FROM actividades.InscriptoCategoriaSocio
 									 WHERE id_socio = @id_socio
 									 AND fecha <= @fecha
@@ -1404,27 +1399,6 @@ BEGIN
 		RAISERROR('No existe inscripción para el socio ingresado.', 16, 1);
             RETURN;
 	END
-	-- Validar existencia de CARGO
-	IF EXISTS (SELECT TOP 1 CS.id_cargo
-			   FROM facturacion.CargoMembresias CS
-			   INNER JOIN actividades.InscriptoCategoriaSocio IC ON IC.id_inscripcion = CS.id_inscripcion_categoria
-			   INNER JOIN socios.Socio S ON S.id_socio = IC.id_socio
-			   WHERE IC.id_socio = @id_socio
-			   AND IC.fecha < @fecha
-			   ORDER BY IC.fecha DESC)
-	BEGIN
-		RAISERROR('Ya existe el cargo que se intenta generar.', 16, 1);
-            RETURN;
-	END
-
-	INSERT INTO facturacion.CargoMembresias
-	VALUES (
-		@id_inscripcion_categoria,
-		(SELECT monto
-		 FROM actividades.InscriptoCategoriaSocio
-		 WHERE id_inscripcion = @id_inscripcion_categoria),
-		@fecha
-	)
 
 END;
 GO
@@ -1465,20 +1439,20 @@ BEGIN
     END
 
     -- Insertar un cargo por cada clase en la que esté inscripto ese día (sin duplicados)
-    INSERT INTO facturacion.CargoClases (id_inscripcion_clase, monto, fecha)
+    INSERT INTO facturacion.CargoClases (id_inscripto_clase, monto, fecha)
     SELECT
-        IC.id_inscripcion,
+        IC.id_inscripto_clase,
         A.costo,
         @fecha
     FROM actividades.InscriptoClase IC
     INNER JOIN actividades.Clase C ON C.id_clase = IC.id_clase
     INNER JOIN actividades.Actividad A ON A.id_actividad = C.id_actividad
     WHERE IC.id_socio = @id_socio-- Buscando las clases a las cuales un socio está inscripto
-      AND IC.fecha < @fecha
+      AND IC.fecha_inscripcion < @fecha
       AND NOT EXISTS (
           SELECT 1
           FROM facturacion.CargoClases CC
-          WHERE CC.id_inscripcion_clase = IC.id_inscripcion
+          WHERE CC.id_inscripto_clase = IC.id_inscripto_clase
             AND CC.fecha <= @fecha
       );
 
@@ -1509,55 +1483,29 @@ BEGIN
     DECLARE @primer_dia_mes DATE = DATEFROMPARTS(YEAR(@fecha), MONTH(@fecha), 1);
     DECLARE @ultimo_dia_mes DATE = EOMONTH(@fecha);
 
-    ;WITH SociosPorGrupo AS (
-        SELECT GF.id_grupo, S.id_socio
-        FROM socios.GrupoFamiliar GF
-        INNER JOIN socios.GrupoFamiliarSocio GFS ON GFS.id_grupo = GF.id_grupo
-        INNER JOIN socios.Socio S ON S.id_socio = GFS.id_socio
-        WHERE S.activo = 1 AND S.eliminado = 0
-    ),
-
-    MembresiasPorGrupo AS (
-        SELECT id_grupo, SUM(monto) AS monto_membresia
-        FROM (
-            SELECT 
-                SPG.id_grupo,
-                SPG.id_socio,
-                MAX(CM.monto) AS monto
-            FROM SociosPorGrupo SPG
-            INNER JOIN actividades.InscriptoCategoriaSocio IC 
-                ON IC.id_socio = SPG.id_socio
-            INNER JOIN facturacion.CargoMembresias CM 
-                ON CM.id_inscripcion_categoria = IC.id_inscripcion
-            WHERE CM.fecha BETWEEN @primer_dia_mes AND @ultimo_dia_mes
-            GROUP BY SPG.id_grupo, SPG.id_socio
-        ) MembresiasPorSocio
-        GROUP BY id_grupo
-    ),
-
-    ClasesPorGrupo AS (
-        SELECT SPG.id_grupo, SUM(CC.monto) AS monto_actividad
-        FROM SociosPorGrupo SPG
-        INNER JOIN actividades.InscriptoClase IC ON IC.id_socio = SPG.id_socio
+    ;WITH ClasesPorSocio AS (
+        SELECT S.id_socio, SUM(CC.monto) AS monto_actividad
+        FROM socios.Socio S
+        INNER JOIN actividades.InscriptoClase IC ON IC.id_socio = S.id_socio
         INNER JOIN facturacion.CargoClases CC 
-            ON CC.id_inscripcion_clase = IC.id_inscripcion
+            ON CC.id_inscripto_clase = IC.id_inscripto_clase
             AND CC.fecha BETWEEN @primer_dia_mes AND @ultimo_dia_mes
-        GROUP BY SPG.id_grupo
+        GROUP BY S.id_socio
     ),
-
-    TotalesPorGrupo AS (
+    TotalesPorSocio AS (
         SELECT
-            GF.id_grupo,
-            ISNULL(M.monto_membresia, 0) AS monto_membresia,
+            S.id_socio,
+			ICS.id_inscripto_categoria,
+            ISNULL(ICS.monto, 0) AS monto_membresia,
             ISNULL(C.monto_actividad, 0) AS monto_actividad
-        FROM socios.GrupoFamiliar GF
-        LEFT JOIN MembresiasPorGrupo M ON M.id_grupo = GF.id_grupo
-        LEFT JOIN ClasesPorGrupo C ON C.id_grupo = GF.id_grupo
+        FROM socios.Socio S
+        LEFT JOIN actividades.InscriptoCategoriaSocio ICS ON ICS.id_socio = S.id_socio
+        LEFT JOIN ClasesPorSocio C ON C.id_socio = S.id_socio
     )
 
-    INSERT INTO facturacion.CuotaMensual (monto_membresia, monto_actividad, fecha)
-    SELECT monto_membresia, monto_actividad, @ultimo_dia_mes
-    FROM TotalesPorGrupo TPG
+    INSERT INTO facturacion.CuotaMensual (id_inscripto_categoria, monto_membresia, monto_actividad, fecha)
+    SELECT id_inscripto_categoria, monto_membresia, monto_actividad, @ultimo_dia_mes
+    FROM TotalesPorSocio TPS
     WHERE NOT EXISTS (
         SELECT 1 FROM facturacion.CuotaMensual CM
         WHERE CM.fecha = @ultimo_dia_mes
@@ -1589,33 +1537,33 @@ BEGIN
     DECLARE @ultimo_dia_mes DATE = EOMONTH(@fecha);
 
     -- Insertar cargos para Colonias (por inscripción)
-    INSERT INTO facturacion.CargoActividadExtra (id_inscripcion_colonia)
-    SELECT IC.id_inscripcion
+    INSERT INTO facturacion.CargoActividadExtra (id_inscripto_colonia)
+    SELECT IC.id_inscripto_colonia
     FROM actividades.InscriptoColoniaVerano IC
     WHERE IC.fecha BETWEEN @primer_dia_mes AND @ultimo_dia_mes
       AND NOT EXISTS (
           SELECT 1 FROM facturacion.CargoActividadExtra CAE
-          WHERE CAE.id_inscripcion_colonia = IC.id_inscripcion
+          WHERE CAE.id_inscripto_colonia = IC.id_inscripto_colonia
       );
 
     -- Insertar cargos para Pileta (por inscripción)
-    INSERT INTO facturacion.CargoActividadExtra (id_inscripcion_pileta)
-    SELECT IP.id_inscripcion
+    INSERT INTO facturacion.CargoActividadExtra (id_inscripto_pileta)
+    SELECT IP.id_inscripto_pileta
     FROM actividades.InscriptoPiletaVerano IP
     WHERE IP.fecha BETWEEN @primer_dia_mes AND @ultimo_dia_mes
       AND NOT EXISTS (
           SELECT 1 FROM facturacion.CargoActividadExtra CAE
-          WHERE CAE.id_inscripcion_pileta = IP.id_inscripcion
+          WHERE CAE.id_inscripto_pileta = IP.id_inscripto_pileta
       );
 
     -- Insertar cargos para Reserva SUM (por inscripción)
-    INSERT INTO facturacion.CargoActividadExtra (id_reserva)
-    SELECT R.id_reserva
+    INSERT INTO facturacion.CargoActividadExtra (id_reserva_sum)
+    SELECT R.id_reserva_sum
     FROM reservas.ReservaSum R
     WHERE R.fecha BETWEEN @primer_dia_mes AND @ultimo_dia_mes
       AND NOT EXISTS (
           SELECT 1 FROM facturacion.CargoActividadExtra CAE
-          WHERE CAE.id_reserva = R.id_reserva
+          WHERE CAE.id_reserva_sum = R.id_reserva_sum
       );
 
 END;
