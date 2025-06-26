@@ -204,7 +204,6 @@ CREATE TABLE socios.Socio (
     domicilio VARCHAR(200),
     obra_social VARCHAR(100),
     nro_obra_social VARCHAR(50),
-    id_inscripto_categoria INT NOT NULL,
     activo BIT,
     eliminado BIT,
     saldo DECIMAL(10,2) NOT NULL DEFAULT 0
@@ -282,7 +281,7 @@ CREATE TABLE actividades.InscriptoClase (
 
 CREATE TABLE actividades.PresentismoClase (
     id_presentismo INT IDENTITY PRIMARY KEY,
-    id_inscripcion INT NOT NULL,
+    id_clase INT NOT NULL,
     id_socio INT NOT NULL,
     fecha DATE NOT NULL,
     estado CHAR(1) -- P: Presente, A: Ausente, J: Justificado
@@ -486,6 +485,14 @@ CREATE TABLE cobranzas.TarjetaDeCredito(
 -- RELACIONES
 -- ===============================
 
+ALTER TABLE actividades.PresentismoClase
+ADD CONSTRAINT FK_PresentismoClase_Clase
+    FOREIGN KEY (id_clase) REFERENCES actividades.Clase(id_clase);
+
+ALTER TABLE actividades.InscriptoCategoriaSocio
+ADD CONSTRAINT FK_InscriptoCategoriaSocio_Socio
+    FOREIGN KEY (id_socio) REFERENCES socios.Socio(id_socio);
+
 ALTER TABLE facturacion.CargoActividadExtra
 ADD CONSTRAINT FK_CargoActividadExtra_InscriptoColoniaVerano
     FOREIGN KEY (id_inscripto_colonia) REFERENCES actividades.InscriptoColoniaVerano(id_inscripto_colonia);
@@ -498,9 +505,9 @@ ALTER TABLE facturacion.CargoActividadExtra
 ADD CONSTRAINT FK_CargoActividadExtra_ReservaSum
     FOREIGN KEY (id_reserva_sum) REFERENCES reservas.ReservaSum(id_reserva_sum);
 
-ALTER TABLE socios.CategoriaSocio
-ADD CONSTRAINT FK_CategoriaSocio_InscriptoCategoriaSocio
-    FOREIGN KEY (id_categoria) REFERENCES actividades.InscriptoCategoriaSocio(id_inscripto_categoria);
+ALTER TABLE actividades.InscriptoCategoriaSocio
+ADD CONSTRAINT FK_InscriptoCategoriaSocio_CategoriaSocio
+    FOREIGN KEY (id_categoria) REFERENCES socios.CategoriaSocio(id_categoria);
 
 ALTER TABLE actividades.Clase
 ADD CONSTRAINT FK_Clase_Actividad
@@ -510,9 +517,9 @@ ALTER TABLE actividades.Clase
 ADD CONSTRAINT FK_Clase_CategoriaSocio
     FOREIGN KEY (id_categoria) REFERENCES socios.CategoriaSocio(id_categoria);
 
-ALTER TABLE facturacion.CuotaMensual
-ADD CONSTRAINT FK_CuotaMensual_Factura
-    FOREIGN KEY (id_cuota_mensual) REFERENCES facturacion.Factura(id_factura);
+ALTER TABLE facturacion.Factura
+ADD CONSTRAINT FK_Factura_CuotaMensual
+    FOREIGN KEY (id_cuota_mensual) REFERENCES facturacion.CuotaMensual(id_cuota_mensual);
 
 ALTER TABLE facturacion.Factura
 ADD CONSTRAINT FK_Factura_CargoActividadExtra
@@ -534,13 +541,13 @@ ALTER TABLE facturacion.Factura
 ADD CONSTRAINT FK_Factura_Pago
     FOREIGN KEY (id_factura) REFERENCES cobranzas.Pago(id_pago);
 
-ALTER TABLE actividades.InscriptoCategoriaSocio
-ADD CONSTRAINT FK_InscriptoCategoriaSocio_CuotaMensual
-    FOREIGN KEY (id_inscripto_categoria) REFERENCES facturacion.CuotaMensual(id_cuota_mensual);
+ALTER TABLE facturacion.CuotaMensual
+ADD CONSTRAINT FK_CuotaMensual_InscriptoCategoriaSocio
+    FOREIGN KEY (id_inscripto_categoria) REFERENCES actividades.InscriptoCategoriaSocio(id_inscripto_categoria);
 
-ALTER TABLE actividades.InscriptoClase
-ADD CONSTRAINT FK_InscriptoClase_CargoClases
-    FOREIGN KEY (id_inscripto_clase) REFERENCES facturacion.CargoClases(id_cargo_clase);
+ALTER TABLE facturacion.CargoClases
+ADD CONSTRAINT FK_CargoClases_InscriptoClase
+    FOREIGN KEY (id_inscripto_clase) REFERENCES actividades.InscriptoClase(id_inscripto_clase);
 
 ALTER TABLE actividades.InscriptoClase
 ADD CONSTRAINT FK_InscriptoClase_Clase

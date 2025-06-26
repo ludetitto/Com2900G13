@@ -24,12 +24,12 @@ IF OBJECT_ID('socios.GestionarCategoriaSocio', 'P') IS NOT NULL
 GO
 
 CREATE PROCEDURE socios.GestionarCategoriaSocio
-    @descripcion     VARCHAR(50),
-    @edad_minima     INT = NULL,
-    @edad_maxima     INT = NULL,
-    @costo           DECIMAL(10,2) = NULL,
-    @vigencia        DATE = NULL,
-    @operacion       CHAR(10)
+    @nombre_categoria	VARCHAR(50),
+    @edad_minima		INT = NULL,
+    @edad_maxima		INT = NULL,
+    @costo				DECIMAL(10,2) = NULL,
+    @vigencia			DATE = NULL,
+    @operacion			 CHAR(10)
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -42,7 +42,7 @@ BEGIN
 
     IF @operacion = 'Insertar'
     BEGIN
-        IF LTRIM(RTRIM(@descripcion)) = ''
+        IF LTRIM(RTRIM(@nombre_categoria)) = ''
         BEGIN
             RAISERROR('La descripción es obligatoria.', 16, 1);
             RETURN;
@@ -54,19 +54,19 @@ BEGIN
             RETURN;
         END
 
-        IF EXISTS (SELECT 1 FROM socios.CategoriaSocio WHERE descripcion = @descripcion)
+        IF EXISTS (SELECT 1 FROM socios.CategoriaSocio WHERE nombre = @nombre_categoria)
         BEGIN
             RAISERROR('Ya existe una categoría con esa descripción.', 16, 1);
             RETURN;
         END
 
-        INSERT INTO socios.CategoriaSocio (descripcion, edad_minima, edad_maxima, costo, vigencia)
-        VALUES (@descripcion, @edad_minima, @edad_maxima, @costo, @vigencia);
+        INSERT INTO socios.CategoriaSocio (nombre, edad_minima, edad_maxima, costo_membresia, vigencia)
+        VALUES (@nombre_categoria, @edad_minima, @edad_maxima, @costo, @vigencia);
     END
 
     ELSE IF @operacion = 'Modificar'
     BEGIN
-        IF NOT EXISTS (SELECT 1 FROM socios.CategoriaSocio WHERE descripcion = @descripcion)
+        IF NOT EXISTS (SELECT 1 FROM socios.CategoriaSocio WHERE nombre = @nombre_categoria)
         BEGIN
             RAISERROR('Categoría no encontrada.', 16, 1);
             RETURN;
@@ -74,23 +74,23 @@ BEGIN
 
         UPDATE socios.CategoriaSocio
         SET 
-            edad_minima = COALESCE(@edad_minima, edad_minima),
-            edad_maxima = COALESCE(@edad_maxima, edad_maxima),
-            costo       = COALESCE(@costo, costo),
-            vigencia    = COALESCE(@vigencia, vigencia)
-        WHERE descripcion = @descripcion;
+            edad_minima			  = COALESCE(@edad_minima, edad_minima),
+            edad_maxima			  = COALESCE(@edad_maxima, edad_maxima),
+            costo_membresia       = COALESCE(@costo, costo_membresia),
+            vigencia			  = COALESCE(@vigencia, vigencia)
+        WHERE nombre = @nombre_categoria;
     END
 
     ELSE IF @operacion = 'Eliminar'
     BEGIN
-        IF NOT EXISTS (SELECT 1 FROM socios.CategoriaSocio WHERE descripcion = @descripcion)
+        IF NOT EXISTS (SELECT 1 FROM socios.CategoriaSocio WHERE nombre = @nombre_categoria)
         BEGIN
             RAISERROR('No se encontró una categoría con esa descripción para eliminar.', 16, 1);
             RETURN;
         END
 
         DELETE FROM socios.CategoriaSocio
-        WHERE descripcion = @descripcion;
+        WHERE nombre = @nombre_categoria;
     END
 END;
 GO
@@ -110,7 +110,7 @@ CREATE PROCEDURE socios.GestionarSocio
     @fecha_nacimiento    DATE = NULL,
     @telefono            VARCHAR(20) = NULL,
     @telefono_emergencia VARCHAR(20) = NULL,
-    @direccion           VARCHAR(150) = NULL,
+    @domicilio           VARCHAR(150) = NULL,
     @obra_social         VARCHAR(100) = NULL,
     @nro_os              VARCHAR(50) = NULL,
     @dni_integrante_grupo CHAR(8) = NULL,
@@ -180,12 +180,11 @@ BEGIN
                     apellido = @apellido,
                     email = @email,
                     fecha_nacimiento = @fecha_nacimiento,
-                    telefono = @telefono,
-                    telefono_emergencia = @telefono_emergencia,
-                    direccion = @direccion,
+                    tel_contacto = @telefono,
+                    tel_emergencia = @telefono_emergencia,
+                    domicilio = @domicilio,
                     obra_social = @obra_social,
-                    nro_os = @nro_os,
-                    id_categoria = @id_categoria,
+                    nro_obra_social = @nro_os,
                     activo = 1,
                     eliminado = 0,
                     saldo = 0
@@ -201,14 +200,14 @@ BEGIN
         BEGIN
             INSERT INTO socios.Socio (
                 nombre, apellido, dni, email, fecha_nacimiento,
-                telefono, telefono_emergencia, direccion,
-                obra_social, nro_os, id_categoria,
+                tel_contacto, tel_emergencia, domicilio,
+                obra_social, nro_obra_social,
                 activo, eliminado, saldo
             )
             VALUES (
                 @nombre, @apellido, @dni, @email, @fecha_nacimiento,
-                @telefono, @telefono_emergencia, @direccion,
-                @obra_social, @nro_os, @id_categoria,
+                @telefono, @telefono_emergencia, @domicilio,
+                @obra_social, @nro_os,
                 1, 0, 0
             );
 
@@ -288,9 +287,10 @@ BEGIN
 			@id_socio,
 			@id_categoria,
 			GETDATE(),
-			(SELECT TOP 1 costo
+			(SELECT TOP 1 costo_membresia
 			 FROM socios.CategoriaSocio
-			 WHERE id_categoria = @id_categoria)
+			 WHERE id_categoria = @id_categoria),
+			 1
 		)
     END
 
@@ -316,7 +316,7 @@ BEGIN
                 S.dni,
                 S.nombre,
                 S.apellido,
-                S.direccion,
+                S.domicilio,
                 S.email
             FROM socios.Socio S
             JOIN socios.GrupoFamiliar GF ON GF.id_socio_rp = S.id_socio
@@ -468,13 +468,13 @@ SELECT
     S.apellido,
     S.fecha_nacimiento,
     S.email,
-    S.telefono,
-    S.telefono_emergencia,
-    S.direccion,
+    S.tel_contacto,
+    S.tel_emergencia,
+    S.domicilio,
     S.obra_social,
-    S.nro_os,
-    CS.descripcion AS categoria,
-    CS.costo AS costo_membresia,
+    S.nro_obra_social,
+    CS.nombre AS categoria,
+    CS.costo_membresia AS costo_membresia,
     CASE 
         WHEN S.id_socio = GF.id_socio_rp THEN 1
         ELSE 0 
@@ -482,7 +482,8 @@ SELECT
 FROM socios.GrupoFamiliar GF
 INNER JOIN socios.GrupoFamiliarSocio GFS ON GF.id_grupo = GFS.id_grupo
 INNER JOIN socios.Socio S ON GFS.id_socio = S.id_socio
-INNER JOIN socios.CategoriaSocio CS ON S.id_categoria = CS.id_categoria
+INNER JOIN actividades.InscriptoCategoriaSocio ICS ON ICS.id_socio = S.id_socio
+INNER JOIN socios.CategoriaSocio CS ON ICS.id_categoria = CS.id_categoria
 WHERE S.eliminado = 0;
 GO
 
