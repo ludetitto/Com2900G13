@@ -196,17 +196,17 @@ CREATE TABLE socios.Socio (
     id_socio INT IDENTITY PRIMARY KEY,
     nombre VARCHAR(50),
     apellido VARCHAR(50),
-    dni CHAR(8),
+    dni CHAR(8) CONSTRAINT CHK_Socio_DNI CHECK (dni NOT LIKE '%[^0-9]%' AND LEN(dni) = 8),
 	nro_socio VARCHAR(50),
-    email VARCHAR(100),
+    email VARCHAR(100) CONSTRAINT CHK_Socio_Email CHECK (email IS NULL OR email LIKE '%@%.%'),
     fecha_nacimiento DATE,
     tel_contacto VARCHAR(20),
     tel_emergencia VARCHAR(20),
     domicilio VARCHAR(200),
     obra_social VARCHAR(100),
     nro_obra_social VARCHAR(50),
-    activo BIT,
-    eliminado BIT,
+    activo BIT CONSTRAINT CHK_Socio_Activo CHECK (activo IN (0,1)),
+    eliminado BIT CONSTRAINT CHK_Socio_Eliminado CHECK (eliminado IN (0,1)),
     saldo DECIMAL(10,2) NOT NULL DEFAULT 0
 );
 
@@ -228,22 +228,22 @@ CREATE TABLE socios.GrupoFamiliarSocio (
 CREATE TABLE socios.Tutor (
     id_tutor INT IDENTITY PRIMARY KEY,
     id_grupo INT NOT NULL, 
-    dni VARCHAR(10) NOT NULL,
+    dni VARCHAR(10) NOT NULL CONSTRAINT CHK_Tutor_DNI CHECK (dni NOT LIKE '%[^0-9]%' AND LEN(dni) = 8),
     nombre CHAR(50) NOT NULL,
     apellido CHAR(50) NOT NULL,
     domicilio VARCHAR(200) NOT NULL,
-    email VARCHAR(70) NOT NULL
+    email VARCHAR(70) NOT NULL CONSTRAINT CHK_Tutor_Email CHECK (email LIKE '%@%.%')
 );
 GO
 CREATE TABLE socios.Invitado (
     id_invitado INT IDENTITY PRIMARY KEY,
 	id_socio INT NOT NULL,
-    dni CHAR(8) NOT NULL,
+    dni CHAR(8) NOT NULL CHK_Invitado_DNI CHECK (dni NOT LIKE '%[^0-9]%' AND LEN(dni) = 8),
     nombre VARCHAR(50) NOT NULL,
     apellido VARCHAR(50) NOT NULL,
     domicilio VARCHAR(150) NOT NULL,
 	categoria VARCHAR(50) NOT NULL,
-    email VARCHAR(100) NOT NULL
+    email VARCHAR(100) NOT NULL CONSTRAINT CHK_Invitado_Email CHECK (email LIKE '%@%.%')
 );
 
 CREATE TABLE socios.DebitoAutomaticoSocio (
@@ -259,7 +259,7 @@ CREATE TABLE socios.DebitoAutomaticoSocio (
 CREATE TABLE actividades.Actividad (
     id_actividad INT IDENTITY PRIMARY KEY,
     nombre VARCHAR(100),
-    costo DECIMAL(10,2),
+    costo DECIMAL(10,2) CONSTRAINT CHK_Actividad_Costo CHECK (costo > 0),
     vigencia DATE
 );
 
@@ -285,7 +285,7 @@ CREATE TABLE actividades.PresentismoClase (
     id_clase INT NOT NULL,
     id_socio INT NOT NULL,
     fecha DATE NOT NULL,
-    estado CHAR(1) -- P: Presente, A: Ausente, J: Justificado
+    estado CHAR(1) CONSTRAINT CHK_PresentismoClase_Estado CHECK (estado IN ('P', 'A', 'J')) -- P: Presente, A: Ausente, J: Justificado
 );
 
 CREATE TABLE actividades.InscriptoCategoriaSocio (
@@ -293,8 +293,8 @@ CREATE TABLE actividades.InscriptoCategoriaSocio (
     id_socio INT NOT NULL,
     id_categoria INT NOT NULL,
 	fecha DATE NOT NULL,
-	monto DECIMAL(10, 2) NOT NULL,
-	activo BIT,
+	monto DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_InscriptoCategoriaSocio_Monto CHECK (monto > 0),
+	activo BIT
 );
 
 CREATE TABLE actividades.InscriptoColoniaVerano (
@@ -302,7 +302,7 @@ CREATE TABLE actividades.InscriptoColoniaVerano (
     id_socio INT NOT NULL,
     id_tarifa_colonia INT NOT NULL,
 	fecha DATE NOT NULL,
-	monto DECIMAL(10, 2) NOT NULL
+	monto DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_InscriptoColoniaVerano_Monto CHECK (monto > 0)
 );
 
 CREATE TABLE actividades.InscriptoPiletaVerano (
@@ -311,7 +311,7 @@ CREATE TABLE actividades.InscriptoPiletaVerano (
     id_socio INT,
 	id_invitado INT NULL,
 	fecha DATE NOT NULL,
-	monto DECIMAL(10, 2) NOT NULL
+	monto DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_InscriptoPiletaVerano_Monto CHECK (monto > 0)
 );
 
 -- ===============================
@@ -320,7 +320,7 @@ CREATE TABLE actividades.InscriptoPiletaVerano (
 
 CREATE TABLE tarifas.TarifaColoniaVerano (
     id_tarifa_colonia INT IDENTITY PRIMARY KEY,
-    costo DECIMAL(10,2),
+    costo DECIMAL(10,2) CONSTRAINT CHK_TarifaColoniaVerano_Costo CHECK (costo > 0),
 	periodo CHAR(10),
 	categoria VARCHAR(50),
 	vigencia DATE
@@ -328,15 +328,15 @@ CREATE TABLE tarifas.TarifaColoniaVerano (
 
 CREATE TABLE tarifas.TarifaReservaSum (
     id_tarifa_sum INT IDENTITY PRIMARY KEY,
-    costo DECIMAL(10,2),
+    costo DECIMAL(10,2) CONSTRAINT CHK_TarifaReservaSum_Costo CHECK (costo > 0),
 	vigencia DATE
 );
 
 CREATE TABLE tarifas.TarifaPiletaVerano (
     id_tarifa_pileta INT IDENTITY PRIMARY KEY,
-    costo DECIMAL(10,2),
-	categoria VARCHAR(50),
-    es_invitado BIT,
+    costo DECIMAL(10,2) CONSTRAINT CHK_TarifaPiletaVerano_Costo CHECK (costo > 0),
+	categoria VARCHAR(50) CONSTRAINT CHK_TarifaPiletaVerano_Categoria CHECK (categoria IN ('Menor', 'Cadete', 'Mayor')),
+    es_invitado BIT CONSTRAINT CHK_TarifaPiletaVerano_Invitado CHECK (es_invitado IN (0,1)),
 	vigencia DATE
 );
 
@@ -364,8 +364,8 @@ CREATE TABLE reservas.ReservaSum (
 CREATE TABLE facturacion.CuotaMensual (
     id_cuota_mensual INT IDENTITY PRIMARY KEY,
 	id_inscripto_categoria INT,
-	monto_membresia DECIMAL(10, 2) NOT NULL,
-	monto_actividad DECIMAL(10, 2) NOT NULL,
+	monto_membresia DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CuotaMensual_Costo CHECK (monto_membresia > 0),
+	monto_actividad DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CuotaMensual_Costo CHECK (monto_actividad > 0),
     fecha DATE NOT NULL
 );
 
@@ -373,7 +373,7 @@ CREATE TABLE facturacion.CuotaMensual (
 CREATE TABLE facturacion.CargoClases (
     id_cargo_clase INT IDENTITY PRIMARY KEY,
     id_inscripto_clase INT NOT NULL,
-	monto DECIMAL(10, 2) NOT NULL,
+	monto DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CargoClases_Monto CHECK (monto > 0),
 	fecha DATE NOT NULL
 );
 
@@ -391,8 +391,8 @@ CREATE TABLE facturacion.EmisorFactura (
 	cuit_emisor CHAR(13) CHECK(cuit_emisor LIKE '[0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9]'),
 	pais VARCHAR(50),
 	localidad VARCHAR(50),
-	codigo_postal CHAR(4),
-	condicion_iva_emisor CHAR(50) NOT NULL,
+	codigo_postal CHAR(4) CHECK (codigo_postal LIKE '[0-9][0-9][0-9][0-9]'),
+	condicion_iva_emisor CHAR(50) NOT NULL
 
 );
 
@@ -407,7 +407,7 @@ CREATE TABLE facturacion.Factura (
 	dni_receptor CHAR(13), 
 	condicion_iva_receptor CHAR(50) NOT NULL,
 	cae CHAR(14) UNIQUE, 
-    monto_total DECIMAL(10,2),
+    monto_total DECIMAL(10,2) CONSTRAINT CHK_Factura_Monto CHECK (monto_total > 0),
     fecha_emision DATE,
     fecha_vencimiento1 DATE,
     fecha_vencimiento2 DATE,
@@ -420,7 +420,7 @@ CREATE TABLE facturacion.DetalleFactura (
     id_detalle INT IDENTITY PRIMARY KEY,
     id_factura INT NOT NULL,
     descripcion VARCHAR(100),
-    monto DECIMAL(10,2),
+    monto DECIMAL(10,2) CONSTRAINT CHK_DetalleFactura_Monto CHECK (monto > 0),
     tipo_item VARCHAR(50),
 	cantidad INT
 );
@@ -444,7 +444,7 @@ CREATE TABLE cobranzas.Pago (
     id_factura INT NOT NULL,
 	id_medio INT NOT NULL,
 	nro_transaccion VARCHAR(20),
-	monto DECIMAL(10,2),
+	monto DECIMAL(10,2) CONSTRAINT CHK_Pago_Monto CHECK (monto > 0),
     fecha_emision DATETIME,
     estado CHAR(10)
 );
@@ -452,7 +452,7 @@ CREATE TABLE cobranzas.Pago (
 CREATE TABLE cobranzas.Reembolso (
     id_reembolso INT IDENTITY PRIMARY KEY,
     id_pago INT NOT NULL,
-	monto DECIMAL(10,2) NOT NULL,
+	monto DECIMAL(10,2) CONSTRAINT CHK_Reembolso_Monto CHECK (monto > 0),
 	fecha_emision DATETIME NOT NULL,
     motivo VARCHAR(100)
 );
@@ -462,13 +462,13 @@ CREATE TABLE cobranzas.PagoACuenta (
     id_pago INT NOT NULL,
     id_socio INT NOT NULL,
     fecha DATE,
-    monto DECIMAL(10,2),
+    monto DECIMAL(10,2) CONSTRAINT CHK_PagoACuenta_Monto CHECK (monto > 0),
 	motivo VARCHAR(100)
 );
 
 CREATE TABLE cobranzas.MedioDePago (
     id_medio_pago INT IDENTITY PRIMARY KEY,
-    nombre VARCHAR(50) NOT NULL,
+    nombre VARCHAR(50) NOT NULL
 );
 
 CREATE TABLE cobranzas.TarjetaDeCredito(
