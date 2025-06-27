@@ -416,13 +416,14 @@ IF OBJECT_ID('socios.GestionarResponsableGrupoFamiliar', 'P') IS NOT NULL
 GO
 
 CREATE PROCEDURE socios.GestionarResponsableGrupoFamiliar
-    @dni_grupo          CHAR(8),       -- DNI de un socio del grupo (para ubicar el grupo)
+    @dni_grupo          CHAR(8),       -- DNI de un socio del grupo (referencia para encontrar el grupo)
     @nuevo_dni_resp     VARCHAR(20),   -- DNI del nuevo responsable (socio o tutor)
     @tipo_responsable   VARCHAR(10),   -- 'socio' o 'tutor'
     @nombre             VARCHAR(50) = NULL,
     @apellido           VARCHAR(50) = NULL,
     @domicilio          VARCHAR(200) = NULL,
-    @email              VARCHAR(70) = NULL
+    @email              VARCHAR(70) = NULL,
+    @fecha_nac_tutor    DATE = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -434,8 +435,9 @@ BEGIN
     END
 
     DECLARE @id_grupo INT, @id_nuevo INT;
+    DECLARE @dni_normalizado VARCHAR(20) = LTRIM(RTRIM(@nuevo_dni_resp));
 
-    -- Obtener grupo al que pertenece el socio
+    -- Buscar grupo familiar
     SELECT TOP 1 @id_grupo = gfs.id_grupo
     FROM socios.GrupoFamiliarSocio gfs
     JOIN socios.Socio s ON gfs.id_socio = s.id_socio
@@ -451,68 +453,70 @@ BEGIN
     BEGIN
         SELECT @id_nuevo = id_socio
         FROM socios.Socio
-        WHERE dni = @nuevo_dni_resp;
+        WHERE dni = @dni_normalizado AND activo = 1 AND eliminado = 0;
 
         IF @id_nuevo IS NULL
         BEGIN
-            RAISERROR('No se encontró el socio indicado como nuevo responsable.', 16, 1);
+            RAISERROR('El socio no existe o está inactivo.', 16, 1);
+            RETURN;
+        END
+
+        DECLARE @edad_socio INT;
+        SELECT @edad_socio = DATEDIFF(YEAR, fecha_nacimiento, GETDATE())
+        FROM socios.Socio
+        WHERE id_socio = @id_nuevo;
+
+        IF @edad_socio < 18
+        BEGIN
+            RAISERROR('El nuevo socio responsable debe ser mayor de edad.', 16, 1);
             RETURN;
         END
 
         IF NOT EXISTS (
-            SELECT 1
-            FROM socios.GrupoFamiliarSocio
+            SELECT 1 FROM socios.GrupoFamiliarSocio
             WHERE id_grupo = @id_grupo AND id_socio = @id_nuevo
         )
         BEGIN
-            RAISERROR('El nuevo socio responsable no pertenece al grupo.', 16, 1);
+            RAISERROR('El socio no pertenece al grupo familiar.', 16, 1);
             RETURN;
         END
 
-        -- Asignar como responsable
         UPDATE socios.GrupoFamiliar
         SET id_socio_rp = @id_nuevo
         WHERE id_grupo = @id_grupo;
 
-        -- Eliminar tutor si lo hay
         DELETE FROM socios.Tutor
         WHERE id_grupo = @id_grupo;
     END
     ELSE IF @tipo_responsable = 'tutor'
     BEGIN
-        IF @nombre IS NULL OR @apellido IS NULL OR @domicilio IS NULL OR @email IS NULL
+        IF @nombre IS NULL OR @apellido IS NULL OR @domicilio IS NULL OR @email IS NULL OR @fecha_nac_tutor IS NULL
         BEGIN
             RAISERROR('Faltan datos obligatorios del tutor.', 16, 1);
             RETURN;
         END
 
-        -- ⚠ Validación crítica corregida con RTRIM
-        IF EXISTS (
-            SELECT 1 FROM socios.Tutor
-            WHERE RTRIM(dni) = RTRIM(@nuevo_dni_resp) AND id_grupo <> @id_grupo
-        )
+        IF DATEDIFF(YEAR, @fecha_nac_tutor, GETDATE()) < 18
         BEGIN
-            RAISERROR('Ese tutor ya está asignado a otro grupo familiar.', 16, 1);
+            RAISERROR('El tutor debe ser mayor de edad.', 16, 1);
             RETURN;
         END
 
-        IF EXISTS (SELECT 1 FROM socios.Tutor WHERE id_grupo = @id_grupo)
+        IF EXISTS (
+            SELECT 1 FROM socios.Tutor
+			WHERE CAST(LTRIM(RTRIM(dni)) AS CHAR(8)) = CAST(@dni_normalizado AS CHAR(8)) AND id_grupo <> @id_grupo
+        )
         BEGIN
-            UPDATE socios.Tutor
-            SET dni = @nuevo_dni_resp,
-                nombre = @nombre,
-                apellido = @apellido,
-                domicilio = @domicilio,
-                email = @email
-            WHERE id_grupo = @id_grupo;
-        END
-        ELSE
-        BEGIN
-            INSERT INTO socios.Tutor (id_grupo, dni, nombre, apellido, domicilio, email)
-            VALUES (@id_grupo, @nuevo_dni_resp, @nombre, @apellido, @domicilio, @email);
+            RAISERROR('El tutor ya está asignado a otro grupo familiar.', 16, 1);
+            RETURN;
         END
 
-        -- Quitar responsable si lo había
+        DELETE FROM socios.Tutor
+        WHERE id_grupo = @id_grupo;
+
+        INSERT INTO socios.Tutor (id_grupo, dni, nombre, apellido, domicilio, email)
+        VALUES (@id_grupo, @dni_normalizado, @nombre, @apellido, @domicilio, @email);
+
         UPDATE socios.GrupoFamiliar
         SET id_socio_rp = NULL
         WHERE id_grupo = @id_grupo;

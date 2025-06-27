@@ -19,6 +19,18 @@ SET NOCOUNT ON;
    LIMPIEZA COMPLETA DE TABLAS SOCIOS Y GRUPOS FAMILIARES
 ========================================================== */
 
+DELETE FROM cobranzas.Pago
+DBCC CHECKIDENT ('cobranzas.pago', RESEED, 0) WITH NO_INFOMSGS;
+
+DELETE FROM cobranzas.MedioDePago;
+DBCC CHECKIDENT ('cobranzas.MedioDePago', RESEED, 0) WITH NO_INFOMSGS;
+
+DELETE FROM facturacion.DetalleFactura;
+DBCC CHECKIDENT ('facturacion.DetalleFactura', RESEED, 0) WITH NO_INFOMSGS;
+
+DELETE FROM facturacion.Factura;
+DBCC CHECKIDENT ('facturacion.Factura', RESEED, 0) WITH NO_INFOMSGS;
+
 DELETE FROM facturacion.CuotaMensual;
 DBCC CHECKIDENT ('facturacion.CuotaMensual', RESEED, 0);
 
