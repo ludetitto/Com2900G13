@@ -66,60 +66,19 @@ EXEC cobranzas.GestionarMedioDePago
 SELECT * FROM cobranzas.MedioDePago;
 GO
 
--- ================================================
--- TESTING: cobranzas.HabilitarDebitoAutomatico
--- ================================================
+/*_____________________________________________________________________
+  ________________ PRUEBAS registrar cobro ___________________
+  _____________________________________________________________________
+*/
 
--- Agregar MasterCard y Rapipago como medios de pago de prueba
-EXEC cobranzas.GestionarMedioDePago 'MasterCard', 1, 'Insertar';
-EXEC cobranzas.GestionarMedioDePago 'Rapipago', 0, 'Insertar';
-GO
+-- Ver un socio válido
+SELECT id_socio, nombre, apellido, dni FROM socios.Socio WHERE activo = 1 AND eliminado = 0;
 
--- ✅ Habilitar débito automático correctamente
-EXEC cobranzas.HabilitarDebitoAutomatico 
-    @dni_socio = '45778667',
-    @nombre_medio = 'MasterCard';
-SELECT * FROM socios.DebitoAutomaticoSocio;
-GO
+-- Ver medios de pago disponibles
+SELECT * FROM cobranzas.MedioDePago;
 
--- ❌ Medio no permite débito automático
-EXEC cobranzas.HabilitarDebitoAutomatico 
-    @dni_socio = '45778667',
-    @nombre_medio = 'Rapipago';
-SELECT * FROM socios.DebitoAutomaticoSocio;
-GO
 
--- ❌ Socio no existe
-EXEC cobranzas.HabilitarDebitoAutomatico 
-    @dni_socio = '00000000',
-    @nombre_medio = 'MasterCard';
-SELECT * FROM socios.DebitoAutomaticoSocio;
-GO
 
--- ================================================
--- TESTING: cobranzas.DeshabilitarDebitoAutomatico
--- ================================================
-
--- ✅ Deshabilitar débito automático
-EXEC cobranzas.DeshabilitarDebitoAutomatico 
-    @dni_socio = '45778667',
-    @nombre_medio = 'MasterCard';
-SELECT * FROM socios.DebitoAutomaticoSocio;
-GO
-
--- ❌ Medio no existe
-EXEC cobranzas.DeshabilitarDebitoAutomatico 
-    @dni_socio = '45778667',
-    @nombre_medio = 'Inexistente';
-SELECT * FROM socios.DebitoAutomaticoSocio;
-GO
-
--- ❌ Socio no tiene habilitado el medio
-EXEC cobranzas.DeshabilitarDebitoAutomatico 
-    @dni_socio = '45778667',
-    @nombre_medio = 'Rapipago';
-SELECT * FROM socios.DebitoAutomaticoSocio;
-GO
 
 
 /*_____________________________________________________________________
