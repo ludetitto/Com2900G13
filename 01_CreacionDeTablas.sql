@@ -366,13 +366,8 @@ CREATE TABLE reservas.ReservaSum (
 CREATE TABLE facturacion.CuotaMensual (
     id_cuota_mensual INT IDENTITY PRIMARY KEY,
 	id_inscripto_categoria INT,
-<<<<<<< Updated upstream
-	monto_membresia DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CuotaMensual_Membresia CHECK (monto_membresia > 0),
-	monto_actividad DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CuotaMensual_Actividad CHECK (monto_actividad > 0),
-=======
 	monto_membresia DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CuotaMensual_CostoMembresia CHECK (monto_membresia > 0),
 	monto_actividad DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CuotaMensual_CostoActividad CHECK (monto_actividad > 0),
->>>>>>> Stashed changes
     fecha DATE NOT NULL
 );
 

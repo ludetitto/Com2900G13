@@ -370,85 +370,112 @@ GO
 
 
 /*_____________________________________________________________________
-  _________________ PRUEBAS socios.GestionarGrupoFamiliar ______________
+  ________ PRUEBAS socios.GestionarResponsableGrupoFamiliar ___________
   _____________________________________________________________________*/
--- ✅ PRUEBA 1: Asignar responsable SOCIO (Lucía Gómez)
+
+-- ✅ CASO 1: Cambiar SOCIO responsable a otro SOCIO (mayor de edad y del mismo grupo)
+EXEC socios.GestionarResponsableGrupoFamiliar
+    @dni_grupo = '31111113',               -- Martina, integrante del grupo
+    @nuevo_dni_resp = '32222222',          -- Nicolás, nuevo responsable (mayor de edad)
+    @tipo_responsable = 'socio';
+GO
+
+-- 🔍 Verificación
+SELECT * FROM socios.Socio;
+SELECT * FROM socios.GrupoFamiliar;
+SELECT * FROM socios.GrupoFamiliarSocio;
+SELECT * FROM socios.Tutor;
+GO
+
+-- ✅ CASO 2: Cambiar SOCIO responsable a un TUTOR (mayor de edad, nuevo)
+EXEC socios.GestionarResponsableGrupoFamiliar
+    @dni_grupo = '31111113',               -- integrante del grupo
+    @nuevo_dni_resp = '40000001',          -- nuevo tutor
+    @tipo_responsable = 'tutor',
+    @nombre = 'Roberto',
+    @apellido = 'Benítez',
+    @domicilio = 'Calle Ficticia 123',
+    @email = 'roberto.benitez@email.com',
+    @fecha_nac_tutor = '1980-01-01';
+GO
+
+-- 🔍 Verificación
+SELECT * FROM socios.Socio;
+SELECT * FROM socios.GrupoFamiliar;
+SELECT * FROM socios.GrupoFamiliarSocio;
+SELECT * FROM socios.Tutor;
+GO
+
+-- ✅ CASO 3: Cambiar TUTOR responsable a otro TUTOR (nuevo, mayor)
+EXEC socios.GestionarResponsableGrupoFamiliar
+    @dni_grupo = '31111113',
+    @nuevo_dni_resp = '40000002',
+    @tipo_responsable = 'tutor',
+    @nombre = 'Marcela',
+    @apellido = 'Sosa',
+    @domicilio = 'Calle Nueva 456',
+    @email = 'marcela.sosa@email.com',
+    @fecha_nac_tutor = '1985-06-15';
+GO
+
+-- 🔍 Verificación
+SELECT * FROM socios.Socio;
+SELECT * FROM socios.GrupoFamiliar;
+SELECT * FROM socios.GrupoFamiliarSocio;
+SELECT * FROM socios.Tutor;
+GO
+
+-- ✅ CASO 4: Cambiar TUTOR responsable a un SOCIO (mayor de edad y del grupo)
+EXEC socios.GestionarResponsableGrupoFamiliar
+    @dni_grupo = '31111113',
+    @nuevo_dni_resp = '32222222',          -- Nicolás Martínez
+    @tipo_responsable = 'socio';
+GO
+
+-- 🔍 Verificación
+SELECT * FROM socios.Socio;
+SELECT * FROM socios.GrupoFamiliar;
+SELECT * FROM socios.GrupoFamiliarSocio;
+SELECT * FROM socios.Tutor;
+GO
+
+-- ❌ CASO 5: Intentar asignar SOCIO menor de edad como responsable
+-- (31111111 = Julián, menor)
+EXEC socios.GestionarResponsableGrupoFamiliar
+    @dni_grupo = '31111113',
+    @nuevo_dni_resp = '31111111',
+    @tipo_responsable = 'socio';
+-- Esperado: Error por ser menor de edad
+GO
+
+-- ❌ CASO 6: Intentar asignar SOCIO que NO pertenece al grupo
+-- (30000000 fue eliminado, o no pertenece)
+EXEC socios.GestionarResponsableGrupoFamiliar
+    @dni_grupo = '31111113',
+    @nuevo_dni_resp = '30000000',
+    @tipo_responsable = 'socio';
+-- Esperado: Error por no pertenecer al grupo
+GO
+
+-- ❌ CASO 7: Intentar asignar TUTOR menor de edad
+EXEC socios.GestionarResponsableGrupoFamiliar
+    @dni_grupo = '31111113',
+    @nuevo_dni_resp = '40000003',
+    @tipo_responsable = 'tutor',
+    @nombre = 'Menor',
+    @apellido = 'Tutor',
+    @domicilio = 'Calle Incorrecta',
+    @email = 'menor@email.com',
+    @fecha_nac_tutor = '2010-01-01';
+-- Esperado: Error por ser menor de edad
+GO
+
+-- ❌ CASO 8: Tipo de responsable inválido
 EXEC socios.GestionarResponsableGrupoFamiliar
     @dni_grupo = '31111113',
     @nuevo_dni_resp = '34444444',
-    @tipo_responsable = 'socio';
-GO
-
--- 🔍 Verificación
-SELECT * FROM socios.CategoriaSocio;
-SELECT * FROM socios.Socio;
-SELECT * FROM socios.Tutor;
-SELECT * FROM socios.GrupoFamiliar;
-SELECT * FROM socios.GrupoFamiliarSocio;
-GO
-
-
---✅ PRUEBA 2: Reasignar responsable SOCIO (Nicolás Martínez)
-EXEC socios.GestionarResponsableGrupoFamiliar
-    @dni_grupo = '31111113',
-    @nuevo_dni_resp = '32222222',
-    @tipo_responsable = 'socio';
-GO
-
--- 🔍 Verificación
-SELECT * FROM socios.CategoriaSocio;
-SELECT * FROM socios.Socio;
-SELECT * FROM socios.Tutor;
-SELECT * FROM socios.GrupoFamiliar;
-SELECT * FROM socios.GrupoFamiliarSocio;
-GO
--- ✅ PRUEBA 3: Asignar TUTOR como responsable (Pedro López)
-EXEC socios.GestionarResponsableGrupoFamiliar
-    @dni_grupo = '31111111',
-    @nuevo_dni_resp = '31111114',
-    @tipo_responsable = 'tutor',
-    @nombre = 'Pedro',
-    @apellido = 'López',
-    @domicilio = 'Calle Sombra 999',
-    @email = 'pedro.lopez@email.com';
-GO
-
--- 🔍 Verificación
-SELECT * FROM socios.CategoriaSocio;
-SELECT * FROM socios.Socio;
-SELECT * FROM socios.Tutor;
-SELECT * FROM socios.GrupoFamiliar;
-SELECT * FROM socios.GrupoFamiliarSocio;
-
--- ❌ PRUEBA 4: Asignar TUTOR ya asignado a otro grupo (Laura)
-EXEC socios.GestionarResponsableGrupoFamiliar 
-    @dni_grupo = '34444444',               -- Grupo 6
-    @nuevo_dni_resp = '31111112',          -- Laura (ya está en grupo 5)
-    @tipo_responsable = 'tutor',
-    @nombre = 'Laura',
-    @apellido = 'Martínez',
-    @domicilio = 'Calle del Sol 222',
-    @email = 'laura.martinez@email.com';
--- ✅ Esperado: Error "Ese tutor ya está asignado a otro grupo familiar"
-GO
-
--- 🔍 Verificación
-SELECT * FROM socios.Tutor ORDER BY id_grupo;
-SELECT * FROM socios.GrupoFamiliar ORDER BY id_grupo;
-SELECT * FROM socios.GrupoFamiliarSocio ORDER BY id_grupo, id_socio;
-GO
-
--- ❌ PRUEBA 5: Asignar SOCIO que no pertenece al grupo (Carlos)
-EXEC socios.GestionarResponsableGrupoFamiliar
-    @dni_grupo = '31111111',
-    @nuevo_dni_resp = '30000000',
-    @tipo_responsable = 'socio';
--- Esperado: Error "El nuevo socio responsable no pertenece al grupo."
-GO
-
--- 🔍 Verificación
-SELECT * FROM socios.GrupoFamiliar ORDER BY id_grupo;
-SELECT * FROM socios.Tutor ORDER BY id_grupo;
+    @tipo_responsable = 'admin';
+-- Esperado: Error tipo inválido
 GO
 
 
