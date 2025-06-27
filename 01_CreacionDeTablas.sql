@@ -238,7 +238,7 @@ GO
 CREATE TABLE socios.Invitado (
     id_invitado INT IDENTITY PRIMARY KEY,
 	id_socio INT NOT NULL,
-    dni CHAR(8) NOT NULL CHK_Invitado_DNI CHECK (dni NOT LIKE '%[^0-9]%' AND LEN(dni) = 8),
+    dni CHAR(8) NOT NULL CONSTRAINT CHK_Invitado_DNI CHECK (dni NOT LIKE '%[^0-9]%' AND LEN(dni) = 8),
     nombre VARCHAR(50) NOT NULL,
     apellido VARCHAR(50) NOT NULL,
     domicilio VARCHAR(150) NOT NULL,
@@ -364,8 +364,8 @@ CREATE TABLE reservas.ReservaSum (
 CREATE TABLE facturacion.CuotaMensual (
     id_cuota_mensual INT IDENTITY PRIMARY KEY,
 	id_inscripto_categoria INT,
-	monto_membresia DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CuotaMensual_Costo CHECK (monto_membresia > 0),
-	monto_actividad DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CuotaMensual_Costo CHECK (monto_actividad > 0),
+	monto_membresia DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CuotaMensual_Membresia CHECK (monto_membresia > 0),
+	monto_actividad DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CuotaMensual_Actividad CHECK (monto_actividad > 0),
     fecha DATE NOT NULL
 );
 
