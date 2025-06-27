@@ -18,6 +18,11 @@ SET NOCOUNT ON;
 GO
 
 -- ================== LIMPIEZA DE FACTURACIÓN ==================
+
+DELETE FROM cobranzas.pago
+DBCC CHECKIDENT ('cobranzas.pago', RESEED, 0) WITH NO_INFOMSGS;
+DELETE FROM cobranzas.MedioDePago;
+DBCC CHECKIDENT ('cobranzas.MedioDePago', RESEED, 0) WITH NO_INFOMSGS;
 DELETE FROM facturacion.DetalleFactura;
 DELETE FROM facturacion.Factura;
 DBCC CHECKIDENT ('facturacion.DetalleFactura', RESEED, 0) WITH NO_INFOMSGS;

@@ -70,6 +70,8 @@ DROP PROCEDURE IF EXISTS cobranzas.GenerarPagoACuentaPorReembolso
 DROP PROCEDURE IF EXISTS cobranzas.GestionarRecargo
 DROP VIEW IF EXISTS cobranzas.vwNotasConMedioDePago
 
+DROP VIEW IF EXISTS facturacion.vw_FacturasDetalladasConResponsables
+DROP PROCEDURE IF EXISTS facturacion.GenerarFacturasActividadesExtraPorFecha
 DROP PROCEDURE IF EXISTS facturacion.GenerarCargoClase
 DROP PROCEDURE IF EXISTS facturacion.GenerarCargoMembresia
 DROP PROCEDURE IF EXISTS facturacion.AnularFactura
@@ -335,7 +337,7 @@ CREATE TABLE tarifas.TarifaReservaSum (
 CREATE TABLE tarifas.TarifaPiletaVerano (
     id_tarifa_pileta INT IDENTITY PRIMARY KEY,
     costo DECIMAL(10,2) CONSTRAINT CHK_TarifaPiletaVerano_Costo CHECK (costo > 0),
-	categoria VARCHAR(50) CONSTRAINT CHK_TarifaPiletaVerano_Categoria CHECK (categoria IN ('Menor', 'Cadete', 'Mayor')),
+	categoria VARCHAR(50),
     es_invitado BIT CONSTRAINT CHK_TarifaPiletaVerano_Invitado CHECK (es_invitado IN (0,1)),
 	vigencia DATE
 );
@@ -364,8 +366,13 @@ CREATE TABLE reservas.ReservaSum (
 CREATE TABLE facturacion.CuotaMensual (
     id_cuota_mensual INT IDENTITY PRIMARY KEY,
 	id_inscripto_categoria INT,
+<<<<<<< Updated upstream
 	monto_membresia DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CuotaMensual_Membresia CHECK (monto_membresia > 0),
 	monto_actividad DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CuotaMensual_Actividad CHECK (monto_actividad > 0),
+=======
+	monto_membresia DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CuotaMensual_CostoMembresia CHECK (monto_membresia > 0),
+	monto_actividad DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CuotaMensual_CostoActividad CHECK (monto_actividad > 0),
+>>>>>>> Stashed changes
     fecha DATE NOT NULL
 );
 

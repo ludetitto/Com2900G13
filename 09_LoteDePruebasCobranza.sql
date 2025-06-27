@@ -20,28 +20,37 @@ GO
 /* ===========================================================
    LIMPIEZA: eliminar primero relaciones, luego medios de pago
 =========================================================== */
-DELETE FROM socios.DebitoAutomaticoSocio;
-DELETE FROM administracion.MedioDePago;
-DBCC CHECKIDENT ('administracion.MedioDePago', RESEED, 0) WITH NO_INFOMSGS;
+DELETE FROM cobranzas.pago
+DBCC CHECKIDENT ('cobranzas.pago', RESEED, 0) WITH NO_INFOMSGS;
+DELETE FROM cobranzas.MedioDePago;
+DBCC CHECKIDENT ('cobranzas.MedioDePago', RESEED, 0) WITH NO_INFOMSGS;
 GO
 
 /* ===========================================================
    INSERTAR MEDIOS DE PAGO
 =========================================================== */
-EXEC cobranzas.GestionarMedioDePago @nombre = 'Visa', @debito_automatico = 1, @operacion = 'Insertar';
+EXEC cobranzas.GestionarMedioDePago 'Tarjeta de débito', 'Insertar';
+/*
 EXEC cobranzas.GestionarMedioDePago @nombre = 'MasterCard', @debito_automatico = 1, @operacion = 'Insertar';
 EXEC cobranzas.GestionarMedioDePago @nombre = 'Tarjeta Naranja', @debito_automatico = 1, @operacion = 'Insertar';
 EXEC cobranzas.GestionarMedioDePago @nombre = 'Pago Fácil', @debito_automatico = 0, @operacion = 'Insertar';
 EXEC cobranzas.GestionarMedioDePago @nombre = 'Rapipago', @debito_automatico = 0, @operacion = 'Insertar';
 EXEC cobranzas.GestionarMedioDePago @nombre = 'Transferencia Mercado Pago', @debito_automatico = 0, @operacion = 'Insertar';
 GO
-
+*/
 /* ===========================================================
    VERIFICACIÓN: medios cargados
 =========================================================== */
 SELECT 
     id_medio_pago,
-    nombre,
-    debito_automatico
-FROM administracion.MedioDePago;
+    nombre
+FROM cobranzas.MedioDePago;
 GO
+
+EXEC cobranzas.RegistrarCobranza 1, '2025-06-30', 30000, 1;
+
+SELECT *
+FROM cobranzas.Pago
+
+SELECT *
+FROM socios.Socio
