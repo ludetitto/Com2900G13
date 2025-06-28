@@ -1,12 +1,15 @@
 /* =========================================================================
-   Trabajo Pr�ctico Integrador - Bases de Datos Aplicadas
-   Grupo N�: 13
-   Comisi�n: 2900
+   Trabajo Práctico Integrador - Bases de Datos Aplicadas
+   Grupo N°: 13
+   Comisión: 2900
    Fecha de Entrega: 17/06/2025
    Materia: Bases de Datos Aplicadas
-   Alumnos: Vignardel Francisco 45778667
-            De Titto Lucia		46501934
-			Borja Tomas			42353302
+   Alumnos: Vignardel Francisco				45778667
+            De Titto Lucia					46501934
+			Borja Tomas						42353302
+			Rodriguez Sebastián Ezequiel	41691928
+   
+   Consigna: Cree entidades y relaciones. Incluya restricciones y claves.
  ========================================================================= */
 USE COM2900G13;
 GO
@@ -19,21 +22,26 @@ GO
 DROP VIEW IF EXISTS administracion.vwSociosConCategoria;
 DROP VIEW IF EXISTS administracion.vwSociosConObraSocial;
 
--- Funciones y procedimientos espec�ficos
+-- Funciones y procedimientos específicos
 DROP PROCEDURE IF EXISTS cobranzas.AplicarBloqueoVencimiento;
 
 /* =============================
    ELIMINAR PROCEDIMIENTOS
    ============================= */
+DROP PROCEDURE IF EXISTS actividades.GestionarInscriptoPiletaVerano
 DROP PROCEDURE IF EXISTS actividades.GestionarActividad
 DROP PROCEDURE IF EXISTS actividades.GestionarActividadExtra
 DROP PROCEDURE IF EXISTS actividades.GestionarClase
-DROP PROCEDURE IF EXISTS actividades.GestionarInscripcion
+DROP PROCEDURE IF EXISTS actividades.GestionarInscriptoClase
+DROP PROCEDURE IF EXISTS actividades.GestionarInscriptoColonia
 DROP PROCEDURE IF EXISTS actividades.GestionarPresentismoActividadExtra
 DROP PROCEDURE IF EXISTS actividades.GestionarPresentismoClase
+DROP PROCEDURE IF EXISTS actividades.GestionarInscriptoPileta
+DROP PROCEDURE IF EXISTS actividades.GestionarInscriptoReservaSum
 DROP PROCEDURE IF EXISTS administracion.ConsultarEstadoSocioyGrupo
 DROP PROCEDURE IF EXISTS administracion.VerCuotasPagasGrupoFamiliar
 
+DROP PROCEDURE IF EXISTS actividades.GestionarReservaSum
 DROP PROCEDURE IF EXISTS administracion.GestionarInvitado
 DROP PROCEDURE IF EXISTS administracion.GestionarSocio
 DROP PROCEDURE IF EXISTS administracion.GestionarProfesor
@@ -41,6 +49,10 @@ DROP PROCEDURE IF EXISTS administracion.GestionarPersona
 DROP PROCEDURE IF EXISTS administracion.GestionarCategoriaSocio
 DROP PROCEDURE IF EXISTS administracion.GestionarGrupoFamiliar
 
+DROP PROCEDURE IF EXISTS facturacion.GenerarFacturasMensualesPorFecha
+DROP PROCEDURE IF EXISTS facturacion.GenerarCargosActividadExtraPorFecha
+DROP PROCEDURE IF EXISTS cobranzas.GenerarPagoACuenta
+DROP PROCEDURE IF EXISTS facturacion.GenerarCuotasMensualesPorFecha
 DROP PROCEDURE IF EXISTS cobranzas.GestionarMedioDePago
 DROP PROCEDURE IF EXISTS cobranzas.RegistrarMedioDePago
 DROP PROCEDURE IF EXISTS cobranzas.RegistrarCobranza
@@ -58,6 +70,10 @@ DROP PROCEDURE IF EXISTS cobranzas.GenerarPagoACuentaPorReembolso
 DROP PROCEDURE IF EXISTS cobranzas.GestionarRecargo
 DROP VIEW IF EXISTS cobranzas.vwNotasConMedioDePago
 
+DROP VIEW IF EXISTS facturacion.vw_FacturasDetalladasConResponsables
+DROP PROCEDURE IF EXISTS facturacion.GenerarFacturasActividadesExtraPorFecha
+DROP PROCEDURE IF EXISTS facturacion.GenerarCargoClase
+DROP PROCEDURE IF EXISTS facturacion.GenerarCargoMembresia
 DROP PROCEDURE IF EXISTS facturacion.AnularFactura
 DROP PROCEDURE IF EXISTS facturacion.GenerarFacturaSocioActExtra
 DROP PROCEDURE IF EXISTS facturacion.GenerarFacturaSocioMensual
@@ -66,476 +82,483 @@ DROP PROCEDURE IF EXISTS facturacion.GestionarDescuentos
 DROP PROCEDURE IF EXISTS facturacion.GestionarEmisorFactura
 DROP VIEW IF EXISTS facturacion.vwResponsablesDeFactura
 
-/* ============================
-   BORRADO DE OBJETOS DE LA BD
-   ============================ */
+DROP PROCEDURE IF EXISTS tarifas.GestionarTarifaColoniaVerano
+DROP PROCEDURE IF EXISTS tarifas.GestionarTarifaReservaSum
+DROP PROCEDURE IF EXISTS tarifas.GestionarTarifaPiletaVerano
 
--- COBRANZAS
-DROP TABLE IF EXISTS cobranzas.Notificacion;
-DROP TABLE IF EXISTS cobranzas.Mora;
-DROP TABLE IF EXISTS cobranzas.NotaDeCredito;
+DROP PROCEDURE IF EXISTS socios.GestionarCategoriaSocio;
+DROP PROCEDURE IF EXISTS socios.GestionarSocio;
+DROP PROCEDURE IF EXISTS socios.GestionarResponsableGrupoFamiliar;
+
+
+-- Eliminar vistas del esquema socios si las hubiera
+DROP VIEW IF EXISTS socios.vwGrupoFamiliarConCategorias;
+
+-- ===============================
+-- Eliminación de todas las claves foráneas
+-- ===============================
+DECLARE @sql NVARCHAR(MAX) = '';
+
+SELECT @sql += 'ALTER TABLE [' + SCHEMA_NAME(t.schema_id) + '].[' + t.name + '] '
+             + 'DROP CONSTRAINT [' + fk.name + '];' + CHAR(13)
+FROM sys.foreign_keys fk
+JOIN sys.tables t ON fk.parent_object_id = t.object_id;
+
+-- Ejecutar el SQL generado
+EXEC sp_executesql @sql;
+
+
+-- ===============================
+-- Eliminación segura de tablas
+-- ===============================
 DROP TABLE IF EXISTS cobranzas.PagoACuenta;
+DROP TABLE IF EXISTS cobranzas.Reembolso;
 DROP TABLE IF EXISTS cobranzas.Pago;
-DROP TABLE IF EXISTS cobranzas.DebitoAutomaticoSocio;
+DROP TABLE IF EXISTS cobranzas.Mora;
 DROP TABLE IF EXISTS cobranzas.MedioDePago;
+DROP TABLE IF EXISTS cobranzas.TarjetaDeCredito;
 
--- FACTURACION
-DROP TABLE IF EXISTS facturacion.Descuento;
-DROP TABLE IF EXISTS facturacion.Recargo;
+
 DROP TABLE IF EXISTS facturacion.DetalleFactura;
 DROP TABLE IF EXISTS facturacion.Factura;
+DROP TABLE IF EXISTS facturacion.CargoActividadExtra;
+DROP TABLE IF EXISTS facturacion.CargoClases;
+DROP TABLE IF EXISTS facturacion.CargoMembresias;
+DROP TABLE IF EXISTS facturacion.CuotaMensual;
 DROP TABLE IF EXISTS facturacion.EmisorFactura;
 
--- ACTIVIDADES
-DROP TABLE IF EXISTS actividades.presentismoActividadExtra;
-DROP TABLE IF EXISTS actividades.ActividadExtra;
-DROP TABLE IF EXISTS actividades.presentismoClase;
+DROP TABLE IF EXISTS actividades.PresentismoClase;
 DROP TABLE IF EXISTS actividades.InscriptoClase;
+DROP TABLE IF EXISTS actividades.InscriptoCategoriaSocio;
+DROP TABLE IF EXISTS actividades.InscriptoColoniaVerano;
+DROP TABLE IF EXISTS actividades.InscriptoPiletaVerano;
 DROP TABLE IF EXISTS actividades.Clase;
 DROP TABLE IF EXISTS actividades.Actividad;
 
--- ADMINISTRACION
-DROP TABLE IF EXISTS administracion.Invitado;
-DROP TABLE IF EXISTS administracion.GrupoFamiliar;
-DROP TABLE IF EXISTS administracion.Socio;
-DROP TABLE IF EXISTS administracion.CategoriaSocio;
-DROP TABLE IF EXISTS administracion.Profesor;
-DROP TABLE IF EXISTS administracion.Persona;
+DROP TABLE IF EXISTS tarifas.TarifaColoniaVerano;
+DROP TABLE IF EXISTS tarifas.TarifaReservaSum;
+DROP TABLE IF EXISTS tarifas.TarifaPiletaVerano;
+
+DROP TABLE IF EXISTS reservas.ReservaSum;
+
+DROP TABLE IF EXISTS socios.GrupoFamiliar;
+DROP TABLE IF EXISTS socios.GrupoFamiliarSocio;
+DROP TABLE IF EXISTS socios.Tutor;
+DROP TABLE IF EXISTS socios.DebitoAutomaticoSocio;
+DROP TABLE IF EXISTS socios.Socio;
+DROP TABLE IF EXISTS socios.Invitado;
+DROP TABLE IF EXISTS socios.CategoriaSocio;
+
+-- ===============================
+-- Eliminación segura de esquemas
+-- ===============================
+DROP SCHEMA IF EXISTS cobranzas;
+GO
+DROP SCHEMA IF EXISTS facturacion;
+GO
+DROP SCHEMA IF EXISTS actividades;
+GO
+DROP SCHEMA IF EXISTS tarifas;
+GO
+DROP SCHEMA IF EXISTS reservas;
+GO
+DROP SCHEMA IF EXISTS socios;
 GO
 
--- Crear esquemas personalizados
-IF EXISTS (SELECT * FROM sys.schemas WHERE name = 'administracion')
-    DROP SCHEMA administracion;
-GO
+-- ===============================
+-- Creación de esquemas
+-- ===============================
 
-CREATE SCHEMA administracion;
+CREATE SCHEMA socios;
 GO
-
-IF EXISTS (SELECT * FROM sys.schemas WHERE name = 'actividades')
-    DROP SCHEMA actividades;
-GO
-
 CREATE SCHEMA actividades;
 GO
-
-IF EXISTS (SELECT * FROM sys.schemas WHERE name = 'cobranzas')
-    DROP SCHEMA cobranzas;
-GO
-
-CREATE SCHEMA cobranzas;
-GO
-
-IF EXISTS (SELECT * FROM sys.schemas WHERE name = 'facturacion')
-    DROP SCHEMA facturacion;
-GO
-
 CREATE SCHEMA facturacion;
 GO
-
-/* ================================
-   TABLAS DEL M�DULO ADMINISTRACION
-   ================================ */
-
-IF OBJECT_ID('administracion.Persona', 'U') IS NOT NULL
-    DROP TABLE administracion.Persona;
+CREATE SCHEMA cobranzas;
+GO
+CREATE SCHEMA reservas;
+GO
+CREATE SCHEMA tarifas;
 GO
 
-CREATE TABLE administracion.Persona (
-	id_persona INT IDENTITY(1,1) PRIMARY KEY,
-	nombre CHAR(50) NOT NULL,
-    apellido CHAR(50) NOT NULL,
-    dni VARCHAR(10) UNIQUE NOT NULL,
-    email VARCHAR(70),
-    fecha_nacimiento DATE NOT NULL,
-	domicilio VARCHAR(200) NOT NULL,
-    tel_contacto CHAR(15),
-    tel_emergencia CHAR(15),
-	borrado BIT,
-	CONSTRAINT CHK_persona_dni CHECK (
-        LEN(LTRIM(RTRIM(dni))) < 10 AND dni LIKE '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
-    ),
-    CONSTRAINT CHK_persona_email CHECK (
-        email LIKE '%_@__%.__%'
-    ),
-    CONSTRAINT CHK_persona_fecha_nacimiento CHECK (
-        fecha_nacimiento <= GETDATE()
-    )
-);
-GO
+-- ===============================
+-- Módulo: SOCIOS
+-- ===============================
 
-IF OBJECT_ID('administracion.Profesor', 'U') IS NOT NULL
-    DROP TABLE administracion.Profesor;
-GO
--- Se adopta la notacion par FK:
--- FK_[TablaEnCreacion]_[TablaFK]_[CampoFK]
-CREATE TABLE administracion.Profesor (
-	id_profesor INT IDENTITY(1,1) PRIMARY KEY,
-	id_persona INT,
-	CONSTRAINT FK_profesor_persona_id FOREIGN KEY (id_persona) REFERENCES administracion.Persona(id_persona)
-);
-GO
-
-IF OBJECT_ID('administracion.CategoriaSocio', 'U') IS NOT NULL
-    DROP TABLE administracion.CategoriaSocio;
-GO
-
-CREATE TABLE administracion.CategoriaSocio (
-    id_categoria INT IDENTITY(1,1) PRIMARY KEY,
+CREATE TABLE socios.CategoriaSocio (
+    id_categoria INT IDENTITY PRIMARY KEY,
     nombre VARCHAR(50),
-    edad_desde INT,
-	edad_hasta INT,
+    edad_minima INT,
+    edad_maxima INT,
     costo_membresia DECIMAL(10,2),
-    vigencia DATE,
-	CONSTRAINT CHK_categoria_nombre CHECK (
-        LTRIM(RTRIM(nombre)) <> ''
-    ),
-    CONSTRAINT CHK_categoria_edad_desde CHECK (
-        edad_desde >= 0
-    ),
-	CONSTRAINT CHK_categoria_edad_hasta CHECK (
-        edad_hasta >= 0
-    ),
-    CONSTRAINT CHK_categoria_costo CHECK (
-        costo_membresia >= 0
-    ),
-    CONSTRAINT CHK_categoria_vigencia CHECK (
-        vigencia >= GETDATE()
-    )
+    vigencia DATE
 );
-GO
-
-IF OBJECT_ID('administracion.Socio', 'U') IS NOT NULL
-    DROP TABLE administracion.Socio;
-GO
-
-CREATE TABLE administracion.Socio (
-    id_socio INT IDENTITY(1,1) PRIMARY KEY,
-	id_persona INT,
-    id_categoria INT,
-	nro_socio CHAR(20),
+CREATE TABLE socios.Socio (
+    id_socio INT IDENTITY PRIMARY KEY,
+    nombre VARCHAR(50),
+    apellido VARCHAR(50),
+    dni CHAR(8) CONSTRAINT CHK_Socio_DNI CHECK (dni NOT LIKE '%[^0-9]%' AND LEN(dni) = 8),
+	nro_socio VARCHAR(50),
+    email VARCHAR(100) CONSTRAINT CHK_Socio_Email CHECK (email IS NULL OR email LIKE '%@%.%'),
+    fecha_nacimiento DATE,
+    tel_contacto VARCHAR(20),
+    tel_emergencia VARCHAR(20),
+    domicilio VARCHAR(200),
     obra_social VARCHAR(100),
-	nro_obra_social VARCHAR(100),
-    saldo DECIMAL(10,2) NOT NULL,
-    activo BIT,
-	CONSTRAINT FK_socio_persona_id FOREIGN KEY (id_persona) REFERENCES administracion.Persona(id_persona),
-	CONSTRAINT FK_socio_categoria_id FOREIGN KEY (id_categoria) REFERENCES administracion.CategoriaSocio(id_categoria)
+    nro_obra_social VARCHAR(50),
+    activo BIT CONSTRAINT CHK_Socio_Activo CHECK (activo IN (0,1)),
+    eliminado BIT CONSTRAINT CHK_Socio_Eliminado CHECK (eliminado IN (0,1)),
+    saldo DECIMAL(10,2) NOT NULL DEFAULT 0
+);
+
+CREATE TABLE socios.GrupoFamiliar (
+    id_grupo INT IDENTITY PRIMARY KEY,
+    id_socio_rp INT NULL
+);
+
+
+CREATE TABLE socios.GrupoFamiliarSocio (
+    id_grupo INT NOT NULL,
+    id_socio INT NOT NULL,
+    PRIMARY KEY (id_grupo, id_socio),
+    FOREIGN KEY (id_grupo) REFERENCES socios.GrupoFamiliar(id_grupo),
+    FOREIGN KEY (id_socio) REFERENCES socios.Socio(id_socio)
+);
+
+
+CREATE TABLE socios.Tutor (
+    id_tutor INT IDENTITY PRIMARY KEY,
+    id_grupo INT NOT NULL, 
+    dni VARCHAR(10) NOT NULL CONSTRAINT CHK_Tutor_DNI CHECK (dni NOT LIKE '%[^0-9]%' AND LEN(dni) = 8),
+    nombre CHAR(50) NOT NULL,
+    apellido CHAR(50) NOT NULL,
+    domicilio VARCHAR(200) NOT NULL,
+    email VARCHAR(70) NOT NULL CONSTRAINT CHK_Tutor_Email CHECK (email LIKE '%@%.%')
 );
 GO
-
-IF OBJECT_ID('administracion.GrupoFamiliar', 'U') IS NOT NULL
-    DROP TABLE administracion.GrupoFamiliar;
-GO
-
-CREATE TABLE administracion.GrupoFamiliar (
-    id_grupo INT IDENTITY(1,1) PRIMARY KEY,
-	id_socio INT,
-	id_socio_rp INT,
-	CONSTRAINT FK_grupoFamiliar_socio_id FOREIGN KEY (id_socio) REFERENCES administracion.Socio(id_socio),
-	CONSTRAINT FK_grupoFamiliar_socio_id_rp FOREIGN KEY (id_socio_rp) REFERENCES administracion.Socio(id_socio)
-);
-GO
-
-IF OBJECT_ID('administracion.Invitado', 'U') IS NOT NULL
-    DROP TABLE administracion.Invitado;
-GO
-
-CREATE TABLE administracion.Invitado (
-    id_invitado INT IDENTITY(1,1) PRIMARY KEY,
-	id_socio INT,
-	dni VARCHAR(10) UNIQUE NOT NULL,
-	nombre CHAR(50) NOT NULL,
-	apellido CHAR(50) NOT NULL,
+CREATE TABLE socios.Invitado (
+    id_invitado INT IDENTITY PRIMARY KEY,
+	id_socio INT NOT NULL,
+    dni CHAR(8) NOT NULL CONSTRAINT CHK_Invitado_DNI CHECK (dni NOT LIKE '%[^0-9]%' AND LEN(dni) = 8),
+    nombre VARCHAR(50) NOT NULL,
+    apellido VARCHAR(50) NOT NULL,
+    domicilio VARCHAR(150) NOT NULL,
 	categoria VARCHAR(50) NOT NULL,
-	email VARCHAR(70) NOT NULL,
-	domicilio VARCHAR(200) NOT NULL,
-	CONSTRAINT FK_invitado_socio_id FOREIGN KEY (id_socio) REFERENCES administracion.Socio(id_socio),
-	CONSTRAINT CHK_invitado_dni CHECK (
-        LEN(LTRIM(RTRIM(dni))) < 10 AND dni LIKE '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
-    ),
+    email VARCHAR(100) NOT NULL CONSTRAINT CHK_Invitado_Email CHECK (email LIKE '%@%.%')
 );
-GO
 
-/* ==============================
-   TABLAS DEL M�DULO ACTIVIDADES
-   ============================== */
+CREATE TABLE socios.DebitoAutomaticoSocio (
+    id_debito INT IDENTITY PRIMARY KEY,
+    id_socio INT NOT NULL,
+    id_medio_pago INT NOT NULL
+);
 
-IF OBJECT_ID('actividades.Actividad', 'U') IS NOT NULL
-    DROP TABLE actividades.Actividad;
-GO
+-- ===============================
+-- Módulo: ACTIVIDADES
+-- ===============================
 
 CREATE TABLE actividades.Actividad (
-    id_actividad INT IDENTITY(1,1) PRIMARY KEY,
+    id_actividad INT IDENTITY PRIMARY KEY,
     nombre VARCHAR(100),
-    costo DECIMAL(10,2),
-	vigencia DATE,
+    costo DECIMAL(10,2) CONSTRAINT CHK_Actividad_Costo CHECK (costo > 0),
+    vigencia DATE
 );
-GO
-
-IF OBJECT_ID('actividades.Clase', 'U') IS NOT NULL
-    DROP TABLE actividades.Clase;
-GO
 
 CREATE TABLE actividades.Clase (
-    id_clase INT IDENTITY(1,1) PRIMARY KEY,
-    id_actividad INT,
-    id_profesor INT,
-    id_categoria INT, 
-    horario VARCHAR(20),
-    CONSTRAINT FK_clase_actividad_id FOREIGN KEY (id_actividad) REFERENCES actividades.Actividad(id_actividad),
-    CONSTRAINT FK_clase_profesor_id FOREIGN KEY (id_profesor) REFERENCES administracion.Profesor(id_profesor),
-    CONSTRAINT FK_clase_categoria_id FOREIGN KEY (id_categoria) REFERENCES administracion.CategoriaSocio(id_categoria)
+    id_clase INT IDENTITY PRIMARY KEY,
+    id_actividad INT NOT NULL,
+    id_categoria INT NOT NULL,
+    horario VARCHAR(50),
+    nombre_profesor VARCHAR(100),
+    apellido_profesor VARCHAR(100)
 );
-GO
-
-IF OBJECT_ID('actividades.inscriptoClase', 'U') IS NOT NULL
-    DROP TABLE actividades.inscriptoClase;
-GO
 
 CREATE TABLE actividades.InscriptoClase (
-    id_inscripto INT IDENTITY(1,1) PRIMARY KEY,
+    id_inscripto_clase INT IDENTITY PRIMARY KEY,
+	fecha_inscripcion DATE NOT NULL,
+    id_socio INT NOT NULL,
+    id_clase INT NOT NULL,
+	activa BIT
+);
+
+CREATE TABLE actividades.PresentismoClase (
+    id_presentismo INT IDENTITY PRIMARY KEY,
+    id_clase INT NOT NULL,
+    id_socio INT NOT NULL,
+    fecha DATE NOT NULL,
+    estado CHAR(1) CONSTRAINT CHK_PresentismoClase_Estado CHECK (estado IN ('P', 'A', 'J')) -- P: Presente, A: Ausente, J: Justificado
+);
+
+CREATE TABLE actividades.InscriptoCategoriaSocio (
+    id_inscripto_categoria INT IDENTITY PRIMARY KEY,
+    id_socio INT NOT NULL,
+    id_categoria INT NOT NULL,
+	fecha DATE NOT NULL,
+	monto DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_InscriptoCategoriaSocio_Monto CHECK (monto > 0),
+	activo BIT
+);
+
+CREATE TABLE actividades.InscriptoColoniaVerano (
+    id_inscripto_colonia INT IDENTITY PRIMARY KEY,
+    id_socio INT NOT NULL,
+    id_tarifa_colonia INT NOT NULL,
+	fecha DATE NOT NULL,
+	monto DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_InscriptoColoniaVerano_Monto CHECK (monto > 0)
+);
+
+CREATE TABLE actividades.InscriptoPiletaVerano (
+    id_inscripto_pileta INT IDENTITY PRIMARY KEY,
+	id_tarifa_pileta INT NOT NULL,
     id_socio INT,
-	id_clase INT,
-	fecha_inscripcion DATE,
-	CONSTRAINT FK_inscriptoClase_socio_id FOREIGN KEY (id_socio) REFERENCES administracion.Socio(id_socio),
-	CONSTRAINT FK_inscriptoClase_clase_id FOREIGN KEY (id_clase) REFERENCES actividades.Clase(id_clase)
+	id_invitado INT NULL,
+	fecha DATE NOT NULL,
+	monto DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_InscriptoPiletaVerano_Monto CHECK (monto > 0)
 );
-GO
 
-IF OBJECT_ID('actividades.presentismoClase', 'U') IS NOT NULL
-    DROP TABLE actividades.presentismoClase;
-GO
+-- ===============================
+-- Módulo: TARIFAS
+-- ===============================
 
-CREATE TABLE actividades.presentismoClase (
-    id_presentismo INT IDENTITY(1,1) PRIMARY KEY,
-    id_clase INT,
-	id_socio INT,
-	fecha DATE,
-	condicion CHAR(1),
-	CONSTRAINT FK_presentismoClase_clase_id FOREIGN KEY (id_clase) REFERENCES actividades.Clase(id_clase),
-	CONSTRAINT FK_presentismoClase_socio_id FOREIGN KEY (id_socio) REFERENCES administracion.Socio(id_socio)
-);
-GO
-
-IF OBJECT_ID('actividades.ActividadExtra', 'U') IS NOT NULL
-    DROP TABLE actividades.ActividadExtra;
-GO
-
-CREATE TABLE actividades.ActividadExtra (
-    id_extra INT IDENTITY(1,1) PRIMARY KEY,
-    nombre VARCHAR(100),
-    costo DECIMAL(10,2),
-    periodo CHAR(10),
+CREATE TABLE tarifas.TarifaColoniaVerano (
+    id_tarifa_colonia INT IDENTITY PRIMARY KEY,
+    costo DECIMAL(10,2) CONSTRAINT CHK_TarifaColoniaVerano_Costo CHECK (costo > 0),
+	periodo CHAR(10),
 	categoria VARCHAR(50),
-	es_invitado CHAR(1),
 	vigencia DATE
 );
-GO
 
-IF OBJECT_ID('actividades.presentismoActividadExtra', 'U') IS NOT NULL
-    DROP TABLE actividades.presentismoActividadExtra;
-GO
-
-CREATE TABLE actividades.presentismoActividadExtra (
-    id_presentismo_extra INT IDENTITY(1,1) PRIMARY KEY,
-    id_extra INT,
-	id_socio INT DEFAULT NULL,
-	id_invitado INT DEFAULT NULL,
-	fecha DATE,
-	condicion CHAR(1),
-	CONSTRAINT FK_presentismoActividadExtra_actividad_id FOREIGN KEY (id_extra) REFERENCES actividades.ActividadExtra(id_extra),
-	CONSTRAINT FK_presentismoActividadExtra_socio_id FOREIGN KEY (id_socio) REFERENCES administracion.Socio(id_socio),
-	CONSTRAINT FK_presentismoActividadExtra_invitado_id FOREIGN KEY (id_invitado) REFERENCES administracion.Invitado(id_invitado)
+CREATE TABLE tarifas.TarifaReservaSum (
+    id_tarifa_sum INT IDENTITY PRIMARY KEY,
+    costo DECIMAL(10,2) CONSTRAINT CHK_TarifaReservaSum_Costo CHECK (costo > 0),
+	vigencia DATE
 );
-GO
 
-/* =============================
-   TABLAS DEL M�DULO FACTURACION
-   ============================= */
-
-IF OBJECT_ID('facturacion.Recargo', 'U') IS NOT NULL
-    DROP TABLE facturacion.Recargo;
-GO
-
-CREATE TABLE facturacion.Recargo (
-	id_recargo INT IDENTITY(1,1) PRIMARY KEY,
-	porcentaje DECIMAL(5,2),
-	descripcion VARCHAR(50),
+CREATE TABLE tarifas.TarifaPiletaVerano (
+    id_tarifa_pileta INT IDENTITY PRIMARY KEY,
+    costo DECIMAL(10,2) CONSTRAINT CHK_TarifaPiletaVerano_Costo CHECK (costo > 0),
+	categoria VARCHAR(50),
+    es_invitado BIT CONSTRAINT CHK_TarifaPiletaVerano_Invitado CHECK (es_invitado IN (0,1)),
 	vigencia DATE
-)
+);
 
-IF OBJECT_ID('facturacion.Descuento', 'U') IS NOT NULL
-    DROP TABLE facturacion.Descuento;
-GO
+-- ===============================
+-- Módulo: RESERVAS
+-- ===============================
 
-CREATE TABLE facturacion.Descuento (
-	id_recargo INT IDENTITY(1,1) PRIMARY KEY,
-	porcentaje DECIMAL(5,2),
-	descripcion VARCHAR(50),
-	vigencia DATE
-)
+CREATE TABLE reservas.ReservaSum (
+    id_reserva_sum INT IDENTITY PRIMARY KEY,
+	id_tarifa_sum INT NOT NULL,
+    id_socio INT NOT NULL,
+    fecha DATE NOT NULL,
+    hora_inicio TIME,
+    hora_fin TIME,
+	monto DECIMAL(10, 2)
+);
 
-IF OBJECT_ID('facturacion.EmisorFactura', 'U') IS NOT NULL
-    DROP TABLE facturacion.EmisorFactura;
-GO
+-- ===============================
+-- Módulo: FACTURACION
+-- ===============================
+
+
+
+
+CREATE TABLE facturacion.CuotaMensual (
+    id_cuota_mensual INT IDENTITY PRIMARY KEY,
+	id_inscripto_categoria INT,
+	monto_membresia DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CuotaMensual_CostoMembresia CHECK (monto_membresia > 0),
+	monto_actividad DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CuotaMensual_CostoActividad CHECK (monto_actividad > 0),
+    fecha DATE NOT NULL
+);
+
+
+CREATE TABLE facturacion.CargoClases (
+    id_cargo_clase INT IDENTITY PRIMARY KEY,
+    id_inscripto_clase INT NOT NULL,
+	monto DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CargoClases_Monto CHECK (monto > 0),
+	fecha DATE NOT NULL
+);
+
+CREATE TABLE facturacion.CargoActividadExtra (
+    id_cargo_extra INT IDENTITY PRIMARY KEY,
+    id_inscripto_colonia INT DEFAULT NULL,
+    id_inscripto_pileta INT DEFAULT NULL,
+    id_reserva_sum INT DEFAULT NULL
+);
 
 CREATE TABLE facturacion.EmisorFactura (
-	id_emisor INT IDENTITY(1,1) PRIMARY KEY,
-	razon_social VARCHAR(100),
-	cuil VARCHAR(20) UNIQUE NOT NULL,
-	direccion VARCHAR(200),
+    id_emisor INT IDENTITY PRIMARY KEY,
+    razon_social VARCHAR(100),
+	direccion CHAR(50),
+	cuit_emisor CHAR(13) CHECK(cuit_emisor LIKE '[0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9]'),
 	pais VARCHAR(50),
 	localidad VARCHAR(50),
-	codigo_postal VARCHAR(50)
-);
-GO
+	codigo_postal CHAR(4) CHECK (codigo_postal LIKE '[0-9][0-9][0-9][0-9]'),
+	condicion_iva_emisor CHAR(50) NOT NULL
 
-IF OBJECT_ID('facturacion.Factura', 'U') IS NOT NULL
-    DROP TABLE facturacion.Factura;
-GO
+);
+
 
 CREATE TABLE facturacion.Factura (
-    id_factura INT IDENTITY(1,1) PRIMARY KEY,
-	id_emisor INT NOT NULL,
-    id_socio INT DEFAULT NULL,
-	id_invitado INT DEFAULT NULL,
-	leyenda CHAR(50) NOT NULL,
-	monto_total DECIMAL(10,2),
-	saldo_anterior DECIMAL(10,2),
+    id_factura INT IDENTITY PRIMARY KEY,
+    id_emisor INT NOT NULL,
+	id_cuota_mensual INT,
+	id_cargo_actividad_extra INT,
+	nro_comprobante CHAR(8),
+	tipo_factura CHAR,
+	dni_receptor CHAR(13), 
+	condicion_iva_receptor CHAR(50) NOT NULL,
+	cae CHAR(14) UNIQUE, 
+    monto_total DECIMAL(10,2) CONSTRAINT CHK_Factura_Monto CHECK (monto_total > 0),
     fecha_emision DATE,
     fecha_vencimiento1 DATE,
-	fecha_vencimiento2 DATE,
-	estado CHAR(10),
-    anulada BIT,
-	CONSTRAINT FK_factura_emisor_id FOREIGN KEY (id_emisor) REFERENCES facturacion.Emisorfactura (id_emisor),
-	CONSTRAINT FK_factura_socio_id FOREIGN KEY (id_socio) REFERENCES administracion.Socio (id_socio),
-	CONSTRAINT FK_factura_invitado_id FOREIGN KEY (id_invitado) REFERENCES administracion.Invitado (id_invitado)
+    fecha_vencimiento2 DATE,
+    estado VARCHAR(20),
+	saldo_anterior DECIMAL(10,2),
+    anulada BIT DEFAULT 0
 );
-GO
-
-IF OBJECT_ID('facturacion.DetalleFactura', 'U') IS NOT NULL
-    DROP TABLE facturacion.DetalleFactura;
-GO
 
 CREATE TABLE facturacion.DetalleFactura (
-    id_detalle INT IDENTITY(1,1) PRIMARY KEY,
-    id_factura INT ,
-	id_actividad INT,
-	id_extra INT,
-	id_categoria INT,
-    tipo_item VARCHAR(50),
+    id_detalle INT IDENTITY PRIMARY KEY,
+    id_factura INT NOT NULL,
     descripcion VARCHAR(100),
-    monto DECIMAL(10,2),
-    cantidad INT,
-	CONSTRAINT FK_detalleFactura_factura_id FOREIGN KEY (id_factura) REFERENCES facturacion.Factura (id_factura),
-	CONSTRAINT FK_detalleFactura_actividad_id FOREIGN KEY (id_actividad) REFERENCES actividades.Actividad (id_actividad),
-	CONSTRAINT FK_detalleFactura_actividadExtra_id FOREIGN KEY (id_extra) REFERENCES actividades.ActividadExtra (id_extra),
-	CONSTRAINT FK_detalleFactura_categoriaSocio_id FOREIGN KEY (id_categoria) REFERENCES administracion.CategoriaSocio (id_categoria)
-);
-GO
-
-/* ===========================
-   TABLAS DEL M�DULO COBRANZAS
-   =========================== */
-
-
-IF OBJECT_ID('cobranzas.MedioDePago', 'U') IS NOT NULL
-    DROP TABLE cobranzas.MedioDePago;
-GO
-
-CREATE TABLE cobranzas.MedioDePago (
-    id_medio INT IDENTITY(1,1) PRIMARY KEY,
-    nombre VARCHAR(100),
-    debito_automatico BIT
-);
-GO
-
-IF OBJECT_ID('cobranzas.DebitoAutomaticoSocio', 'U') IS NOT NULL
-    DROP TABLE cobranzas.DebitoAutomaticoSocio;
-GO
-CREATE TABLE cobranzas.DebitoAutomaticoSocio (
-    id_socio INT,
-    id_medio INT,
-    habilitado BIT NOT NULL,
-    PRIMARY KEY (id_socio, id_medio),
-    CONSTRAINT FK_debito_socio FOREIGN KEY (id_socio) REFERENCES administracion.Socio(id_socio),
-    CONSTRAINT FK_debito_medio FOREIGN KEY (id_medio) REFERENCES cobranzas.MedioDePago(id_medio)
+    monto DECIMAL(10,2) CONSTRAINT CHK_DetalleFactura_Monto CHECK (monto > 0),
+    tipo_item VARCHAR(50),
+	cantidad INT
 );
 
-
-IF OBJECT_ID('cobranzas.Pago', 'U') IS NOT NULL
-    DROP TABLE cobranzas.Pago;
-GO
-
-CREATE TABLE cobranzas.Pago (
-    id_pago INT IDENTITY(1,1) PRIMARY KEY,
-	id_factura INT,
-    id_medio INT,
-	nro_transaccion INT,
-	monto DECIMAL(10,2),
-    fecha_emision DATETIME,
-	fecha_vencimiento DATE,
-    estado CHAR(10),
-	CONSTRAINT FK_pago_factura_id FOREIGN KEY (id_factura) REFERENCES facturacion.Factura (id_factura),
-	CONSTRAINT FK_pago_medio_id FOREIGN KEY (id_medio) REFERENCES cobranzas.MedioDePago (id_medio)
-);
-GO
-
-IF OBJECT_ID('cobranzas.PagoACuenta', 'U') IS NOT NULL
-    DROP TABLE cobranzas.PagoACuenta;
-GO
-
-CREATE TABLE cobranzas.PagoACuenta (
-    id_pago_cuenta INT IDENTITY(1,1) PRIMARY KEY,
-    id_pago INT,
-	id_socio INT,
-    monto DECIMAL(10,2),
-    fecha DATE,
-	motivo VARCHAR(100),
-	CONSTRAINT FK_pagoACuenta_pago_id FOREIGN KEY (id_pago) REFERENCES cobranzas.Pago (id_pago),
-	CONSTRAINT FK_pagoACuenta_socio_id FOREIGN KEY (id_socio) REFERENCES administracion.Socio (id_socio)
-);
-GO
-
-IF OBJECT_ID('cobranzas.NotaDeCredito', 'U') IS NOT NULL
-    DROP TABLE cobranzas.NotaDeCredito;
-GO
-
-CREATE TABLE cobranzas.NotaDeCredito (
-    id_nota INT IDENTITY(1,1) PRIMARY KEY,
-    id_factura INT,
-    monto DECIMAL(10,2) NOT NULL,
-    fecha_emision DATETIME NOT NULL,
-	estado CHAR(20),
-	motivo VARCHAR(100),
-	CONSTRAINT FK_notaDeCredito_factura_id FOREIGN KEY (id_factura) REFERENCES facturacion.Factura (id_factura)
-);
-GO
-
-IF OBJECT_ID('cobranzas.Mora', 'U') IS NOT NULL
-    DROP TABLE cobranzas.Mora;
-GO
+-- ===============================
+-- Módulo: COBRANZAS
+-- ===============================
 
 CREATE TABLE cobranzas.Mora (
-    id_mora INT IDENTITY(1,1) PRIMARY KEY,
-    id_socio INT,
-	id_factura INT,
+    id_mora INT IDENTITY PRIMARY KEY,
+	id_socio INT NOT NULL,
+    id_factura INT NOT NULL,
+    fecha_registro DATE,
+    motivo VARCHAR(100),
 	facturada BIT,
-	monto DECIMAL(10,2),
-	CONSTRAINT FK_mora_factura_id FOREIGN KEY (id_factura) REFERENCES facturacion.Factura (id_factura),
-	CONSTRAINT FK_mora_socio_id FOREIGN KEY (id_socio) REFERENCES administracion.Socio (id_socio)
+	monto DECIMAL(10,2)
 );
-GO
 
-IF OBJECT_ID('cobranzas.Notificacion', 'U') IS NOT NULL
-    DROP TABLE cobranzas.Notificacion;
-GO
+CREATE TABLE cobranzas.Pago (
+    id_pago INT IDENTITY PRIMARY KEY,
+    id_factura INT NOT NULL,
+	id_medio INT NOT NULL,
+	nro_transaccion VARCHAR(20),
+	monto DECIMAL(10,2) CONSTRAINT CHK_Pago_Monto CHECK (monto > 0),
+    fecha_emision DATETIME,
+    estado CHAR(10)
+);
 
-CREATE TABLE cobranzas.Notificacion (
-    id_notificacion INT IDENTITY(1,1) PRIMARY KEY,
-    id_mora INT,
-	mensaje VARCHAR(100),
+CREATE TABLE cobranzas.Reembolso (
+    id_reembolso INT IDENTITY PRIMARY KEY,
+    id_pago INT NOT NULL,
+	monto DECIMAL(10,2) CONSTRAINT CHK_Reembolso_Monto CHECK (monto > 0),
+	fecha_emision DATETIME NOT NULL,
+    motivo VARCHAR(100)
+);
+
+CREATE TABLE cobranzas.PagoACuenta (
+    id_pago_cuenta INT IDENTITY PRIMARY KEY,
+    id_pago INT NOT NULL,
+    id_socio INT NOT NULL,
     fecha DATE,
-    destinatario VARCHAR(70),
-	CONSTRAINT FK_notificacion_mora_id FOREIGN KEY (id_mora) REFERENCES cobranzas.Mora (id_mora)
+    monto DECIMAL(10,2) CONSTRAINT CHK_PagoACuenta_Monto CHECK (monto > 0),
+	motivo VARCHAR(100)
 );
-GO
+
+CREATE TABLE cobranzas.MedioDePago (
+    id_medio_pago INT IDENTITY PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE cobranzas.TarjetaDeCredito(
+	id_tarjeta INT IDENTITY PRIMARY KEY,
+	id_socio INT NOT NULL,
+	nro_tarjeta CHAR(16),
+	titular VARCHAR(50),
+	fecha_desde DATE,
+	fecha_hasta DATE,
+	cod_seguridad CHAR(3),
+	debito_automatico BIT
+);
+
+-- ===============================
+-- RELACIONES
+-- ===============================
+
+ALTER TABLE actividades.PresentismoClase
+ADD CONSTRAINT FK_PresentismoClase_Clase
+    FOREIGN KEY (id_clase) REFERENCES actividades.Clase(id_clase);
+
+ALTER TABLE actividades.InscriptoCategoriaSocio
+ADD CONSTRAINT FK_InscriptoCategoriaSocio_Socio
+    FOREIGN KEY (id_socio) REFERENCES socios.Socio(id_socio);
+
+ALTER TABLE facturacion.CargoActividadExtra
+ADD CONSTRAINT FK_CargoActividadExtra_InscriptoColoniaVerano
+    FOREIGN KEY (id_inscripto_colonia) REFERENCES actividades.InscriptoColoniaVerano(id_inscripto_colonia);
+
+ALTER TABLE facturacion.CargoActividadExtra
+ADD CONSTRAINT FK_CargoActividadExtra_InscriptoPiletaVerano
+    FOREIGN KEY (id_inscripto_pileta) REFERENCES actividades.InscriptoPiletaVerano(id_inscripto_pileta);
+
+ALTER TABLE facturacion.CargoActividadExtra
+ADD CONSTRAINT FK_CargoActividadExtra_ReservaSum
+    FOREIGN KEY (id_reserva_sum) REFERENCES reservas.ReservaSum(id_reserva_sum);
+
+ALTER TABLE actividades.InscriptoCategoriaSocio
+ADD CONSTRAINT FK_InscriptoCategoriaSocio_CategoriaSocio
+    FOREIGN KEY (id_categoria) REFERENCES socios.CategoriaSocio(id_categoria);
+
+ALTER TABLE actividades.Clase
+ADD CONSTRAINT FK_Clase_Actividad
+    FOREIGN KEY (id_actividad) REFERENCES actividades.Actividad(id_actividad);
+
+ALTER TABLE actividades.Clase
+ADD CONSTRAINT FK_Clase_CategoriaSocio
+    FOREIGN KEY (id_categoria) REFERENCES socios.CategoriaSocio(id_categoria);
+
+ALTER TABLE facturacion.Factura
+ADD CONSTRAINT FK_Factura_CuotaMensual
+    FOREIGN KEY (id_cuota_mensual) REFERENCES facturacion.CuotaMensual(id_cuota_mensual);
+
+ALTER TABLE facturacion.Factura
+ADD CONSTRAINT FK_Factura_CargoActividadExtra
+    FOREIGN KEY (id_cargo_actividad_extra) REFERENCES facturacion.CargoActividadExtra(id_cargo_extra);
+
+ALTER TABLE facturacion.DetalleFactura
+ADD CONSTRAINT FK_DetalleFactura_Factura
+    FOREIGN KEY (id_factura) REFERENCES facturacion.Factura(id_factura);
+
+ALTER TABLE facturacion.Factura
+ADD CONSTRAINT FK_Factura_EmisorFactura
+    FOREIGN KEY (id_emisor) REFERENCES facturacion.EmisorFactura(id_emisor);
+
+ALTER TABLE cobranzas.Mora
+ADD CONSTRAINT FK_Mora_Factura
+    FOREIGN KEY (id_factura) REFERENCES facturacion.Factura(id_factura);
+
+ALTER TABLE cobranzas.Pago
+ADD CONSTRAINT FK_Pago_Factura
+    FOREIGN KEY (id_factura) REFERENCES facturacion.Factura(id_factura);
+
+ALTER TABLE facturacion.CuotaMensual
+ADD CONSTRAINT FK_CuotaMensual_InscriptoCategoriaSocio
+    FOREIGN KEY (id_inscripto_categoria) REFERENCES actividades.InscriptoCategoriaSocio(id_inscripto_categoria);
+
+ALTER TABLE facturacion.CargoClases
+ADD CONSTRAINT FK_CargoClases_InscriptoClase
+    FOREIGN KEY (id_inscripto_clase) REFERENCES actividades.InscriptoClase(id_inscripto_clase);
+
+ALTER TABLE actividades.InscriptoClase
+ADD CONSTRAINT FK_InscriptoClase_Clase
+    FOREIGN KEY (id_clase) REFERENCES actividades.Clase(id_clase);
+
+
+--Tablas de la base de datos
+SELECT TABLE_SCHEMA, TABLE_NAME
+FROM INFORMATION_SCHEMA.TABLES
+WHERE TABLE_TYPE = 'BASE TABLE'
+ORDER BY TABLE_SCHEMA, TABLE_NAME;
