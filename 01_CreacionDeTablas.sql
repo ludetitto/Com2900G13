@@ -49,6 +49,7 @@ DROP PROCEDURE IF EXISTS administracion.GestionarPersona
 DROP PROCEDURE IF EXISTS administracion.GestionarCategoriaSocio
 DROP PROCEDURE IF EXISTS administracion.GestionarGrupoFamiliar
 
+DROP PROCEDURE IF EXISTS facturacion.GenerarFacturasMensualesPorFecha
 DROP PROCEDURE IF EXISTS facturacion.GenerarCargosActividadExtraPorFecha
 DROP PROCEDURE IF EXISTS cobranzas.GenerarPagoACuenta
 DROP PROCEDURE IF EXISTS facturacion.GenerarCuotasMensualesPorFecha
@@ -69,6 +70,8 @@ DROP PROCEDURE IF EXISTS cobranzas.GenerarPagoACuentaPorReembolso
 DROP PROCEDURE IF EXISTS cobranzas.GestionarRecargo
 DROP VIEW IF EXISTS cobranzas.vwNotasConMedioDePago
 
+DROP VIEW IF EXISTS facturacion.vw_FacturasDetalladasConResponsables
+DROP PROCEDURE IF EXISTS facturacion.GenerarFacturasActividadesExtraPorFecha
 DROP PROCEDURE IF EXISTS facturacion.GenerarCargoClase
 DROP PROCEDURE IF EXISTS facturacion.GenerarCargoMembresia
 DROP PROCEDURE IF EXISTS facturacion.AnularFactura
@@ -113,6 +116,8 @@ DROP TABLE IF EXISTS cobranzas.Reembolso;
 DROP TABLE IF EXISTS cobranzas.Pago;
 DROP TABLE IF EXISTS cobranzas.Mora;
 DROP TABLE IF EXISTS cobranzas.MedioDePago;
+DROP TABLE IF EXISTS cobranzas.TarjetaDeCredito;
+
 
 DROP TABLE IF EXISTS facturacion.DetalleFactura;
 DROP TABLE IF EXISTS facturacion.Factura;
@@ -183,26 +188,25 @@ GO
 
 CREATE TABLE socios.CategoriaSocio (
     id_categoria INT IDENTITY PRIMARY KEY,
-    descripcion VARCHAR(50),
+    nombre VARCHAR(50),
     edad_minima INT,
     edad_maxima INT,
-    costo DECIMAL(10,2) CONSTRAINT CHK_CategoriaSocio_Costo CHECK (costo > 0),
-    vigencia DATE,
-	
+    costo_membresia DECIMAL(10,2),
+    vigencia DATE
 );
 CREATE TABLE socios.Socio (
     id_socio INT IDENTITY PRIMARY KEY,
     nombre VARCHAR(50),
     apellido VARCHAR(50),
-    dni CHAR(8)  CONSTRAINT CHK_Socio_DNI CHECK (dni NOT LIKE '%[^0-9]%' AND LEN(dni) = 8),
+    dni CHAR(8) CONSTRAINT CHK_Socio_DNI CHECK (dni NOT LIKE '%[^0-9]%' AND LEN(dni) = 8),
+	nro_socio VARCHAR(50),
     email VARCHAR(100) CONSTRAINT CHK_Socio_Email CHECK (email IS NULL OR email LIKE '%@%.%'),
     fecha_nacimiento DATE,
-    telefono VARCHAR(20),
-    telefono_emergencia VARCHAR(20),
-    direccion VARCHAR(150),
+    tel_contacto VARCHAR(20),
+    tel_emergencia VARCHAR(20),
+    domicilio VARCHAR(200),
     obra_social VARCHAR(100),
-    nro_os VARCHAR(50),
-    id_categoria INT NOT NULL,
+    nro_obra_social VARCHAR(50),
     activo BIT CONSTRAINT CHK_Socio_Activo CHECK (activo IN (0,1)),
     eliminado BIT CONSTRAINT CHK_Socio_Eliminado CHECK (eliminado IN (0,1)),
     saldo DECIMAL(10,2) NOT NULL DEFAULT 0
@@ -235,13 +239,13 @@ CREATE TABLE socios.Tutor (
 GO
 CREATE TABLE socios.Invitado (
     id_invitado INT IDENTITY PRIMARY KEY,
+	id_socio INT NOT NULL,
     dni CHAR(8) NOT NULL CONSTRAINT CHK_Invitado_DNI CHECK (dni NOT LIKE '%[^0-9]%' AND LEN(dni) = 8),
     nombre VARCHAR(50) NOT NULL,
     apellido VARCHAR(50) NOT NULL,
     domicilio VARCHAR(150) NOT NULL,
 	categoria VARCHAR(50) NOT NULL,
-    email VARCHAR(100) NOT NULL CONSTRAINT CHK_Invitado_Email CHECK (email LIKE '%@%.%'),
-    id_socio INT NOT NULL
+    email VARCHAR(100) NOT NULL CONSTRAINT CHK_Invitado_Email CHECK (email LIKE '%@%.%')
 );
 
 CREATE TABLE socios.DebitoAutomaticoSocio (
@@ -256,7 +260,7 @@ CREATE TABLE socios.DebitoAutomaticoSocio (
 
 CREATE TABLE actividades.Actividad (
     id_actividad INT IDENTITY PRIMARY KEY,
-    descripcion VARCHAR(100),
+    nombre VARCHAR(100),
     costo DECIMAL(10,2) CONSTRAINT CHK_Actividad_Costo CHECK (costo > 0),
     vigencia DATE
 );
@@ -266,45 +270,48 @@ CREATE TABLE actividades.Clase (
     id_actividad INT NOT NULL,
     id_categoria INT NOT NULL,
     horario VARCHAR(50),
-    nombre_profesor VARCHAR(50),
-    apellido_profesor VARCHAR(50)
+    nombre_profesor VARCHAR(100),
+    apellido_profesor VARCHAR(100)
 );
 
 CREATE TABLE actividades.InscriptoClase (
-    id_inscripcion INT IDENTITY PRIMARY KEY,
-	fecha DATE NOT NULL,
+    id_inscripto_clase INT IDENTITY PRIMARY KEY,
+	fecha_inscripcion DATE NOT NULL,
     id_socio INT NOT NULL,
-    id_clase INT NOT NULL
+    id_clase INT NOT NULL,
+	activa BIT
 );
 
 CREATE TABLE actividades.PresentismoClase (
     id_presentismo INT IDENTITY PRIMARY KEY,
-    id_inscripcion INT NOT NULL,
+    id_clase INT NOT NULL,
+    id_socio INT NOT NULL,
     fecha DATE NOT NULL,
     estado CHAR(1) CONSTRAINT CHK_PresentismoClase_Estado CHECK (estado IN ('P', 'A', 'J')) -- P: Presente, A: Ausente, J: Justificado
 );
 
 CREATE TABLE actividades.InscriptoCategoriaSocio (
-    id_inscripcion INT IDENTITY PRIMARY KEY,
+    id_inscripto_categoria INT IDENTITY PRIMARY KEY,
     id_socio INT NOT NULL,
     id_categoria INT NOT NULL,
 	fecha DATE NOT NULL,
-	monto DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_InscriptoCategoriaSocio_Monto CHECK (monto > 0)
+	monto DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_InscriptoCategoriaSocio_Monto CHECK (monto > 0),
+	activo BIT
 );
 
 CREATE TABLE actividades.InscriptoColoniaVerano (
-    id_inscripcion INT IDENTITY PRIMARY KEY,
+    id_inscripto_colonia INT IDENTITY PRIMARY KEY,
     id_socio INT NOT NULL,
-    id_tarifa INT NOT NULL,
+    id_tarifa_colonia INT NOT NULL,
 	fecha DATE NOT NULL,
 	monto DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_InscriptoColoniaVerano_Monto CHECK (monto > 0)
 );
 
 CREATE TABLE actividades.InscriptoPiletaVerano (
-    id_inscripcion INT IDENTITY PRIMARY KEY,
+    id_inscripto_pileta INT IDENTITY PRIMARY KEY,
+	id_tarifa_pileta INT NOT NULL,
     id_socio INT,
-	id_invitado INT,
-    id_tarifa INT NOT NULL,
+	id_invitado INT NULL,
 	fecha DATE NOT NULL,
 	monto DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_InscriptoPiletaVerano_Monto CHECK (monto > 0)
 );
@@ -314,7 +321,7 @@ CREATE TABLE actividades.InscriptoPiletaVerano (
 -- ===============================
 
 CREATE TABLE tarifas.TarifaColoniaVerano (
-    id_tarifa INT IDENTITY PRIMARY KEY,
+    id_tarifa_colonia INT IDENTITY PRIMARY KEY,
     costo DECIMAL(10,2) CONSTRAINT CHK_TarifaColoniaVerano_Costo CHECK (costo > 0),
 	periodo CHAR(10),
 	categoria VARCHAR(50),
@@ -322,15 +329,15 @@ CREATE TABLE tarifas.TarifaColoniaVerano (
 );
 
 CREATE TABLE tarifas.TarifaReservaSum (
-    id_tarifa INT IDENTITY PRIMARY KEY,
+    id_tarifa_sum INT IDENTITY PRIMARY KEY,
     costo DECIMAL(10,2) CONSTRAINT CHK_TarifaReservaSum_Costo CHECK (costo > 0),
 	vigencia DATE
 );
 
 CREATE TABLE tarifas.TarifaPiletaVerano (
-    id_tarifa INT IDENTITY PRIMARY KEY,
-    costo DECIMAL(10,2) CONSTRAINT CHK_TarifaPiletaVerano_Costo CHECK (costo >= 0),
-	categoria VARCHAR(50) CONSTRAINT CHK_TarifaPiletaVerano_Categoria CHECK (categoria IN ('Menor', 'Cadete', 'Mayor')),
+    id_tarifa_pileta INT IDENTITY PRIMARY KEY,
+    costo DECIMAL(10,2) CONSTRAINT CHK_TarifaPiletaVerano_Costo CHECK (costo > 0),
+	categoria VARCHAR(50),
     es_invitado BIT CONSTRAINT CHK_TarifaPiletaVerano_Invitado CHECK (es_invitado IN (0,1)),
 	vigencia DATE
 );
@@ -340,71 +347,80 @@ CREATE TABLE tarifas.TarifaPiletaVerano (
 -- ===============================
 
 CREATE TABLE reservas.ReservaSum (
-    id_reserva INT IDENTITY PRIMARY KEY,
+    id_reserva_sum INT IDENTITY PRIMARY KEY,
+	id_tarifa_sum INT NOT NULL,
     id_socio INT NOT NULL,
     fecha DATE NOT NULL,
     hora_inicio TIME,
     hora_fin TIME,
-    id_tarifa INT NOT NULL
+	monto DECIMAL(10, 2)
 );
 
 -- ===============================
 -- Módulo: FACTURACION
 -- ===============================
 
-CREATE TABLE facturacion.EmisorFactura (
-    id_emisor INT IDENTITY PRIMARY KEY,
-    razon_social VARCHAR(100),
-    cuil CHAR(13) CHECK(cuil LIKE '[0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9]'),
-	direccion CHAR(50),
-	pais VARCHAR(50),
-	localidad VARCHAR(50),
-	codigo_postal CHAR(4) CHECK (codigo_postal LIKE '[0-9][0-9][0-9][0-9]')
-);
 
 
 
 CREATE TABLE facturacion.CuotaMensual (
-    id_cuota INT IDENTITY PRIMARY KEY,
-	monto_membresia DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CuotaMensual_MontoMembresia CHECK (monto_membresia > 0),
-	monto_actividad DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CuotaMensual_MontoActividad CHECK (monto_actividad > 0),
+    id_cuota_mensual INT IDENTITY PRIMARY KEY,
+	id_inscripto_categoria INT,
+<<<<<<< Updated upstream
+	monto_membresia DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CuotaMensual_Membresia CHECK (monto_membresia > 0),
+	monto_actividad DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CuotaMensual_Actividad CHECK (monto_actividad > 0),
+=======
+	monto_membresia DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CuotaMensual_CostoMembresia CHECK (monto_membresia > 0),
+	monto_actividad DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CuotaMensual_CostoActividad CHECK (monto_actividad > 0),
+>>>>>>> Stashed changes
     fecha DATE NOT NULL
 );
 
-CREATE TABLE facturacion.CargoMembresias (
-    id_cargo INT IDENTITY PRIMARY KEY,
-    id_inscripcion_categoria INT NOT NULL,
-	monto DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CargoMembresias_Monto CHECK (monto > 0),
-	fecha DATE NOT NULL
-);
 
 CREATE TABLE facturacion.CargoClases (
-    id_cargo INT IDENTITY PRIMARY KEY,
-    id_inscripcion_clase INT NOT NULL,
+    id_cargo_clase INT IDENTITY PRIMARY KEY,
+    id_inscripto_clase INT NOT NULL,
 	monto DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CargoClases_Monto CHECK (monto > 0),
 	fecha DATE NOT NULL
 );
 
 CREATE TABLE facturacion.CargoActividadExtra (
-    id_cargo INT IDENTITY PRIMARY KEY,
-    id_inscripcion_colonia INT DEFAULT NULL,
-    id_inscripcion_pileta INT DEFAULT NULL,
-    id_reserva INT DEFAULT NULL
+    id_cargo_extra INT IDENTITY PRIMARY KEY,
+    id_inscripto_colonia INT DEFAULT NULL,
+    id_inscripto_pileta INT DEFAULT NULL,
+    id_reserva_sum INT DEFAULT NULL
 );
+
+CREATE TABLE facturacion.EmisorFactura (
+    id_emisor INT IDENTITY PRIMARY KEY,
+    razon_social VARCHAR(100),
+	direccion CHAR(50),
+	cuit_emisor CHAR(13) CHECK(cuit_emisor LIKE '[0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9]'),
+	pais VARCHAR(50),
+	localidad VARCHAR(50),
+	codigo_postal CHAR(4) CHECK (codigo_postal LIKE '[0-9][0-9][0-9][0-9]'),
+	condicion_iva_emisor CHAR(50) NOT NULL
+
+);
+
 
 CREATE TABLE facturacion.Factura (
     id_factura INT IDENTITY PRIMARY KEY,
     id_emisor INT NOT NULL,
-    id_socio INT,
+	id_cuota_mensual INT,
+	id_cargo_actividad_extra INT,
+	nro_comprobante CHAR(8),
+	tipo_factura CHAR,
+	dni_receptor CHAR(13), 
+	condicion_iva_receptor CHAR(50) NOT NULL,
+	cae CHAR(14) UNIQUE, 
     monto_total DECIMAL(10,2) CONSTRAINT CHK_Factura_Monto CHECK (monto_total > 0),
-    saldo_anterior DECIMAL(10,2),
     fecha_emision DATE,
     fecha_vencimiento1 DATE,
     fecha_vencimiento2 DATE,
     estado VARCHAR(20),
-    anulada BIT DEFAULT 0,
-    id_cuota INT,
-    id_cargo_actividad_extra INT
+	saldo_anterior DECIMAL(10,2),
+    anulada BIT DEFAULT 0
 );
 
 CREATE TABLE facturacion.DetalleFactura (
@@ -422,158 +438,108 @@ CREATE TABLE facturacion.DetalleFactura (
 
 CREATE TABLE cobranzas.Mora (
     id_mora INT IDENTITY PRIMARY KEY,
+	id_socio INT NOT NULL,
     id_factura INT NOT NULL,
     fecha_registro DATE,
-    notificado BIT DEFAULT 0
+    motivo VARCHAR(100),
+	facturada BIT,
+	monto DECIMAL(10,2)
 );
 
 CREATE TABLE cobranzas.Pago (
     id_pago INT IDENTITY PRIMARY KEY,
     id_factura INT NOT NULL,
-    fecha_pago DATE,
-    medio_pago VARCHAR(50),
-    monto DECIMAL(10,2) CONSTRAINT CHK_Pago_Monto CHECK (monto > 0), 
-    debito_automatico BIT 
+	id_medio INT NOT NULL,
+	nro_transaccion VARCHAR(20),
+	monto DECIMAL(10,2) CONSTRAINT CHK_Pago_Monto CHECK (monto > 0),
+    fecha_emision DATETIME,
+    estado CHAR(10)
 );
 
 CREATE TABLE cobranzas.Reembolso (
     id_reembolso INT IDENTITY PRIMARY KEY,
     id_pago INT NOT NULL,
-    fecha DATE,
-    motivo VARCHAR(100),
-    monto DECIMAL(10,2) CONSTRAINT CHK_Reembolso_Monto CHECK (monto > 0)
+	monto DECIMAL(10,2) CONSTRAINT CHK_Reembolso_Monto CHECK (monto > 0),
+	fecha_emision DATETIME NOT NULL,
+    motivo VARCHAR(100)
 );
 
 CREATE TABLE cobranzas.PagoACuenta (
-    id_pago_a_cuenta INT IDENTITY PRIMARY KEY,
+    id_pago_cuenta INT IDENTITY PRIMARY KEY,
     id_pago INT NOT NULL,
     id_socio INT NOT NULL,
     fecha DATE,
-    monto DECIMAL(10,2) CONSTRAINT CHK_PagoACuenta_Monto CHECK (monto > 0)
+    monto DECIMAL(10,2) CONSTRAINT CHK_PagoACuenta_Monto CHECK (monto > 0),
+	motivo VARCHAR(100)
 );
 
 CREATE TABLE cobranzas.MedioDePago (
     id_medio_pago INT IDENTITY PRIMARY KEY,
-    nombre VARCHAR(50) NOT NULL,
-    debito_automatico BIT NOT NULL
+    nombre VARCHAR(50) NOT NULL
 );
 
+CREATE TABLE cobranzas.TarjetaDeCredito(
+	id_tarjeta INT IDENTITY PRIMARY KEY,
+	id_socio INT NOT NULL,
+	nro_tarjeta CHAR(16),
+	titular VARCHAR(50),
+	fecha_desde DATE,
+	fecha_hasta DATE,
+	cod_seguridad CHAR(3),
+	debito_automatico BIT
+);
 
 -- ===============================
--- RELACIONES: SOCIOS
+-- RELACIONES
 -- ===============================
 
-ALTER TABLE socios.Socio
-ADD CONSTRAINT FK_Socio_Categoria
-    FOREIGN KEY (id_categoria) REFERENCES socios.CategoriaSocio(id_categoria);
+ALTER TABLE actividades.PresentismoClase
+ADD CONSTRAINT FK_PresentismoClase_Clase
+    FOREIGN KEY (id_clase) REFERENCES actividades.Clase(id_clase);
 
-ALTER TABLE socios.GrupoFamiliar
-ADD CONSTRAINT FK_GrupoFamiliar_Representante
-    FOREIGN KEY (id_socio_rp) REFERENCES socios.Socio(id_socio);
-
-
-ALTER TABLE socios.Tutor
-ADD CONSTRAINT FK_Tutor_GrupoFamiliar
-    FOREIGN KEY (id_grupo) REFERENCES socios.GrupoFamiliar(id_grupo);
-
-
-ALTER TABLE socios.Invitado
-ADD CONSTRAINT FK_Invitado_Socio
+ALTER TABLE actividades.InscriptoCategoriaSocio
+ADD CONSTRAINT FK_InscriptoCategoriaSocio_Socio
     FOREIGN KEY (id_socio) REFERENCES socios.Socio(id_socio);
 
-ALTER TABLE socios.DebitoAutomaticoSocio
-ADD CONSTRAINT FK_Debito_Socio
-    FOREIGN KEY (id_socio) REFERENCES socios.Socio(id_socio),
-    CONSTRAINT FK_Debito_MedioPago
-    FOREIGN KEY (id_medio_pago) REFERENCES administracion.MedioDePago(id_medio_pago);
+ALTER TABLE facturacion.CargoActividadExtra
+ADD CONSTRAINT FK_CargoActividadExtra_InscriptoColoniaVerano
+    FOREIGN KEY (id_inscripto_colonia) REFERENCES actividades.InscriptoColoniaVerano(id_inscripto_colonia);
 
--- ===============================
--- RELACIONES: ACTIVIDADES
--- ===============================
+ALTER TABLE facturacion.CargoActividadExtra
+ADD CONSTRAINT FK_CargoActividadExtra_InscriptoPiletaVerano
+    FOREIGN KEY (id_inscripto_pileta) REFERENCES actividades.InscriptoPiletaVerano(id_inscripto_pileta);
+
+ALTER TABLE facturacion.CargoActividadExtra
+ADD CONSTRAINT FK_CargoActividadExtra_ReservaSum
+    FOREIGN KEY (id_reserva_sum) REFERENCES reservas.ReservaSum(id_reserva_sum);
+
+ALTER TABLE actividades.InscriptoCategoriaSocio
+ADD CONSTRAINT FK_InscriptoCategoriaSocio_CategoriaSocio
+    FOREIGN KEY (id_categoria) REFERENCES socios.CategoriaSocio(id_categoria);
 
 ALTER TABLE actividades.Clase
 ADD CONSTRAINT FK_Clase_Actividad
-    FOREIGN KEY (id_actividad) REFERENCES actividades.Actividad(id_actividad),
-    CONSTRAINT FK_Clase_Categoria
+    FOREIGN KEY (id_actividad) REFERENCES actividades.Actividad(id_actividad);
+
+ALTER TABLE actividades.Clase
+ADD CONSTRAINT FK_Clase_CategoriaSocio
     FOREIGN KEY (id_categoria) REFERENCES socios.CategoriaSocio(id_categoria);
-
-ALTER TABLE actividades.InscriptoClase
-ADD CONSTRAINT FK_InscriptoClase_Socio
-    FOREIGN KEY (id_socio) REFERENCES socios.Socio(id_socio),
-    CONSTRAINT FK_InscriptoClase_Clase
-    FOREIGN KEY (id_clase) REFERENCES actividades.Clase(id_clase);
-
-ALTER TABLE actividades.PresentismoClase
-ADD CONSTRAINT FK_Presentismo_InscriptoClase
-    FOREIGN KEY (id_inscripcion) REFERENCES actividades.InscriptoClase(id_inscripcion);
-
-ALTER TABLE actividades.InscriptoCategoriaSocio
-ADD CONSTRAINT FK_InscriptoCategoria_Socio
-    FOREIGN KEY (id_socio) REFERENCES socios.Socio(id_socio),
-    CONSTRAINT FK_InscriptoCategoria_Categoria
-    FOREIGN KEY (id_categoria) REFERENCES socios.CategoriaSocio(id_categoria);
-
-ALTER TABLE actividades.InscriptoColoniaVerano
-ADD CONSTRAINT FK_InscriptoColonia_Socio
-    FOREIGN KEY (id_socio) REFERENCES socios.Socio(id_socio),
-    CONSTRAINT FK_InscriptoColonia_Tarifa
-    FOREIGN KEY (id_tarifa) REFERENCES tarifas.TarifaColoniaVerano(id_tarifa);
-
-ALTER TABLE actividades.InscriptoPiletaVerano
-ADD CONSTRAINT FK_InscriptoPileta_Socio
-    FOREIGN KEY (id_socio) REFERENCES socios.Socio(id_socio),
-	CONSTRAINT FK_InscriptoPileta_Invitado
-    FOREIGN KEY (id_invitado) REFERENCES socios.Invitado(id_invitado),
-    CONSTRAINT FK_InscriptoPileta_Tarifa
-    FOREIGN KEY (id_tarifa) REFERENCES tarifas.TarifaPiletaVerano(id_tarifa);
-
--- ===============================
--- RELACIONES: RESERVAS
--- ===============================
-
-ALTER TABLE reservas.ReservaSum
-ADD CONSTRAINT FK_ReservaSum_Socio
-    FOREIGN KEY (id_socio) REFERENCES socios.Socio(id_socio),
-    CONSTRAINT FK_ReservaSum_Tarifa
-    FOREIGN KEY (id_tarifa) REFERENCES tarifas.TarifaReservaSum(id_tarifa);
-
--- ===============================
--- RELACIONES: FACTURACION
--- ===============================
-
-ALTER TABLE facturacion.CargoMembresias
-ADD CONSTRAINT FK_CargoMembresias_InscriptoCategoria
-    FOREIGN KEY (id_inscripcion_categoria) REFERENCES actividades.InscriptoCategoriaSocio(id_inscripcion)
-
-ALTER TABLE facturacion.CargoClases
-ADD CONSTRAINT FK_CargoClase_InscriptoClase
-    FOREIGN KEY (id_inscripcion_clase) REFERENCES actividades.InscriptoClase(id_inscripcion)
-
-ALTER TABLE facturacion.CargoActividadExtra
-ADD CONSTRAINT FK_CargoExtra_Colonia
-    FOREIGN KEY (id_inscripcion_colonia) REFERENCES actividades.InscriptoColoniaVerano(id_inscripcion),
-    CONSTRAINT FK_CargoExtra_Pileta
-    FOREIGN KEY (id_inscripcion_pileta) REFERENCES actividades.InscriptoPiletaVerano(id_inscripcion),
-    CONSTRAINT FK_CargoExtra_Reserva
-    FOREIGN KEY (id_reserva) REFERENCES reservas.ReservaSum(id_reserva);
 
 ALTER TABLE facturacion.Factura
-ADD CONSTRAINT FK_Factura_Emisor
-    FOREIGN KEY (id_emisor) REFERENCES facturacion.EmisorFactura(id_emisor),
-    CONSTRAINT FK_Factura_Socio
-    FOREIGN KEY (id_socio) REFERENCES socios.Socio(id_socio),
-    CONSTRAINT FK_Factura_Cuota
-    FOREIGN KEY (id_cuota) REFERENCES facturacion.CuotaMensual(id_cuota),
-    CONSTRAINT FK_Factura_CargoExtra
-    FOREIGN KEY (id_cargo_actividad_extra) REFERENCES facturacion.CargoActividadExtra(id_cargo);
+ADD CONSTRAINT FK_Factura_CuotaMensual
+    FOREIGN KEY (id_cuota_mensual) REFERENCES facturacion.CuotaMensual(id_cuota_mensual);
+
+ALTER TABLE facturacion.Factura
+ADD CONSTRAINT FK_Factura_CargoActividadExtra
+    FOREIGN KEY (id_cargo_actividad_extra) REFERENCES facturacion.CargoActividadExtra(id_cargo_extra);
 
 ALTER TABLE facturacion.DetalleFactura
 ADD CONSTRAINT FK_DetalleFactura_Factura
     FOREIGN KEY (id_factura) REFERENCES facturacion.Factura(id_factura);
 
--- ===============================
--- RELACIONES: COBRANZAS
--- ===============================
+ALTER TABLE facturacion.Factura
+ADD CONSTRAINT FK_Factura_EmisorFactura
+    FOREIGN KEY (id_emisor) REFERENCES facturacion.EmisorFactura(id_emisor);
 
 ALTER TABLE cobranzas.Mora
 ADD CONSTRAINT FK_Mora_Factura
@@ -583,15 +549,18 @@ ALTER TABLE cobranzas.Pago
 ADD CONSTRAINT FK_Pago_Factura
     FOREIGN KEY (id_factura) REFERENCES facturacion.Factura(id_factura);
 
-ALTER TABLE cobranzas.Reembolso
-ADD CONSTRAINT FK_Reembolso_Pago
-    FOREIGN KEY (id_pago) REFERENCES cobranzas.Pago(id_pago);
+ALTER TABLE facturacion.CuotaMensual
+ADD CONSTRAINT FK_CuotaMensual_InscriptoCategoriaSocio
+    FOREIGN KEY (id_inscripto_categoria) REFERENCES actividades.InscriptoCategoriaSocio(id_inscripto_categoria);
 
-ALTER TABLE cobranzas.PagoACuenta
-ADD CONSTRAINT FK_PagoACuenta_Pago
-    FOREIGN KEY (id_pago) REFERENCES cobranzas.Pago(id_pago),
-    CONSTRAINT FK_PagoACuenta_Socio
-    FOREIGN KEY (id_socio) REFERENCES socios.Socio(id_socio);
+ALTER TABLE facturacion.CargoClases
+ADD CONSTRAINT FK_CargoClases_InscriptoClase
+    FOREIGN KEY (id_inscripto_clase) REFERENCES actividades.InscriptoClase(id_inscripto_clase);
+
+ALTER TABLE actividades.InscriptoClase
+ADD CONSTRAINT FK_InscriptoClase_Clase
+    FOREIGN KEY (id_clase) REFERENCES actividades.Clase(id_clase);
+
 
 --Tablas de la base de datos
 SELECT TABLE_SCHEMA, TABLE_NAME

@@ -24,12 +24,12 @@ IF OBJECT_ID('socios.GestionarCategoriaSocio', 'P') IS NOT NULL
 GO
 
 CREATE PROCEDURE socios.GestionarCategoriaSocio
-    @descripcion     VARCHAR(50),
-    @edad_minima     INT = NULL,
-    @edad_maxima     INT = NULL,
-    @costo           DECIMAL(10,2) = NULL,
-    @vigencia        DATE = NULL,
-    @operacion       CHAR(10)
+    @nombre_categoria	VARCHAR(50),
+    @edad_minima		INT = NULL,
+    @edad_maxima		INT = NULL,
+    @costo				DECIMAL(10,2) = NULL,
+    @vigencia			DATE = NULL,
+    @operacion			 CHAR(10)
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -42,7 +42,7 @@ BEGIN
 
     IF @operacion = 'Insertar'
     BEGIN
-        IF LTRIM(RTRIM(@descripcion)) = ''
+        IF LTRIM(RTRIM(@nombre_categoria)) = ''
         BEGIN
             RAISERROR('La descripción es obligatoria.', 16, 1);
             RETURN;
@@ -54,19 +54,19 @@ BEGIN
             RETURN;
         END
 
-        IF EXISTS (SELECT 1 FROM socios.CategoriaSocio WHERE descripcion = @descripcion)
+        IF EXISTS (SELECT 1 FROM socios.CategoriaSocio WHERE nombre = @nombre_categoria)
         BEGIN
             RAISERROR('Ya existe una categoría con esa descripción.', 16, 1);
             RETURN;
         END
 
-        INSERT INTO socios.CategoriaSocio (descripcion, edad_minima, edad_maxima, costo, vigencia)
-        VALUES (@descripcion, @edad_minima, @edad_maxima, @costo, @vigencia);
+        INSERT INTO socios.CategoriaSocio (nombre, edad_minima, edad_maxima, costo_membresia, vigencia)
+        VALUES (@nombre_categoria, @edad_minima, @edad_maxima, @costo, @vigencia);
     END
 
     ELSE IF @operacion = 'Modificar'
     BEGIN
-        IF NOT EXISTS (SELECT 1 FROM socios.CategoriaSocio WHERE descripcion = @descripcion)
+        IF NOT EXISTS (SELECT 1 FROM socios.CategoriaSocio WHERE nombre = @nombre_categoria)
         BEGIN
             RAISERROR('Categoría no encontrada.', 16, 1);
             RETURN;
@@ -74,23 +74,23 @@ BEGIN
 
         UPDATE socios.CategoriaSocio
         SET 
-            edad_minima = COALESCE(@edad_minima, edad_minima),
-            edad_maxima = COALESCE(@edad_maxima, edad_maxima),
-            costo       = COALESCE(@costo, costo),
-            vigencia    = COALESCE(@vigencia, vigencia)
-        WHERE descripcion = @descripcion;
+            edad_minima			  = COALESCE(@edad_minima, edad_minima),
+            edad_maxima			  = COALESCE(@edad_maxima, edad_maxima),
+            costo_membresia       = COALESCE(@costo, costo_membresia),
+            vigencia			  = COALESCE(@vigencia, vigencia)
+        WHERE nombre = @nombre_categoria;
     END
 
     ELSE IF @operacion = 'Eliminar'
     BEGIN
-        IF NOT EXISTS (SELECT 1 FROM socios.CategoriaSocio WHERE descripcion = @descripcion)
+        IF NOT EXISTS (SELECT 1 FROM socios.CategoriaSocio WHERE nombre = @nombre_categoria)
         BEGIN
             RAISERROR('No se encontró una categoría con esa descripción para eliminar.', 16, 1);
             RETURN;
         END
 
         DELETE FROM socios.CategoriaSocio
-        WHERE descripcion = @descripcion;
+        WHERE nombre = @nombre_categoria;
     END
 END;
 GO
@@ -110,9 +110,10 @@ CREATE PROCEDURE socios.GestionarSocio
     @fecha_nacimiento    DATE = NULL,
     @telefono            VARCHAR(20) = NULL,
     @telefono_emergencia VARCHAR(20) = NULL,
-    @direccion           VARCHAR(150) = NULL,
+    @domicilio           VARCHAR(200) = NULL,
     @obra_social         VARCHAR(100) = NULL,
     @nro_os              VARCHAR(50) = NULL,
+    @nro_socio           VARCHAR(50) = NULL,
     @dni_integrante_grupo CHAR(8) = NULL,
     @nombre_tutor        VARCHAR(50) = NULL,
     @apellido_tutor      VARCHAR(50) = NULL,
@@ -121,8 +122,9 @@ CREATE PROCEDURE socios.GestionarSocio
     @fecha_nac_tutor     DATE = NULL,
     @telefono_tutor      VARCHAR(20) = NULL,
     @relacion_tutor      VARCHAR(50) = NULL,
-    @domicilio_tutor     VARCHAR(150) = NULL,
+    @domicilio_tutor     VARCHAR(200) = NULL,
     @es_responsable      BIT = NULL,
+    @dni_nuevo_rp        CHAR(8) = NULL,
     @operacion           CHAR(10)
 AS
 BEGIN
@@ -152,6 +154,13 @@ BEGIN
 
         SET @edad = DATEDIFF(YEAR, @fecha_nacimiento, GETDATE());
 
+        IF @edad < 18 AND @dni_integrante_grupo IS NULL
+            AND (@dni_tutor IS NULL OR @nombre_tutor IS NULL OR @email_tutor IS NULL OR @domicilio_tutor IS NULL)
+        BEGIN
+            RAISERROR('Los datos del tutor son obligatorios para menores sin grupo.', 16, 1);
+            RETURN;
+        END
+
         SELECT TOP 1 @id_categoria = id_categoria
         FROM socios.CategoriaSocio
         WHERE @edad BETWEEN edad_minima AND edad_maxima
@@ -180,16 +189,44 @@ BEGIN
                     apellido = @apellido,
                     email = @email,
                     fecha_nacimiento = @fecha_nacimiento,
-                    telefono = @telefono,
-                    telefono_emergencia = @telefono_emergencia,
-                    direccion = @direccion,
+                    tel_contacto = @telefono,
+                    tel_emergencia = @telefono_emergencia,
+                    domicilio = @domicilio,
                     obra_social = @obra_social,
-                    nro_os = @nro_os,
-                    id_categoria = @id_categoria,
+                    nro_obra_social = @nro_os,
+                    nro_socio = @nro_socio,
                     activo = 1,
                     eliminado = 0,
                     saldo = 0
                 WHERE id_socio = @id_socio;
+
+                IF @dni_integrante_grupo IS NOT NULL
+                BEGIN
+                    SELECT @id_socio_ref = id_socio FROM socios.Socio WHERE dni = @dni_integrante_grupo;
+
+                    SELECT TOP 1 @id_grupo_ref = gf.id_grupo
+                    FROM socios.GrupoFamiliar gf
+                    JOIN socios.GrupoFamiliarSocio gfs ON gf.id_grupo = gfs.id_grupo
+                    WHERE gfs.id_socio = @id_socio_ref;
+
+                    IF @id_grupo_ref IS NOT NULL AND NOT EXISTS (
+                        SELECT 1 FROM socios.GrupoFamiliarSocio
+                        WHERE id_grupo = @id_grupo_ref AND id_socio = @id_socio
+                    )
+                    BEGIN
+                        INSERT INTO socios.GrupoFamiliarSocio (id_grupo, id_socio)
+                        VALUES (@id_grupo_ref, @id_socio);
+
+                        IF @edad >= 18 AND @es_responsable = 1
+                        BEGIN
+                            UPDATE socios.GrupoFamiliar
+                            SET id_socio_rp = @id_socio
+                            WHERE id_grupo = @id_grupo_ref;
+                        END
+                    END
+                END
+
+                RETURN;
             END
             ELSE
             BEGIN
@@ -201,21 +238,20 @@ BEGIN
         BEGIN
             INSERT INTO socios.Socio (
                 nombre, apellido, dni, email, fecha_nacimiento,
-                telefono, telefono_emergencia, direccion,
-                obra_social, nro_os, id_categoria,
+                tel_contacto, tel_emergencia, domicilio,
+                obra_social, nro_obra_social, nro_socio,
                 activo, eliminado, saldo
             )
             VALUES (
                 @nombre, @apellido, @dni, @email, @fecha_nacimiento,
-                @telefono, @telefono_emergencia, @direccion,
-                @obra_social, @nro_os, @id_categoria,
+                @telefono, @telefono_emergencia, @domicilio,
+                @obra_social, @nro_os, @nro_socio,
                 1, 0, 0
             );
 
             SELECT @id_socio = SCOPE_IDENTITY();
         END
 
-        -- Vinculación a grupo (nuevo o existente)
         IF @dni_integrante_grupo IS NOT NULL
         BEGIN
             SELECT @id_socio_ref = id_socio FROM socios.Socio WHERE dni = @dni_integrante_grupo;
@@ -237,14 +273,8 @@ BEGIN
                 RETURN;
             END
 
-            IF NOT EXISTS (
-                SELECT 1 FROM socios.GrupoFamiliarSocio 
-                WHERE id_grupo = @id_grupo_ref AND id_socio = @id_socio
-            )
-            BEGIN
-                INSERT INTO socios.GrupoFamiliarSocio (id_grupo, id_socio)
-                VALUES (@id_grupo_ref, @id_socio);
-            END
+            INSERT INTO socios.GrupoFamiliarSocio (id_grupo, id_socio)
+            VALUES (@id_grupo_ref, @id_socio);
 
             IF @edad >= 18 AND @es_responsable = 1
             BEGIN
@@ -255,7 +285,6 @@ BEGIN
         END
         ELSE
         BEGIN
-            -- Crear grupo nuevo
             INSERT INTO socios.GrupoFamiliar (id_socio_rp)
             VALUES (CASE WHEN @edad >= 18 THEN @id_socio ELSE NULL END);
 
@@ -266,12 +295,6 @@ BEGIN
 
             IF @edad < 18
             BEGIN
-                IF @dni_tutor IS NULL OR @nombre_tutor IS NULL OR @email_tutor IS NULL OR @domicilio_tutor IS NULL
-                BEGIN
-                    RAISERROR('Los datos del tutor son obligatorios para menores sin grupo.', 16, 1);
-                    RETURN;
-                END
-
                 INSERT INTO socios.Tutor (
                     id_grupo, dni, nombre, apellido, domicilio, email
                 )
@@ -281,17 +304,14 @@ BEGIN
             END
         END
 
-		-- Se crea la inscripcion de dicho socio a esa categoria
-
-		INSERT INTO actividades.InscriptoCategoriaSocio
-		VALUES (
-			@id_socio,
-			@id_categoria,
-			GETDATE(),
-			(SELECT TOP 1 costo
-			 FROM socios.CategoriaSocio
-			 WHERE id_categoria = @id_categoria)
-		)
+        INSERT INTO actividades.InscriptoCategoriaSocio
+        VALUES (
+            @id_socio,
+            @id_categoria,
+            GETDATE(),
+            (SELECT TOP 1 costo_membresia FROM socios.CategoriaSocio WHERE id_categoria = @id_categoria),
+            1
+        );
     END
 
     ELSE IF @operacion = 'Eliminar'
@@ -310,21 +330,70 @@ BEGIN
 
         IF @id_grupo_ref IS NOT NULL
         BEGIN
-            INSERT INTO socios.Tutor (id_grupo, dni, nombre, apellido, domicilio, email)
-            SELECT TOP 1
-                GF.id_grupo,
-                S.dni,
-                S.nombre,
-                S.apellido,
-                S.direccion,
-                S.email
-            FROM socios.Socio S
-            JOIN socios.GrupoFamiliar GF ON GF.id_socio_rp = S.id_socio
-            WHERE S.id_socio = @id_socio;
+            IF @dni_nuevo_rp IS NOT NULL
+            BEGIN
+                DECLARE @id_nuevo_rp INT, @edad_rp INT;
 
-            UPDATE socios.GrupoFamiliar
-            SET id_socio_rp = NULL
-            WHERE id_grupo = @id_grupo_ref;
+                SELECT @id_nuevo_rp = id_socio,
+                       @edad_rp = DATEDIFF(YEAR, fecha_nacimiento, GETDATE())
+                FROM socios.Socio
+                WHERE dni = @dni_nuevo_rp AND activo = 1 AND eliminado = 0;
+
+                IF @id_nuevo_rp IS NULL
+                BEGIN
+                    RAISERROR('No se encontró el nuevo socio responsable o no está activo.', 16, 1);
+                    RETURN;
+                END
+
+                IF @edad_rp < 18
+                BEGIN
+                    RAISERROR('El nuevo socio responsable debe ser mayor de edad.', 16, 1);
+                    RETURN;
+                END
+
+                UPDATE socios.GrupoFamiliar
+                SET id_socio_rp = @id_nuevo_rp
+                WHERE id_grupo = @id_grupo_ref;
+            END
+            ELSE IF @dni_tutor IS NOT NULL
+            BEGIN
+                IF @nombre_tutor IS NULL OR @apellido_tutor IS NULL OR @email_tutor IS NULL OR
+                   @fecha_nac_tutor IS NULL OR @domicilio_tutor IS NULL
+                BEGIN
+                    RAISERROR('Faltan datos obligatorios del tutor responsable.', 16, 1);
+                    RETURN;
+                END
+
+                IF DATEDIFF(YEAR, @fecha_nac_tutor, GETDATE()) < 18
+                BEGIN
+                    RAISERROR('El tutor responsable debe ser mayor de edad.', 16, 1);
+                    RETURN;
+                END
+
+                DELETE FROM socios.Tutor WHERE id_grupo = @id_grupo_ref;
+
+                INSERT INTO socios.Tutor (id_grupo, dni, nombre, apellido, domicilio, email)
+                VALUES (@id_grupo_ref, @dni_tutor, @nombre_tutor, @apellido_tutor, @domicilio_tutor, @email_tutor);
+
+                UPDATE socios.GrupoFamiliar
+                SET id_socio_rp = NULL
+                WHERE id_grupo = @id_grupo_ref;
+            END
+            ELSE
+            BEGIN
+                RAISERROR('Debe especificar un nuevo responsable: socio o tutor.', 16, 1);
+                RETURN;
+            END
+        END
+
+        IF NOT EXISTS (
+            SELECT 1 FROM socios.Tutor WHERE id_grupo = @id_grupo_ref AND dni = @dni
+        )
+        BEGIN
+            INSERT INTO socios.Tutor (id_grupo, dni, nombre, apellido, domicilio, email)
+            SELECT @id_grupo_ref, dni, nombre, apellido, domicilio, email
+            FROM socios.Socio
+            WHERE id_socio = @id_socio;
         END
 
         UPDATE socios.Socio
@@ -334,7 +403,7 @@ BEGIN
 
         DELETE FROM socios.GrupoFamiliarSocio WHERE id_socio = @id_socio;
     END
-END;
+END
 GO
 
 
@@ -468,13 +537,13 @@ SELECT
     S.apellido,
     S.fecha_nacimiento,
     S.email,
-    S.telefono,
-    S.telefono_emergencia,
-    S.direccion,
+    S.tel_contacto,
+    S.tel_emergencia,
+    S.domicilio,
     S.obra_social,
-    S.nro_os,
-    CS.descripcion AS categoria,
-    CS.costo AS costo_membresia,
+    S.nro_obra_social,
+    CS.nombre AS categoria,
+    CS.costo_membresia AS costo_membresia,
     CASE 
         WHEN S.id_socio = GF.id_socio_rp THEN 1
         ELSE 0 
@@ -482,7 +551,8 @@ SELECT
 FROM socios.GrupoFamiliar GF
 INNER JOIN socios.GrupoFamiliarSocio GFS ON GF.id_grupo = GFS.id_grupo
 INNER JOIN socios.Socio S ON GFS.id_socio = S.id_socio
-INNER JOIN socios.CategoriaSocio CS ON S.id_categoria = CS.id_categoria
+INNER JOIN actividades.InscriptoCategoriaSocio ICS ON ICS.id_socio = S.id_socio
+INNER JOIN socios.CategoriaSocio CS ON ICS.id_categoria = CS.id_categoria
 WHERE S.eliminado = 0;
 GO
 

@@ -25,8 +25,7 @@ GO
 
 CREATE PROCEDURE cobranzas.GestionarMedioDePago
     @nombre VARCHAR(50),
-    @debito_automatico BIT = 0,
-    @operacion VARCHAR(10) -- 'Insertar', 'Modificar' o 'Eliminar'
+    @operacion VARCHAR(10) -- 'Insertar' o 'Eliminar'
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -37,29 +36,15 @@ BEGIN
 
         IF @operacion = 'Insertar'
         BEGIN
-            IF EXISTS (SELECT 1 FROM cobranzas.MedioDePago WHERE nombre = @nombre)
+            IF EXISTS (SELECT id_medio_pago FROM cobranzas.MedioDePago WHERE nombre = @nombre)
             BEGIN
                 RAISERROR('Ya existe un medio de pago con ese nombre.', 16, 1);
                 ROLLBACK;
                 RETURN;
             END
 
-            INSERT INTO cobranzas.MedioDePago (nombre, debito_automatico)
-            VALUES (@nombre, @debito_automatico);
-        END
-
-        ELSE IF @operacion = 'Modificar'
-        BEGIN
-            IF NOT EXISTS (SELECT 1 FROM cobranzas.MedioDePago WHERE nombre = @nombre)
-            BEGIN
-                RAISERROR('No se encontró el medio de pago para modificar.', 16, 1);
-                ROLLBACK;
-                RETURN;
-            END
-
-            UPDATE cobranzas.MedioDePago
-            SET debito_automatico = @debito_automatico
-            WHERE nombre = @nombre;
+            INSERT INTO cobranzas.MedioDePago (nombre)
+            VALUES (@nombre);
         END
 
         ELSE IF @operacion = 'Eliminar'
@@ -103,8 +88,7 @@ CREATE PROCEDURE cobranzas.RegistrarCobranza
     @id_factura INT,
     @fecha_pago DATE,
     @monto DECIMAL(10,2),
-    @medio_pago VARCHAR(50),
-    @debito_automatico BIT = 0
+    @id_medio_pago INT
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -112,13 +96,22 @@ BEGIN
     SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 
     BEGIN TRY
-        BEGIN TRAN;
 
-        -- Validar existencia de factura
+		BEGIN TRAN;
+
+		-- Validar existencia de factura
         IF NOT EXISTS (SELECT 1 FROM facturacion.Factura WHERE id_factura = @id_factura)
         BEGIN
             RAISERROR('No se encontró la factura especificada.', 16, 1);
-            ROLLBACK;
+			ROLLBACK TRAN;
+            RETURN;
+        END
+
+		-- Validar monto ingresado
+        IF NOT EXISTS (SELECT id_factura FROM facturacion.Factura WHERE monto_total <= @monto)
+        BEGIN
+            RAISERROR('Monto de pago insuficiente para la factura.', 16, 1);
+			ROLLBACK TRAN;
             RETURN;
         END
 
@@ -126,37 +119,56 @@ BEGIN
         IF EXISTS (SELECT 1 FROM cobranzas.Pago WHERE id_factura = @id_factura)
         BEGIN
             RAISERROR('La factura ya fue pagada.', 16, 1);
-            ROLLBACK;
+			ROLLBACK TRAN;
             RETURN;
         END
 
         -- Validar medio de pago permitido
-        IF @medio_pago NOT IN ('Visa', 'MasterCard', 'Tarjeta Naranja', 'Pago Fácil', 'Rapipago', 'Transferencia Mercado Pago')
+        IF NOT EXISTS (SELECT 1 FROM cobranzas.MedioDePago WHERE id_medio_pago = @id_medio_pago)
         BEGIN
-            RAISERROR('Medio de pago no permitido. No se aceptan efectivo ni cheques.', 16, 1);
-            ROLLBACK;
+            RAISERROR('Medio de pago no permitido.', 16, 1);
+			ROLLBACK TRAN;
             RETURN;
         END
 
-        -- Insertar pago
-        INSERT INTO cobranzas.Pago (id_factura, fecha_pago, medio_pago, monto, debito_automatico)
-        VALUES (@id_factura, @fecha_pago, @medio_pago, @monto, @debito_automatico);
+        -- Insertar el pago
+        INSERT INTO cobranzas.Pago (id_factura, nro_transaccion, fecha_emision, id_medio, monto, estado)
+        VALUES (@id_factura, RIGHT('00000000000000000000' + CAST(ABS(CHECKSUM(NEWID())) AS VARCHAR), 20), @fecha_pago, @id_medio_pago, @monto, 'Aprobado');
 
-        -- Actualizar factura como paga
+        DECLARE @id_pago INT = SCOPE_IDENTITY();
+
+        -- Marcar factura como paga
         UPDATE facturacion.Factura
         SET estado = 'Paga'
         WHERE id_factura = @id_factura;
 
-        -- Si el monto pagado supera el total, acreditar diferencia como saldo a favor
-        DECLARE @monto_factura DECIMAL(10,2), @id_socio INT;
-        SELECT @monto_factura = monto_total, @id_socio = id_socio
-        FROM facturacion.Factura
-        WHERE id_factura = @id_factura;
+        DECLARE 
+            @monto_factura DECIMAL(10,2),
+            @id_socio INT;
 
+        -- Obtener monto total y socio si aplica
+        SELECT 
+            @monto_factura = F.monto_total,
+            @id_socio = COALESCE(S1.id_socio, S2.id_socio)
+        FROM facturacion.Factura F
+        LEFT JOIN facturacion.CuotaMensual CM ON F.id_cuota_mensual = CM.id_cuota_mensual
+        LEFT JOIN actividades.InscriptoCategoriaSocio ICS ON ICS.id_inscripto_categoria = CM.id_inscripto_categoria
+        LEFT JOIN socios.Socio S1 ON S1.id_socio = ICS.id_socio
+        LEFT JOIN facturacion.CargoActividadExtra CAE ON F.id_cargo_actividad_extra = CAE.id_cargo_extra
+        LEFT JOIN actividades.InscriptoColoniaVerano IC ON CAE.id_inscripto_colonia = IC.id_inscripto_colonia
+        LEFT JOIN socios.Socio S2 ON S2.id_socio = IC.id_socio
+        WHERE F.id_factura = @id_factura;
+
+        -- Si hay excedente y es socio → registrar en PagoACuenta y actualizar saldo
         IF @monto > @monto_factura AND @id_socio IS NOT NULL
         BEGIN
+            DECLARE @excedente DECIMAL(10,2) = @monto - @monto_factura;
+
+            INSERT INTO cobranzas.PagoACuenta (id_pago, id_socio, fecha, monto)
+            VALUES (@id_pago, @id_socio, @fecha_pago, @excedente);
+
             UPDATE socios.Socio
-            SET saldo = saldo + (@monto - @monto_factura)
+            SET saldo += @excedente
             WHERE id_socio = @id_socio;
         END
 
@@ -170,9 +182,11 @@ END;
 GO
 
 
+
 /*____________________________________________________________________
   _________________________ HabilitarDebitoAutomatico ________________________
   ____________________________________________________________________*/
+/*
 IF OBJECT_ID('cobranzas.HabilitarDebitoAutomatico', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.HabilitarDebitoAutomatico;
 GO
@@ -229,11 +243,12 @@ BEGIN
     END CATCH
 END;
 GO
-
+*/
 
 /*____________________________________________________________________
   ___________________ DeshabilitarDebitoAutomatico ___________________
   ____________________________________________________________________*/
+  /*
 IF OBJECT_ID('cobranzas.DeshabilitarDebitoAutomatico', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.DeshabilitarDebitoAutomatico;
 GO
@@ -299,13 +314,13 @@ BEGIN
     END CATCH
 END;
 GO
-
+*/
 
 
 /*____________________________________________________________________
   _______________________ ActualizarFacturaAPaga _____________________
   ____________________________________________________________________*/
-
+/*
 IF OBJECT_ID('cobranzas.ActualizarFacturaAPaga', 'TR') IS NOT NULL
     DROP TRIGGER cobranzas.ActualizarFacturaAPaga;
 GO
@@ -317,18 +332,19 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    /* Se actualiza la factura cuyo id_factura está en la tabla inserted (puede ser más de uno)*/
+    -- Se actualiza la factura cuyo id_factura está en la tabla inserted (puede ser más de uno)
     UPDATE F
     SET F.estado = 'Pagada'
     FROM facturacion.Factura f
     INNER JOIN inserted i ON f.id_factura = i.id_factura;
 END;
 GO
-
+*/
 
 /*____________________________________________________________________
   ______________________ GenerarReintegroPorLluvia ___________________
   ____________________________________________________________________*/
+/*
 IF OBJECT_ID('cobranzas.GenerarReintegroPorLluvia', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.GenerarReintegroPorLluvia;
 GO
@@ -432,13 +448,12 @@ BEGIN
     END CATCH
 END;
 GO
-
-
-
+*/
 
 /*____________________________________________________________________
   _________________________ GenerarReembolso _________________________
   ____________________________________________________________________*/
+  /*
 IF OBJECT_ID('cobranzas.GenerarReembolso', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.GenerarReembolso;
 GO
@@ -486,12 +501,12 @@ BEGIN
     END CATCH
 END;
 GO
-
-
+*/
 
 /*____________________________________________________________________
   ____________________________ GenerarPagoACuenta __________________________
   ____________________________________________________________________*/
+/*
 IF OBJECT_ID('cobranzas.GenerarPagoACuenta', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.GenerarPagoACuenta;
 GO
@@ -548,13 +563,13 @@ BEGIN
     END CATCH
 END;
 GO
-
-
+*/
 
 
 /*____________________________________________________________________
   ____________________________ AnularFactura __________________________
   ____________________________________________________________________*/
+  /*
 IF OBJECT_ID('facturacion.AnularFactura', 'P') IS NOT NULL
     DROP PROCEDURE facturacion.AnularFactura;
 GO
@@ -618,3 +633,4 @@ BEGIN
     END CATCH
 END;
 GO
+*/

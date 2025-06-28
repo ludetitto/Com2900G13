@@ -18,6 +18,11 @@ SET NOCOUNT ON;
 GO
 
 -- ================== LIMPIEZA DE FACTURACIÓN ==================
+
+DELETE FROM cobranzas.pago
+DBCC CHECKIDENT ('cobranzas.pago', RESEED, 0) WITH NO_INFOMSGS;
+DELETE FROM cobranzas.MedioDePago;
+DBCC CHECKIDENT ('cobranzas.MedioDePago', RESEED, 0) WITH NO_INFOMSGS;
 DELETE FROM facturacion.DetalleFactura;
 DELETE FROM facturacion.Factura;
 DBCC CHECKIDENT ('facturacion.DetalleFactura', RESEED, 0) WITH NO_INFOMSGS;
@@ -26,7 +31,6 @@ DBCC CHECKIDENT ('facturacion.Factura', RESEED, 0) WITH NO_INFOMSGS;
 -- ================== LIMPIEZA DE ACTIVIDADES ==================
 DELETE FROM actividades.PresentismoClase;
 DELETE FROM facturacion.CuotaMensual;
-DELETE FROM facturacion.CargoMembresias;
 DELETE FROM facturacion.CargoClases; -- primero borrar cargos
 DELETE FROM facturacion.CuotaMensual;
 DELETE FROM facturacion.CargoActividadExtra;
@@ -34,7 +38,6 @@ DELETE FROM actividades.InscriptoClase;
 DELETE FROM actividades.Clase;
 DELETE FROM actividades.Actividad;
 
-DBCC CHECKIDENT ('facturacion.CargoMembresias', RESEED, 0) WITH NO_INFOMSGS;
 DBCC CHECKIDENT ('facturacion.CargoClases', RESEED, 0) WITH NO_INFOMSGS;
 DBCC CHECKIDENT ('facturacion.CargoActividadExtra', RESEED, 0) WITH NO_INFOMSGS;
 DBCC CHECKIDENT ('actividades.InscriptoClase', RESEED, 0) WITH NO_INFOMSGS;
@@ -234,45 +237,6 @@ EXEC actividades.GestionarPresentismoClase '44444444', 'Natación', 'Viernes 08:
 EXEC actividades.GestionarPresentismoClase '44444444', 'Natación', 'Viernes 08:00', 'Menor', '2025-06-28', 'P', 'Insertar';
 GO
 
-
--- =================== CARGA DE CARGO DE MEMBRESÍA ===================
-
--- FRANCISCO (45778667)
-EXEC facturacion.GenerarCargoMembresia '45778667', '2025-06-28';
-GO
-
--- JUAN (33444555)
-EXEC facturacion.GenerarCargoMembresia '33444555', '2025-06-28';
-GO
-
--- CAMILA (40606060)
-EXEC facturacion.GenerarCargoMembresia '40606060', '2025-06-28';
-GO
-
--- PEDRO (41111111)
-EXEC facturacion.GenerarCargoMembresia '41111111', '2025-06-28';
-GO
-
--- JULIÁN (41111112)
-EXEC facturacion.GenerarCargoMembresia '41111112', '2025-06-28';
-GO
-
--- ANDREA (42222222)
-EXEC facturacion.GenerarCargoMembresia '42222222', '2025-06-28';
-GO
-
--- SOFÍA (42222223)
-EXEC facturacion.GenerarCargoMembresia '42222223', '2025-06-28';
-GO
-
--- VALENTÍN (43333334)
-EXEC facturacion.GenerarCargoMembresia '43333334', '2025-06-28';
-GO
-
--- EMILIA (44444444)
-EXEC facturacion.GenerarCargoMembresia '44444444', '2025-06-28';
-GO
-
 -- =================== CARGA DE CARGO DE CLASES ===================
 
 -- FRANCISCO (45778667)
@@ -317,6 +281,13 @@ GO
 
 EXEC facturacion.GenerarCargosActividadExtraPorFecha '2025-06-30';
 GO
+
+EXEC facturacion.GenerarFacturasMensualesPorFecha '2025-06-30';
+GO
+
+EXEC facturacion.GenerarFacturasActividadesExtraPorFecha '2025-06-30';
+GO
+
 /*
 -- =================== GENERACI�N DE FACTURA MENSUAL ===================
 EXEC facturacion.GenerarFacturaSocioMensual '45778667', '20-12345678-4';
@@ -363,25 +334,20 @@ GO
 -- =================== VERIFICAR ===================
 
 -- ACTIVIDADES
-SELECT id_actividad, descripcion, costo, vigencia
+SELECT id_actividad, nombre, costo, vigencia
 FROM actividades.Actividad;
 
 SELECT id_clase, id_actividad, nombre_profesor, apellido_profesor, id_categoria, horario
 FROM actividades.Clase;
 
-SELECT id_socio, id_clase, fecha
+SELECT id_socio, id_clase, fecha_inscripcion
 FROM actividades.InscriptoClase;
 
-SELECT id_presentismo, id_inscripcion, fecha, estado
+SELECT id_presentismo, id_socio, id_clase, fecha, estado
 FROM actividades.presentismoClase
 ORDER BY fecha;
 
 -- Para debug
-SELECT S.nombre, S.apellido, IC.monto
-FROM facturacion.CargoMembresias CM
-INNER JOIN actividades.InscriptoCategoriaSocio IC ON IC.id_categoria = CM.id_inscripcion_categoria
-INNER JOIN  socios.Socio S ON IC.id_socio = S.ID_SOCIO
-
 SELECT *
 FROM tarifas.TarifaColoniaVerano
 
@@ -390,9 +356,6 @@ FROM tarifas.TarifaPiletaVerano
 
 SELECT *
 FROM tarifas.TarifaReservaSum
-
-SELECT *
-FROM facturacion.CargoMembresias
 
 SELECT *
 FROM actividades.InscriptoColoniaVerano
@@ -411,6 +374,18 @@ FROM facturacion.CuotaMensual
 
 SELECT *
 FROM facturacion.CargoActividadExtra
+
+SELECT *
+FROM facturacion.vw_FacturasDetalladasConResponsables
+ORDER BY id_factura ASC
+GO
+
+SELECT *
+FROM facturacion.Factura
+
+SELECT *
+FROM facturacion.DetalleFactura
+
 /*
 SELECT id_extra, , costo, periodo, categoria, es_invitado, vigencia
 FROM actividades.ActividadExtra;
