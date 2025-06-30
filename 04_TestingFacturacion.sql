@@ -639,3 +639,6 @@ EXEC facturacion.GenerarFacturaSocioActExtra
 @fecha_referencia = '2025-02-28';
 -- Resultado esperado: Error lanzado por RAISERROR
 GO
+
+
+

@@ -290,7 +290,7 @@ GO
 
 /*
 -- =================== GENERACI�N DE FACTURA MENSUAL ===================
-EXEC facturacion.GenerarFacturaSocioMensual '45778667', '20-12345678-4';
+EXEC facturacion.GenerarFacturaCuotasMensualesPorFecha '45778667', '20-12345678-4';
 EXEC facturacion.GenerarFacturaSocioMensual '33444555', '20-12345678-4';
 EXEC facturacion.GenerarFacturaSocioMensual '40707070', '20-12345678-4';
 GO
@@ -375,6 +375,8 @@ FROM facturacion.CuotaMensual
 SELECT *
 FROM facturacion.CargoActividadExtra
 
+SELECT * FROM socios.GrupoFamiliar
+SELECT * FROM socios.Tutor
 SELECT *
 FROM facturacion.vw_FacturasDetalladasConResponsables
 ORDER BY id_factura ASC
