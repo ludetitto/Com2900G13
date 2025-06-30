@@ -182,12 +182,10 @@ END;
 GO
 
 
-
-
 /*____________________________________________________________________
   ______________________ GenerarReintegroPorLluvia ___________________
   ____________________________________________________________________*/
-/*
+
 IF OBJECT_ID('cobranzas.GenerarReintegroPorLluvia', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.GenerarReintegroPorLluvia;
 GO
@@ -205,11 +203,11 @@ BEGIN
     BEGIN TRY
         BEGIN TRAN;
 
-        -- Tabla temporal con datos climáticos
+        -- 1. Cargar clima desde archivo CSV
         CREATE TABLE #clima (
             fecha VARCHAR(50),
             temperatura DECIMAL(4,2),
-            lluvia_mm  DECIMAL(4,2),
+            lluvia_mm DECIMAL(4,2),
             altura INT,
             velocidad_viento DECIMAL(4,2)
         );
@@ -226,62 +224,163 @@ BEGIN
             );';
         EXEC sp_executesql @sql;
 
-        -- Tabla variable con facturas a reintegrar
-        DECLARE @Facturas TABLE (
-            id_factura INT PRIMARY KEY,
+        -- 2. Días con lluvia
+        SELECT DISTINCT CAST(LEFT(fecha, 10) AS DATE) AS fecha_lluvia
+        INTO #DiasLluvia
+        FROM #clima
+        WHERE lluvia_mm > 0;
+
+        -- 3. Inscripciones colonia afectadas
+        SELECT 
+            IC.id_socio,
+            NULL AS id_invitado,
+            IC.fecha,
+            IC.monto,
+            TC.periodo,
+            DL.fecha_lluvia
+        INTO #ColoniaAfectada
+        FROM actividades.InscriptoColoniaVerano IC
+        INNER JOIN tarifas.TarifaColoniaVerano TC ON IC.id_tarifa_colonia = TC.id_tarifa_colonia
+        INNER JOIN #DiasLluvia DL ON IC.fecha = DL.fecha_lluvia
+        WHERE MONTH(IC.fecha) = @mes AND YEAR(IC.fecha) = @año;
+
+        -- 4.1 Inscripciones pileta afectadas - SOCIOS
+        SELECT 
+            IP.id_socio,
+            NULL AS id_invitado,
+            IP.fecha,
+            IP.monto,
+            NULL AS periodo,
+            DL.fecha_lluvia
+        INTO #PiletaAfectada
+        FROM actividades.InscriptoPiletaVerano IP
+        INNER JOIN tarifas.TarifaPiletaVerano TP ON IP.id_tarifa_pileta = TP.id_tarifa_pileta
+        INNER JOIN #DiasLluvia DL ON IP.fecha = DL.fecha_lluvia
+        WHERE IP.id_invitado IS NULL  
+          AND MONTH(IP.fecha) = @mes AND YEAR(IP.fecha) = @año;
+
+        -- 4.2 Agregar pileta afectadas - INVITADOS
+        INSERT INTO #PiletaAfectada (id_socio, id_invitado, fecha, monto, periodo, fecha_lluvia)
+        SELECT 
+            NULL,                  
+            IP.id_invitado,
+            IP.fecha,
+            IP.monto,
+            NULL AS periodo,
+            DL.fecha_lluvia
+        FROM actividades.InscriptoPiletaVerano IP
+        INNER JOIN tarifas.TarifaPiletaVerano TP ON IP.id_tarifa_pileta = TP.id_tarifa_pileta
+        INNER JOIN #DiasLluvia DL ON IP.fecha = DL.fecha_lluvia
+        WHERE IP.id_invitado IS NOT NULL  
+          AND MONTH(IP.fecha) = @mes AND YEAR(IP.fecha) = @año;
+
+        -- Antes de insertar datos, crear tabla temporal con columnas que aceptan NULLs
+        IF OBJECT_ID('tempdb..#ReintegrosUnificados') IS NOT NULL
+            DROP TABLE #ReintegrosUnificados;
+
+        CREATE TABLE #ReintegrosUnificados (
             id_socio INT NULL,
-            monto_reintegro DECIMAL(10,2),
-            fecha_emision DATE
+            id_invitado INT NULL,
+            fecha_lluvia DATE NOT NULL,
+            monto DECIMAL(10,2) NOT NULL,
+            periodo VARCHAR(20) NULL,
+            monto_reintegro DECIMAL(10,2) NOT NULL
         );
 
-        -- Cargar facturas de actividades extra en días lluviosos
-        INSERT INTO @Facturas (id_factura, id_socio, monto_reintegro, fecha_emision)
+        -- 5. Insertar inscripciones colonia con cálculo reintegro
+        INSERT INTO #ReintegrosUnificados (id_socio, id_invitado, fecha_lluvia, monto, periodo, monto_reintegro)
         SELECT 
-            F.id_factura,
-            F.id_socio,
-            F.monto_total * 0.6,
-            F.fecha_emision
-        FROM facturacion.Factura F
-        INNER JOIN (
-            SELECT DISTINCT CAST(LEFT(fecha, 10) AS DATE) AS fecha_lluvia
-            FROM #clima
-            WHERE lluvia_mm > 0
-        ) LLU ON F.fecha_emision = LLU.fecha_lluvia
-        INNER JOIN facturacion.DetalleFactura DF ON F.id_factura = DF.id_factura
-        INNER JOIN cobranzas.Pago P ON F.id_factura = P.id_factura
-        WHERE F.anulada = 0
-        AND DF.tipo_item LIKE '%actividad extra%'
-        AND F.fecha_emision BETWEEN DATEFROMPARTS(@año, @mes, 1)
-                                AND EOMONTH(DATEFROMPARTS(@año, @mes, 1));
+            id_socio,
+            id_invitado,
+            fecha_lluvia,
+            monto,
+            periodo,
+            CASE 
+                WHEN periodo IS NULL THEN monto * 0.6
+                WHEN LOWER(LTRIM(RTRIM(periodo))) LIKE '%dia%' THEN monto * 0.6
+                WHEN LOWER(LTRIM(RTRIM(periodo))) LIKE '%mes%' THEN (monto / 30.0) * 0.6
+                WHEN LOWER(LTRIM(RTRIM(periodo))) LIKE '%temporada%' THEN (monto / 120.0) * 0.6
+                ELSE 0
+            END
+        FROM #ColoniaAfectada;
 
-        -- Reintegros para socios → Pago a cuenta + actualizar saldo
-        INSERT INTO cobranzas.PagoACuenta (id_pago, id_socio, fecha, monto)
+        -- 6. Insertar inscripciones pileta (sin periodo) con reintegro fijo 60%
+        INSERT INTO #ReintegrosUnificados (id_socio, id_invitado, fecha_lluvia, monto, periodo, monto_reintegro)
+        SELECT
+            id_socio,
+            id_invitado,
+            fecha_lluvia,
+            monto,
+            NULL AS periodo,
+            monto * 0.6
+        FROM #PiletaAfectada;
+
+        -- 7. Pagos representativos por socio
         SELECT 
-            P.id_pago,
-            F.id_socio,
-            GETDATE(),
-            F.monto_reintegro
-        FROM @Facturas F
-        INNER JOIN cobranzas.Pago P ON F.id_factura = P.id_factura
-        WHERE F.id_socio IS NOT NULL;
-
-        UPDATE S
-        SET S.saldo += F.monto_reintegro
+            S.id_socio,
+            MIN(P.id_pago) AS id_pago
+        INTO #PagosSocios
         FROM socios.Socio S
-        INNER JOIN @Facturas F ON S.id_socio = F.id_socio;
+        INNER JOIN facturacion.Factura F ON S.dni = F.dni_receptor
+        INNER JOIN cobranzas.Pago P ON F.id_factura = P.id_factura
+        WHERE MONTH(F.fecha_emision) = @mes AND YEAR(F.fecha_emision) = @año
+        GROUP BY S.id_socio;
 
-        -- Reintegros para invitados → Reembolso
-        INSERT INTO cobranzas.Reembolso (id_pago, fecha, motivo, monto)
+        -- 8. Pagos representativos por invitado
         SELECT 
-            P.id_pago,
+            I.id_invitado,
+            MIN(P.id_pago) AS id_pago
+        INTO #PagosInvitados
+        FROM socios.Invitado I
+        INNER JOIN facturacion.Factura F ON I.dni = F.dni_receptor
+        INNER JOIN cobranzas.Pago P ON F.id_factura = P.id_factura
+        WHERE MONTH(F.fecha_emision) = @mes AND YEAR(F.fecha_emision) = @año
+        GROUP BY I.id_invitado;
+
+        -- 9. Reintegro para socios (no invitados)
+        INSERT INTO cobranzas.PagoACuenta (id_pago, id_socio, fecha, monto, motivo)
+        SELECT 
+            PS.id_pago,
+            R.id_socio,
+            GETDATE(),
+            SUM(R.monto_reintegro),
+            'Reintegro del 60% por lluvia'
+        FROM #ReintegrosUnificados R
+        INNER JOIN #PagosSocios PS ON R.id_socio = PS.id_socio
+        WHERE R.id_invitado IS NULL
+        GROUP BY PS.id_pago, R.id_socio;
+
+        -- 10. Actualizar saldo socios
+        UPDATE S
+        SET S.saldo += R.total
+        FROM socios.Socio S
+        INNER JOIN (
+            SELECT id_socio, SUM(monto_reintegro) AS total
+            FROM #ReintegrosUnificados
+            WHERE id_socio IS NOT NULL AND id_invitado IS NULL
+            GROUP BY id_socio
+        ) R ON S.id_socio = R.id_socio;
+
+        -- 11. Reintegro para invitados (reembolso)
+        INSERT INTO cobranzas.Reembolso (id_pago, fecha_emision, motivo, monto)
+        SELECT 
+            PI.id_pago,
             GETDATE(),
             'Reintegro del 60% por lluvia',
-            F.monto_reintegro
-        FROM @Facturas F
-        INNER JOIN cobranzas.Pago P ON F.id_factura = P.id_factura
-        WHERE F.id_socio IS NULL;
+            SUM(R.monto_reintegro)
+        FROM #ReintegrosUnificados R
+        INNER JOIN #PagosInvitados PI ON R.id_invitado = PI.id_invitado
+        WHERE R.id_socio IS NULL
+        GROUP BY PI.id_pago;
 
+        -- 12. Limpiar tablas temporales
         DROP TABLE #clima;
+        DROP TABLE #DiasLluvia;
+        DROP TABLE #ColoniaAfectada;
+        DROP TABLE #PiletaAfectada;
+        DROP TABLE #ReintegrosUnificados;
+        DROP TABLE #PagosSocios;
+        DROP TABLE #PagosInvitados;
 
         COMMIT;
     END TRY
@@ -291,7 +390,7 @@ BEGIN
     END CATCH
 END;
 GO
-*/
+
 
 /*____________________________________________________________________
   _________________________ GenerarReembolso _________________________

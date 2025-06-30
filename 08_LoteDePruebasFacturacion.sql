@@ -173,17 +173,17 @@ GO
 /* ==========================================================
    INSCRIPCIÓN DE SOCIOS E INVITADOS A ACTIVIDADES EXTRA
    ========================================================== */
-EXEC actividades.GestionarInscriptoPiletaVerano '45778667', NULL, NULL, NULL, NULL, NULL, NULL, '2025-06-15', 'Insertar';
-EXEC actividades.GestionarInscriptoPiletaVerano '33444555', NULL, NULL, NULL, NULL, NULL, NULL, '2025-06-20', 'Insertar';
-EXEC actividades.GestionarInscriptoPiletaVerano '45778667', '55500001', 'Lucas', 'Gonzalez', 'Menor', 'lucas.gonzalez@mail.com', 'Calle Falsa 100', '2025-06-25', 'Insertar';
+EXEC actividades.GestionarInscriptoPiletaVerano '45778667', NULL, NULL, NULL, NULL, NULL, NULL, '2025-01-15', 'Insertar';
+EXEC actividades.GestionarInscriptoPiletaVerano '33444555', NULL, NULL, NULL, NULL, NULL, NULL, '2025-01-20', 'Insertar';
+EXEC actividades.GestionarInscriptoPiletaVerano '45778667', '55500001', 'Lucas', 'Gonzalez', 'Menor', 'lucas.gonzalez@mail.com', 'Calle Falsa 100', '2025-01-28', 'Insertar';
 GO
 
-EXEC actividades.GestionarInscriptoColonia '45778667', 'Mayor', 'Mes','2025-06-10', 'Insertar';
-EXEC actividades.GestionarInscriptoColonia '42222223', 'Menor', 'Temporada', '2025-06-12', 'Insertar';
+EXEC actividades.GestionarInscriptoColonia '45778667', 'Mayor', 'Mes','2025-01-17', 'Insertar';
+EXEC actividades.GestionarInscriptoColonia '42222223', 'Menor', 'Temporada', '2025-01-19', 'Insertar';
 GO
 
-EXEC actividades.GestionarReservaSum '45778667', '2025-06-05', '10:00', '13:00', 'Insertar';
-EXEC actividades.GestionarReservaSum '42222222', '2025-06-07', '15:00', '18:00', 'Insertar';
+EXEC actividades.GestionarReservaSum '45778667', '2025-01-05', '10:00', '13:00', 'Insertar';
+EXEC actividades.GestionarReservaSum '42222222', '2025-01-07', '15:00', '18:00', 'Insertar';
 GO
 
 -- =================== CARGA DE EMISOR DE FACTURA ===================
@@ -279,13 +279,13 @@ GO
 EXEC facturacion.GenerarCuotasMensualesPorFecha '2025-06-30';
 GO
 
-EXEC facturacion.GenerarCargosActividadExtraPorFecha '2025-06-30';
+EXEC facturacion.GenerarCargosActividadExtraPorFecha '2025-01-30';
 GO
 
 EXEC facturacion.GenerarFacturasMensualesPorFecha '2025-06-30';
 GO
 
-EXEC facturacion.GenerarFacturasActividadesExtraPorFecha '2025-06-30';
+EXEC facturacion.GenerarFacturasActividadesExtraPorFecha '2025-01-30';
 GO
 
 /*

@@ -1821,26 +1821,30 @@ BEGIN
 
         -- Pileta
         INSERT INTO #CargosAFacturar
-        SELECT 
-            CAE.id_cargo_extra,
-            IP.id_socio,
-            'Pileta',
-            'Pileta de verano',
-            ISNULL(IP.monto, 0),
-            IP.fecha,
-            COALESCE(SR.dni, T.dni, S.dni),
-            S.saldo
-        FROM facturacion.CargoActividadExtra CAE
-        JOIN actividades.InscriptoPiletaVerano IP ON CAE.id_inscripto_pileta = IP.id_inscripto_pileta
-        JOIN socios.Socio S ON S.id_socio = IP.id_socio
-        LEFT JOIN socios.GrupoFamiliarSocio GFS ON GFS.id_socio = S.id_socio
-        LEFT JOIN socios.GrupoFamiliar GF ON GF.id_grupo = GFS.id_grupo
-        LEFT JOIN socios.Socio SR ON SR.id_socio = GF.id_socio_rp
-        LEFT JOIN socios.Tutor T ON T.id_grupo = GF.id_grupo
-        WHERE IP.fecha BETWEEN DATEFROMPARTS(YEAR(@fecha), MONTH(@fecha), 1) AND @ultimo_dia_mes
-          AND NOT EXISTS (
-              SELECT 1 FROM facturacion.Factura F WHERE F.id_cargo_actividad_extra = CAE.id_cargo_extra
-          );
+		SELECT 
+			CAE.id_cargo_extra,
+			IP.id_socio,
+			'Pileta',
+			'Pileta de verano',
+			ISNULL(IP.monto, 0),
+			IP.fecha,
+			CASE 
+				WHEN IP.id_invitado IS NOT NULL THEN I.dni     -- DNI invitado cuando corresponda
+				ELSE COALESCE(SR.dni, T.dni, S.dni)            -- Sino socio responsable o tutor
+			END AS dni_receptor,
+			S.saldo
+		FROM facturacion.CargoActividadExtra CAE
+		JOIN actividades.InscriptoPiletaVerano IP ON CAE.id_inscripto_pileta = IP.id_inscripto_pileta
+		JOIN socios.Socio S ON S.id_socio = IP.id_socio
+		LEFT JOIN socios.Invitado I ON I.id_invitado = IP.id_invitado    -- <-- agregá este join
+		LEFT JOIN socios.GrupoFamiliarSocio GFS ON GFS.id_socio = S.id_socio
+		LEFT JOIN socios.GrupoFamiliar GF ON GF.id_grupo = GFS.id_grupo
+		LEFT JOIN socios.Socio SR ON SR.id_socio = GF.id_socio_rp
+		LEFT JOIN socios.Tutor T ON T.id_grupo = GF.id_grupo
+		WHERE IP.fecha BETWEEN DATEFROMPARTS(YEAR(@fecha), MONTH(@fecha), 1) AND @ultimo_dia_mes
+		  AND NOT EXISTS (
+			  SELECT 1 FROM facturacion.Factura F WHERE F.id_cargo_actividad_extra = CAE.id_cargo_extra
+		  );
 
         -- SUM
         INSERT INTO #CargosAFacturar

@@ -361,8 +361,6 @@ CREATE TABLE reservas.ReservaSum (
 -- ===============================
 
 
-
-
 CREATE TABLE facturacion.CuotaMensual (
     id_cuota_mensual INT IDENTITY PRIMARY KEY,
 	id_inscripto_categoria INT,
