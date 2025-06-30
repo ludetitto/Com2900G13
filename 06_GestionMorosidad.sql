@@ -187,7 +187,7 @@ BEGIN
 
     -- 4. Actualizar saldos de los socios a quienes se les generó mora hoy
     UPDATE s
-    SET s.saldo = s.saldo + t.total_mora
+    SET s.saldo = s.saldo - t.total_mora
     FROM socios.Socio s
     INNER JOIN (
         SELECT id_socio, SUM(monto) AS total_mora
@@ -198,7 +198,68 @@ BEGIN
 END;
 GO
 
+/*____________________________________________________________________
+  ____________________ AplicarBloqueoVencimiento _____________________
+  ____________________________________________________________________*/
 
+IF OBJECT_ID('cobranzas.AplicarBloqueoVencimiento', 'P') IS NOT NULL
+    DROP PROCEDURE cobranzas.AplicarBloqueoVencimiento;
+GO
+
+CREATE PROCEDURE cobranzas.AplicarBloqueoVencimiento
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @hoy DATE = CAST(GETDATE() AS DATE);
+
+    -- 1. Caso: dni pertenece a un socio responsable
+    UPDATE s
+    SET s.activo = 0
+    FROM socios.Socio s
+    INNER JOIN socios.GrupoFamiliarSocio gfs ON gfs.id_socio = s.id_socio
+    WHERE gfs.id_grupo IN (
+        SELECT gf.id_grupo
+        FROM facturacion.Factura f
+        JOIN socios.Socio sr ON sr.dni = f.dni_receptor
+        JOIN socios.GrupoFamiliar gf ON gf.id_socio_rp = sr.id_socio
+        WHERE f.anulada = 0 AND f.fecha_vencimiento2 < @hoy
+    )
+    AND s.activo = 1;
+
+    -- 2. Caso: dni pertenece a un tutor
+    UPDATE s
+    SET s.activo = 0
+    FROM socios.Socio s
+    INNER JOIN socios.GrupoFamiliarSocio gfs ON gfs.id_socio = s.id_socio
+    WHERE gfs.id_grupo IN (
+        SELECT t.id_grupo
+        FROM facturacion.Factura f
+        JOIN socios.Tutor t ON t.dni = f.dni_receptor
+        WHERE f.anulada = 0 AND f.fecha_vencimiento2 < @hoy
+    )
+    AND s.activo = 1;
+
+    -- 3. Caso: dni pertenece a un socio individual (no tutor ni responsable)
+    UPDATE s
+    SET s.activo = 0
+    FROM socios.Socio s
+    WHERE s.dni IN (
+        SELECT f.dni_receptor
+        FROM facturacion.Factura f
+        WHERE 
+            f.anulada = 0 AND f.fecha_vencimiento2 < @hoy
+            AND f.dni_receptor NOT IN (
+                SELECT sr.dni
+                FROM socios.Socio sr
+                JOIN socios.GrupoFamiliar gf ON gf.id_socio_rp = sr.id_socio
+            )
+            AND f.dni_receptor NOT IN (
+                SELECT t.dni FROM socios.Tutor t
+            )
+    )
+    AND s.activo = 1;
+END;
 /*____________________________________________________________________
   _______________________ ActualizarSaldoPorMora _____________________
   ____________________________________________________________________*/
