@@ -136,52 +136,51 @@ ordenadas de mayor a menor
 IF OBJECT_ID('cobranzas.Reporte3', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.Reporte3;
 GO
-CREATE or ALTER PROCEDURE  cobranzas.Reporte3 AS
-begin
-WITH AsistenciasConRanking AS (
+CREATE OR ALTER PROCEDURE cobranzas.Reporte3
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    WITH AsistenciasConOrden AS (
+        SELECT 
+            pc.id_socio,
+            c.id_actividad,
+            c.id_categoria,
+            pc.fecha,
+            pc.estado,
+            ROW_NUMBER() OVER (PARTITION BY pc.id_socio, c.id_actividad ORDER BY pc.fecha) AS orden
+        FROM actividades.PresentismoClase pc
+        INNER JOIN actividades.Clase c ON c.id_clase = pc.id_clase
+    ),
+    InasistenciasAlternadas AS (
+        SELECT 
+            a1.id_socio,
+            a1.id_actividad,
+            a1.id_categoria,
+            COUNT(*) AS inasistencias_alternadas
+        FROM AsistenciasConOrden a1
+        JOIN AsistenciasConOrden a2 
+          ON a1.id_socio = a2.id_socio 
+         AND a1.id_actividad = a2.id_actividad
+         AND a1.orden = a2.orden - 1
+        WHERE a1.estado IN ('A', 'J') AND a2.estado = 'P'
+        GROUP BY a1.id_socio, a1.id_actividad, a1.id_categoria
+    )
     SELECT 
-        pc.id_socio,
-        c.id_actividad,
-        s.id_categoria,
-        pc.fecha,
-        pc.condicion,
-        ROW_NUMBER() OVER (PARTITION BY pc.id_socio, c.id_actividad ORDER BY pc.fecha) AS orden
-    FROM actividades.presentismoClase pc
-    INNER JOIN actividades.Clase c ON c.id_clase = pc.id_clase
-    INNER JOIN administracion.Socio s ON s.id_socio = pc.id_socio
-),
-PatronesAlternados AS (
-    SELECT 
-        a1.id_socio,
-        a1.id_actividad,
-        a1.id_categoria,
-        COUNT(*) AS inasistencias_alternadas
-    FROM AsistenciasConRanking a1
-    JOIN AsistenciasConRanking a2 
-      ON a1.id_socio = a2.id_socio 
-     AND a1.id_actividad = a2.id_actividad 
-     AND a1.orden = a2.orden - 1
-    WHERE a1.condicion IN ('A', 'J') AND a2.condicion = 'P'
-    GROUP BY a1.id_socio, a1.id_actividad, a1.id_categoria
-)
-SELECT 
-    CONCAT(p.nombre, ' ', p.apellido) AS nombre_socio,
-    a.nombre AS nombre_actividad,
-    c.nombre AS nombre_categoria,
-    pa.inasistencias_alternadas
-FROM PatronesAlternados pa
-INNER JOIN administracion.Socio s ON s.id_socio = pa.id_socio
-INNER JOIN administracion.Persona p ON p.id_persona = s.id_persona
-INNER JOIN actividades.Actividad a ON a.id_actividad = pa.id_actividad
-INNER JOIN administracion.CategoriaSocio c ON c.id_categoria = pa.id_categoria
-ORDER BY pa.inasistencias_alternadas DESC
-FOR XML PATH('Socio'), ROOT('Socios'), ELEMENTS;
-END
+        CONCAT(s.nombre, ' ', s.apellido) AS nombre_socio,
+        act.nombre AS nombre_actividad,
+        cat.nombre AS nombre_categoria,
+        ia.inasistencias_alternadas
+    FROM InasistenciasAlternadas ia
+    INNER JOIN socios.Socio s ON s.id_socio = ia.id_socio
+    INNER JOIN actividades.Actividad act ON act.id_actividad = ia.id_actividad
+    INNER JOIN socios.CategoriaSocio cat ON cat.id_categoria = ia.id_categoria
+    ORDER BY ia.inasistencias_alternadas DESC
+    FOR XML PATH('Socio'), ROOT('Socios'), ELEMENTS;
+END;
 
 EXEC cobranzas.Reporte3
 
-select * from administracion.Socio
-select * from administracion.Persona
 SELECT * FROM actividades.presentismoClase ORDER BY id_socio, fecha;
 
 
