@@ -338,6 +338,8 @@ EXEC facturacion.GenerarFacturaSocioActExtra '40707070', '20-12345678-4', 'Pilet
 GO
 */
 -- =================== VERIFICAR ===================
+select * from socios.Socio
+
 
 -- ACTIVIDADES
 SELECT id_actividad, nombre, costo, vigencia
