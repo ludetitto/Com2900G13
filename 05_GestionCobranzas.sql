@@ -520,54 +520,90 @@ CREATE PROCEDURE facturacion.AnularFactura(
 AS
 BEGIN
     SET NOCOUNT ON;
-    SET XACT_ABORT ON;
-    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 
-    BEGIN TRY
-        BEGIN TRAN;
+	BEGIN TRAN
+	BEGIN TRY
+		-- Verificar existencia
+		IF NOT EXISTS (
+			SELECT 1 FROM facturacion.Factura WHERE id_factura = @id_factura
+		)
+		BEGIN
+			RAISERROR('La factura con el ID %d no existe.', 16, 1, @id_factura);
+			ROLLBACK TRAN
+			RETURN;
+		END
 
-        -- Validar existencia de la factura y obtener el monto
-        DECLARE @monto DECIMAL(10,2);
-        SELECT @monto = monto_total
-        FROM facturacion.Factura
-        WHERE id_factura = @id_factura;
+		-- Verificar si ya está anulada
+		IF EXISTS (
+			SELECT 1 FROM facturacion.Factura 
+			WHERE id_factura = @id_factura AND anulada = 1
+		)
+		BEGIN
+			RAISERROR('La factura con el ID %d ya se encuentra anulada.', 16, 1, @id_factura);
+			ROLLBACK TRAN
+			RETURN;
+		END
 
-        IF @monto IS NULL
-        BEGIN
-            RAISERROR('La factura especificada no existe.', 16, 1);
-            ROLLBACK;
-            RETURN;
-        END
+		-------------------------
+		-- 1. Reversión de mora
+		-------------------------
+		IF EXISTS (
+			SELECT 1 FROM cobranzas.Mora WHERE id_factura = @id_factura
+		)
+		BEGIN
+			-- Revertir saldo de mora
+			UPDATE s
+			SET s.saldo = s.saldo - m.monto
+			FROM socios.Socio s
+			INNER JOIN cobranzas.Mora m ON m.id_socio = s.id_socio
+			WHERE m.id_factura = @id_factura;
 
-        -- Si está paga, generar reembolso
-        IF EXISTS (
-            SELECT 1 FROM facturacion.Factura
-            WHERE id_factura = @id_factura AND estado = 'Paga'
-        )
-        BEGIN
-            DECLARE @id_pago INT;
-            SELECT TOP 1 @id_pago = id_pago
-            FROM cobranzas.Pago
-            WHERE id_factura = @id_factura;
+			-- Eliminar mora
+			DELETE FROM cobranzas.Mora
+			WHERE id_factura = @id_factura;
+		END
 
-            IF @id_pago IS NOT NULL
-            BEGIN
-                EXEC cobranzas.GenerarReembolso
-                    @id_pago = @id_pago,
-                    @motivo = @motivo,
-                    @monto = @monto;
-            END
-        END
+		-------------------------
+		-- 2. Reversión de pago
+		-------------------------
+		-- Suponemos que si la factura está pagada, el saldo del socio bajó
+		-- Entonces lo devolvemos al socio sumando el monto_total
+		DECLARE @dni CHAR(13);
+		DECLARE @monto_total DECIMAL(10,2);
 
-        -- Marcar la factura como anulada
-        UPDATE facturacion.Factura
-        SET anulada = 1
-        WHERE id_factura = @id_factura;
+		SELECT 
+			@dni = dni_receptor,
+			@monto_total = monto_total
+		FROM facturacion.Factura
+		WHERE id_factura = @id_factura;
 
-        COMMIT;
-    END TRY
+		IF EXISTS (
+			SELECT 1
+			FROM socios.Socio
+			WHERE dni = @dni
+		)
+		BEGIN
+			UPDATE s
+			SET s.saldo = s.saldo + @monto_total
+			FROM socios.Socio s
+			WHERE s.dni = @dni;
+		END
+
+		-------------------------
+		-- 3. Marcar como anulada
+		-------------------------
+		UPDATE facturacion.Factura
+		SET anulada = 1
+		WHERE id_factura = @id_factura;
+
+		PRINT 'Factura anulada y movimientos revertidos correctamente.';
+
+		COMMIT;
+
+	END TRY
     BEGIN CATCH
-        IF @@TRANCOUNT > 0 ROLLBACK;
+        IF @@TRANCOUNT > 0
+			ROLLBACK;
         THROW;
     END CATCH
 END;

@@ -1,17 +1,17 @@
-/* =========================================================================
-   Trabajo Pr·ctico Integrador - Bases de Datos Aplicadas
-   Grupo N∞: 13
-   ComisiÛn: 2900
+Ôªø/* =========================================================================
+   Trabajo Pr√°ctico Integrador - Bases de Datos Aplicadas
+   Grupo N¬∞: 13
+   Comisi√≥n: 2900
    Fecha de Entrega: 17/06/2025
    Materia: Bases de Datos Aplicadas
    Alumnos: Vignardel Francisco				45778667
             De Titto Lucia					46501934
 			Borja Tomas						42353302
-			Rodriguez Sebasti·n Ezequiel	41691928
+			Rodriguez Sebasti√°n Ezequiel	41691928
 
-     Consigna: Genere store procedures para manejar la inserciÛn, modificado, borrado (si corresponde,
-tambiÈn debe decidir si determinadas entidades solo admitir·n borrado lÛgico) de cada tabla.
-Los nombres de los store procedures NO deben comenzar con ìSPî
+     Consigna: Genere store procedures para manejar la inserci√≥n, modificado, borrado (si corresponde,
+tambi√©n debe decidir si determinadas entidades solo admitir√°n borrado l√≥gico) de cada tabla.
+Los nombres de los store procedures NO deben comenzar con ‚ÄúSP‚Äù
 ========================================================================= */
 USE COM2900G13
 GO
@@ -33,24 +33,24 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Validar operaciÛn
+    -- Validar operaci√≥n
     IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
     BEGIN
-        RAISERROR('OperaciÛn no v·lida. Debe ser Insertar, Modificar o Eliminar.', 16, 1);
+        RAISERROR('Operaci√≥n no v√°lida. Debe ser Insertar, Modificar o Eliminar.', 16, 1);
         RETURN;
     END
 
-    -- ValidaciÛn de la descripciÛn
+    -- Validaci√≥n de la descripci√≥n
     IF @descripcion IS NULL OR LTRIM(RTRIM(@descripcion)) = ''
     BEGIN
-        RAISERROR('La descripciÛn del recargo no puede ser nulo ni vacÌo.', 16, 1);
+        RAISERROR('La descripci√≥n del recargo no puede ser nulo ni vac√≠o.', 16, 1);
         RETURN;
     END
 
-	 -- ValidaciÛn de la vigencia
+	 -- Validaci√≥n de la vigencia
     IF @vigencia IS NULL OR @vigencia < GETDATE()
     BEGIN
-        RAISERROR('La vigencia del recargo ingresada es inv·lida.', 16, 1);
+        RAISERROR('La vigencia del recargo ingresada es inv√°lida.', 16, 1);
         RETURN;
     END
 
@@ -59,7 +59,7 @@ BEGIN
     BEGIN
         IF EXISTS (SELECT 1 FROM facturacion.Recargo WHERE descripcion = @descripcion AND vigencia = @vigencia)
         BEGIN
-            RAISERROR('Ya existe un recargo con esa descripciÛn.', 16, 1);
+            RAISERROR('Ya existe un recargo con esa descripci√≥n.', 16, 1);
             RETURN;
         END
 
@@ -111,48 +111,90 @@ IF OBJECT_ID('cobranzas.AplicarRecargoVencimiento', 'P') IS NOT NULL
 GO
 
 CREATE PROCEDURE cobranzas.AplicarRecargoVencimiento
-	@descripcion_recargo VARCHAR(50)
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    DECLARE @porcentaje_recargo DECIMAL(5, 2);
-	DECLARE @id_mora INT;
+    DECLARE @recargo DECIMAL(5,2) = 0.10;
 
-    -- Obtener el porcentaje del recargo
-    SELECT @porcentaje_recargo = porcentaje
-    FROM facturacion.Recargo
-    WHERE descripcion = @descripcion_recargo
-      AND vigencia > GETDATE();
+    -- 1. Si el dni pertenece a un socio activo ‚Üí aplicar mora directa
+    INSERT INTO cobranzas.Mora (id_socio, id_factura, fecha_registro, motivo, facturada, monto)
+    SELECT 
+        s.id_socio,
+        f.id_factura,
+        GETDATE(),
+        'Recargo por vencimiento (socio individual)',
+        0,
+        f.monto_total * @recargo
+    FROM facturacion.Factura f
+    INNER JOIN socios.Socio s ON s.dni = f.dni_receptor
+    WHERE 
+        f.anulada = 0
+        AND GETDATE() > f.fecha_vencimiento1
+        AND s.activo = 1
+        AND NOT EXISTS (
+            SELECT 1 
+            FROM cobranzas.Mora m 
+            WHERE m.id_factura = f.id_factura AND m.id_socio = s.id_socio
+        );
 
-    -- Verificar si se encontrÛ el recargo
-    IF @porcentaje_recargo IS NULL
-    BEGIN
-        RAISERROR('No se encontrÛ un recargo v·lido con la descripciÛn proporcionada.', 16, 1);
-		RETURN;
-    END
+    -- 2. Si el dni pertenece a un tutor ‚Üí aplicar mora a todos los socios del grupo
+    INSERT INTO cobranzas.Mora (id_socio, id_factura, fecha_registro, motivo, facturada, monto)
+    SELECT 
+        s.id_socio,
+        f.id_factura,
+        GETDATE(),
+        'Recargo por vencimiento (grupo de tutor)',
+        0,
+        f.monto_total * @recargo
+    FROM facturacion.Factura f
+    INNER JOIN socios.Tutor t ON t.dni = f.dni_receptor
+    INNER JOIN socios.GrupoFamiliar gf ON gf.id_grupo = t.id_grupo
+    INNER JOIN socios.Socio s ON s.id_socio != gf.id_socio_rp -- evitar duplicar mora si ya se aplic√≥ al responsable
+    WHERE 
+        f.anulada = 0
+        AND GETDATE() > f.fecha_vencimiento1
+        AND s.activo = 1
+        AND NOT EXISTS (
+            SELECT 1 
+            FROM cobranzas.Mora m 
+            WHERE m.id_factura = f.id_factura AND m.id_socio = s.id_socio
+        );
 
-	/*Genera la mora a cobrar al mes siguiente*/
-	INSERT INTO cobranzas.Mora (id_socio, id_factura, facturada, monto)
-	SELECT
-		id_socio,
-		id_factura,
-		0,
-		monto_total * @porcentaje_recargo
-	FROM facturacion.Factura
-	WHERE fecha_vencimiento1 < CAST(GETDATE() AS DATE)
-	AND id_socio IS NOT NULL
+    -- 3. Si el dni pertenece al socio responsable de un grupo ‚Üí aplicar mora a los dem√°s miembros del grupo
+    INSERT INTO cobranzas.Mora (id_socio, id_factura, fecha_registro, motivo, facturada, monto)
+    SELECT 
+        s.id_socio,
+        f.id_factura,
+        GETDATE(),
+        'Recargo por vencimiento (grupo de socio responsable)',
+        0,
+        f.monto_total * @recargo
+    FROM facturacion.Factura f
+    INNER JOIN socios.Socio srp ON srp.dni = f.dni_receptor
+    INNER JOIN socios.GrupoFamiliar gf ON gf.id_socio_rp = srp.id_socio
+    INNER JOIN socios.Socio s ON s.id_socio != srp.id_socio
+    WHERE 
+        f.anulada = 0
+        AND GETDATE() > f.fecha_vencimiento1
+        AND srp.activo = 1
+        AND s.activo = 1
+        AND NOT EXISTS (
+            SELECT 1 
+            FROM cobranzas.Mora m 
+            WHERE m.id_factura = f.id_factura AND m.id_socio = s.id_socio
+        );
 
-	SET @id_mora = SCOPE_IDENTITY();
-
-	/*Se actualiza saldo del socio a partir de la mora*/
-	UPDATE administracion.Socio
-	SET saldo = - (SELECT F.monto_total * @porcentaje_recargo 
-				   FROM cobranzas.Mora M
-				   INNER JOIN facturacion.Factura F ON F.id_factura = M.id_factura
-				   WHERE M.id_mora = @id_mora)
-	WHERE id_socio IN (SELECT id_socio FROM cobranzas.Mora WHERE id_mora = @id_mora)
-
+    -- 4. Actualizar saldos de los socios a quienes se les gener√≥ mora hoy
+    UPDATE s
+    SET s.saldo = s.saldo - t.total_mora
+    FROM socios.Socio s
+    INNER JOIN (
+        SELECT id_socio, SUM(monto) AS total_mora
+        FROM cobranzas.Mora
+        WHERE fecha_registro = CAST(GETDATE() AS DATE)
+        GROUP BY id_socio
+    ) t ON t.id_socio = s.id_socio;
 END;
 GO
 
@@ -168,43 +210,56 @@ CREATE PROCEDURE cobranzas.AplicarBloqueoVencimiento
 AS
 BEGIN
     SET NOCOUNT ON;
-	
-	/*Tabla temporal para guardar los socios a bloquear*/
-    DECLARE @socios_a_bloquear TABLE (id_socio INT);
 
-    /*Insertamos los socios con facturas vencidas y sin pago*/
-    INSERT INTO @socios_a_bloquear (id_socio)
-    SELECT DISTINCT S.id_socio
-    FROM facturacion.Factura F
-    INNER JOIN administracion.Socio S ON S.id_socio = F.id_socio
-    WHERE F.fecha_vencimiento2 < GETDATE() -- vencidas, no futuras
-      AND F.id_factura NOT IN (
-            SELECT id_factura
-            FROM cobranzas.Pago
-        );
+    DECLARE @hoy DATE = CAST(GETDATE() AS DATE);
 
-    /*Cambiamos estado de socio a inactivo*/
-    UPDATE S
-    SET activo = 0
-    FROM administracion.Socio S
-    INNER JOIN @socios_a_bloquear B ON S.id_socio = B.id_socio;
+    -- 1. Caso: dni pertenece a un socio responsable
+    UPDATE s
+    SET s.activo = 0
+    FROM socios.Socio s
+    INNER JOIN socios.GrupoFamiliarSocio gfs ON gfs.id_socio = s.id_socio
+    WHERE gfs.id_grupo IN (
+        SELECT gf.id_grupo
+        FROM facturacion.Factura f
+        JOIN socios.Socio sr ON sr.dni = f.dni_receptor
+        JOIN socios.GrupoFamiliar gf ON gf.id_socio_rp = sr.id_socio
+        WHERE f.anulada = 0 AND f.fecha_vencimiento2 < @hoy
+    )
+    AND s.activo = 1;
 
-    /*Insertamos notificaciones*/
-    INSERT INTO cobranzas.Notificacion (id_mora, mensaje, fecha, destinatario)
-    SELECT 
-        M.id_mora,
-        'Usted ha sido suspendido de sus actividades y acceso al club por falta de pago.',
-        GETDATE(),
-        P.email
-    FROM cobranzas.Mora M
-    INNER JOIN @socios_a_bloquear B ON M.id_socio = B.id_socio
-    INNER JOIN administracion.Socio S ON S.id_socio = M.id_socio
-	INNER JOIN administracion.Persona P ON P.id_persona = S.id_persona
-	WHERE M.facturada = 0;
+    -- 2. Caso: dni pertenece a un tutor
+    UPDATE s
+    SET s.activo = 0
+    FROM socios.Socio s
+    INNER JOIN socios.GrupoFamiliarSocio gfs ON gfs.id_socio = s.id_socio
+    WHERE gfs.id_grupo IN (
+        SELECT t.id_grupo
+        FROM facturacion.Factura f
+        JOIN socios.Tutor t ON t.dni = f.dni_receptor
+        WHERE f.anulada = 0 AND f.fecha_vencimiento2 < @hoy
+    )
+    AND s.activo = 1;
+
+    -- 3. Caso: dni pertenece a un socio individual (no tutor ni responsable)
+    UPDATE s
+    SET s.activo = 0
+    FROM socios.Socio s
+    WHERE s.dni IN (
+        SELECT f.dni_receptor
+        FROM facturacion.Factura f
+        WHERE 
+            f.anulada = 0 AND f.fecha_vencimiento2 < @hoy
+            AND f.dni_receptor NOT IN (
+                SELECT sr.dni
+                FROM socios.Socio sr
+                JOIN socios.GrupoFamiliar gf ON gf.id_socio_rp = sr.id_socio
+            )
+            AND f.dni_receptor NOT IN (
+                SELECT t.dni FROM socios.Tutor t
+            )
+    )
+    AND s.activo = 1;
 END;
-GO
-
-
 /*____________________________________________________________________
   _______________________ ActualizarSaldoPorMora _____________________
   ____________________________________________________________________*/
@@ -220,7 +275,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    /* Se actualiza la factura cuyo id_factura est· en la tabla inserted (puede ser m·s de uno)*/
+    /* Se actualiza la factura cuyo id_factura est√° en la tabla inserted (puede ser m√°s de uno)*/
     UPDATE S
     SET S.saldo -= I.monto
     FROM administracion.Socio S
