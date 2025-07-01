@@ -442,8 +442,8 @@ CREATE TABLE cobranzas.Mora (
 );
 
 CREATE TABLE cobranzas.Pago (
-    id_pago INT IDENTITY PRIMARY KEY,
-    id_factura INT NOT NULL,
+    id_pago INT IDENTITY PRIMARY KEY ,
+    id_factura INT,
 	id_medio INT NOT NULL,
 	nro_transaccion VARCHAR(20),
 	monto DECIMAL(10,2) CONSTRAINT CHK_Pago_Monto CHECK (monto > 0),
