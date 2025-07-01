@@ -1466,11 +1466,12 @@ BEGIN
     WHERE IC.id_socio = @id_socio-- Buscando las clases a las cuales un socio está inscripto
       AND IC.fecha_inscripcion < @fecha
       AND NOT EXISTS (
-          SELECT 1
-          FROM facturacion.CargoClases CC
-          WHERE CC.id_inscripto_clase = IC.id_inscripto_clase
-            AND CC.fecha <= @fecha
-      );
+			SELECT 1
+			FROM facturacion.CargoClases CC
+			WHERE CC.id_inscripto_clase = IC.id_inscripto_clase
+			  AND CC.fecha >= DATEFROMPARTS(YEAR(@fecha), MONTH(@fecha), 1)
+			  AND CC.fecha < DATEADD(MONTH, 1, DATEFROMPARTS(YEAR(@fecha), MONTH(@fecha), 1))
+		)
 
 END;
 GO
@@ -1503,7 +1504,7 @@ BEGIN
         SELECT S.id_socio, SUM(CC.monto) AS monto_actividad
         FROM socios.Socio S
         INNER JOIN actividades.InscriptoClase IC ON IC.id_socio = S.id_socio
-        INNER JOIN facturacion.CargoClases CC 
+        INNER JOIN facturacion.CargoClases CC
             ON CC.id_inscripto_clase = IC.id_inscripto_clase
             AND CC.fecha BETWEEN @primer_dia_mes AND @ultimo_dia_mes
         GROUP BY S.id_socio
@@ -1511,25 +1512,30 @@ BEGIN
     TotalesPorSocio AS (
         SELECT
             S.id_socio,
-			ICS.id_inscripto_categoria,
-            ISNULL(ICS.monto, 0) AS monto_membresia,
-            ISNULL(C.monto_actividad, 0) AS monto_actividad
+            ICS.id_inscripto_categoria,
+            ICS.monto AS monto_membresia,
+            C.monto_actividad
         FROM socios.Socio S
         LEFT JOIN actividades.InscriptoCategoriaSocio ICS ON ICS.id_socio = S.id_socio
         LEFT JOIN ClasesPorSocio C ON C.id_socio = S.id_socio
+        WHERE S.activo = 1 AND S.eliminado = 0
     )
 
     INSERT INTO facturacion.CuotaMensual (id_inscripto_categoria, monto_membresia, monto_actividad, fecha)
-    SELECT id_inscripto_categoria, monto_membresia, monto_actividad, @ultimo_dia_mes
+    SELECT 
+        id_inscripto_categoria,
+        ISNULL(monto_membresia, 0),
+        ISNULL(monto_actividad, 0),
+        @ultimo_dia_mes
     FROM TotalesPorSocio TPS
-    WHERE NOT EXISTS (
-        SELECT 1 FROM facturacion.CuotaMensual CM
-        WHERE CM.fecha = @ultimo_dia_mes
-    );
-
+    WHERE (ISNULL(TPS.monto_actividad, 0) > 0 OR ISNULL(TPS.monto_membresia, 0) > 0)
+      AND NOT EXISTS (
+          SELECT 1 FROM facturacion.CuotaMensual CM
+          WHERE CM.fecha = @ultimo_dia_mes
+            AND CM.id_inscripto_categoria = TPS.id_inscripto_categoria
+      );
 END;
 GO
-
 /*____________________________________________________________________
   __________________ GenerarFacturasMensualesPorFecha ________________
   ____________________________________________________________________*/
@@ -1708,6 +1714,27 @@ BEGIN
 		FROM facturacion.Factura FA
 		JOIN #FacturasGeneradas FG ON FG.id_cuota_mensual = FA.id_cuota_mensual
 		WHERE FG.descuento_actividad > 0;
+
+		-- Insertar detalles por mora del mes
+		INSERT INTO facturacion.DetalleFactura (id_factura, descripcion, monto, tipo_item, cantidad)
+		SELECT 
+			FA.id_factura,
+			'Recargo por mora',
+			M.monto,
+			'Mora',
+			1
+		FROM facturacion.Factura FA
+		INNER JOIN #FacturasGeneradas FG ON FG.id_cuota_mensual = FA.id_cuota_mensual
+		INNER JOIN cobranzas.Mora M ON M.id_socio = FG.id_socio
+		WHERE M.fecha_registro BETWEEN @primer_dia_mes AND @ultimo_dia_mes;
+
+		-- Marcar moras como facturadas
+		UPDATE M
+		SET M.facturada = 1
+		FROM cobranzas.Mora M
+		INNER JOIN #FacturasGeneradas FG ON FG.id_socio = M.id_socio
+		WHERE M.fecha_registro BETWEEN @primer_dia_mes AND @ultimo_dia_mes
+		  AND M.facturada = 0;
 
 		DROP TABLE #FacturasGeneradas;
 		COMMIT;

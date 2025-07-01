@@ -16,10 +16,6 @@ Los nombres de los store procedures NO deben comenzar con “SP”
 USE COM2900G13
 GO
 
-/*____________________________________________________________________
-  ____________________ AplicarRecargoVencimiento _____________________
-  ____________________________________________________________________*/
-
 IF OBJECT_ID('cobranzas.AplicarRecargoVencimiento', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.AplicarRecargoVencimiento;
 GO
@@ -31,86 +27,49 @@ BEGIN
 
     DECLARE @recargo DECIMAL(5,2) = 0.10;
 
-    -- 1. Si el dni pertenece a un socio activo → aplicar mora directa
+    -- Aplicar mora al socio correspondiente a la cuota mensual o al cargo extra no pagado
     INSERT INTO cobranzas.Mora (id_socio, id_factura, fecha_registro, motivo, facturada, monto)
     SELECT 
-        s.id_socio,
-        f.id_factura,
+        COALESCE(S.id_socio, ICV.id_socio, IPV.id_socio, RS.id_socio),
+        F.id_factura,
         GETDATE(),
-        'Recargo por vencimiento (socio individual)',
+        'Recargo por vencimiento de cuota mensual o actividad extra',
         0,
-        f.monto_total * @recargo
-    FROM facturacion.Factura f
-    INNER JOIN socios.Socio s ON s.dni = f.dni_receptor
+        F.monto_total * @recargo
+    FROM facturacion.Factura F
+    LEFT JOIN facturacion.CuotaMensual CM ON CM.id_cuota_mensual = F.id_cuota_mensual
+    LEFT JOIN actividades.InscriptoCategoriaSocio ICS ON ICS.id_inscripto_categoria = CM.id_inscripto_categoria
+    LEFT JOIN socios.Socio S ON ICS.id_socio = S.id_socio
+
+    LEFT JOIN facturacion.CargoActividadExtra CAE ON CAE.id_cargo_extra = F.id_cargo_actividad_extra
+    LEFT JOIN actividades.InscriptoColoniaVerano ICV ON ICV.id_inscripto_colonia = CAE.id_inscripto_colonia
+    LEFT JOIN actividades.InscriptoPiletaVerano IPV ON IPV.id_inscripto_pileta = CAE.id_inscripto_pileta
+    LEFT JOIN reservas.ReservaSum RS ON RS.id_reserva_sum = CAE.id_reserva_sum
+
     WHERE 
-        f.anulada = 0
-        AND GETDATE() > f.fecha_vencimiento1
-        AND s.activo = 1
+        F.anulada = 0
+        AND GETDATE() > F.fecha_vencimiento1
+        AND S.activo = 1
         AND NOT EXISTS (
             SELECT 1 
-            FROM cobranzas.Mora m 
-            WHERE m.id_factura = f.id_factura AND m.id_socio = s.id_socio
+            FROM cobranzas.Mora M
+            WHERE M.id_factura = F.id_factura
+              AND M.id_socio = COALESCE(S.id_socio, ICV.id_socio, IPV.id_socio, RS.id_socio)
         );
 
-    -- 2. Si el dni pertenece a un tutor → aplicar mora a todos los socios del grupo
-    INSERT INTO cobranzas.Mora (id_socio, id_factura, fecha_registro, motivo, facturada, monto)
-    SELECT 
-        s.id_socio,
-        f.id_factura,
-        GETDATE(),
-        'Recargo por vencimiento (grupo de tutor)',
-        0,
-        f.monto_total * @recargo
-    FROM facturacion.Factura f
-    INNER JOIN socios.Tutor t ON t.dni = f.dni_receptor
-    INNER JOIN socios.GrupoFamiliar gf ON gf.id_grupo = t.id_grupo
-    INNER JOIN socios.Socio s ON s.id_socio != gf.id_socio_rp -- evitar duplicar mora si ya se aplicó al responsable
-    WHERE 
-        f.anulada = 0
-        AND GETDATE() > f.fecha_vencimiento1
-        AND s.activo = 1
-        AND NOT EXISTS (
-            SELECT 1 
-            FROM cobranzas.Mora m 
-            WHERE m.id_factura = f.id_factura AND m.id_socio = s.id_socio
-        );
-
-    -- 3. Si el dni pertenece al socio responsable de un grupo → aplicar mora a los demás miembros del grupo
-    INSERT INTO cobranzas.Mora (id_socio, id_factura, fecha_registro, motivo, facturada, monto)
-    SELECT 
-        s.id_socio,
-        f.id_factura,
-        GETDATE(),
-        'Recargo por vencimiento (grupo de socio responsable)',
-        0,
-        f.monto_total * @recargo
-    FROM facturacion.Factura f
-    INNER JOIN socios.Socio srp ON srp.dni = f.dni_receptor
-    INNER JOIN socios.GrupoFamiliar gf ON gf.id_socio_rp = srp.id_socio
-    INNER JOIN socios.Socio s ON s.id_socio != srp.id_socio
-    WHERE 
-        f.anulada = 0
-        AND GETDATE() > f.fecha_vencimiento1
-        AND srp.activo = 1
-        AND s.activo = 1
-        AND NOT EXISTS (
-            SELECT 1 
-            FROM cobranzas.Mora m 
-            WHERE m.id_factura = f.id_factura AND m.id_socio = s.id_socio
-        );
-
-    -- 4. Actualizar saldos de los socios a quienes se les generó mora hoy
+    -- Actualizar saldos de los socios a quienes se les generó mora hoy
     UPDATE s
     SET s.saldo = s.saldo - t.total_mora
     FROM socios.Socio s
     INNER JOIN (
         SELECT id_socio, SUM(monto) AS total_mora
         FROM cobranzas.Mora
-        WHERE fecha_registro = CAST(GETDATE() AS DATE)
+        WHERE CAST(fecha_registro AS DATE) = CAST(GETDATE() AS DATE)
         GROUP BY id_socio
     ) t ON t.id_socio = s.id_socio;
 END;
 GO
+
 
 /*____________________________________________________________________
   ____________________ AplicarBloqueoVencimiento _____________________

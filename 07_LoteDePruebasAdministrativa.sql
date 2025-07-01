@@ -11,6 +11,7 @@
 
    Objetivo: Testing en bloque.
  ========================================================================= */
+
 USE COM2900G13;
 GO
 SET NOCOUNT ON;

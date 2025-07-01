@@ -154,7 +154,7 @@ GO
 
 -- ✅ PRUEBA 1: Registrar reintegro por lluvia válido
 EXEC cobranzas.GenerarReintegroPorLluvia
-    @mes = 02,
+    @mes = 01,
     @año = 2025,
     @path = 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\open-meteo-buenosaires_2025.csv';
 GO

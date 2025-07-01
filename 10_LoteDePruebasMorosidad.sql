@@ -46,6 +46,9 @@ GO
 SELECT *
 FROM facturacion.Factura;
 
+SELECT *
+FROM facturacion.DetalleFactura
+
 -- administracion.vwSociosConCategoria
 SELECT *
 FROM socios.Socio

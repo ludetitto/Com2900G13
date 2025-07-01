@@ -282,61 +282,19 @@ GO
 EXEC facturacion.GenerarCargoClase '44444444', '2025-06-28'; -- Natación - P
 GO
 
-EXEC facturacion.GenerarCuotasMensualesPorFecha '2025-06-30';
-GO
 
-EXEC facturacion.GenerarCargosActividadExtraPorFecha '2025-01-30';
+EXEC facturacion.GenerarCuotasMensualesPorFecha '2025-06-30';
 GO
 
 EXEC facturacion.GenerarFacturasMensualesPorFecha '2025-06-30';
 GO
 
+EXEC facturacion.GenerarCargosActividadExtraPorFecha '2025-01-30';
+GO
+
 EXEC facturacion.GenerarFacturasActividadesExtraPorFecha '2025-01-30';
 GO
 
-/*
--- =================== GENERACI�N DE FACTURA MENSUAL ===================
-EXEC facturacion.GenerarFacturaCuotasMensualesPorFecha '45778667', '20-12345678-4';
-EXEC facturacion.GenerarFacturaSocioMensual '33444555', '20-12345678-4';
-EXEC facturacion.GenerarFacturaSocioMensual '40707070', '20-12345678-4';
-GO
-
--- =================== CARGA DE PRESENTISMO DE INVITADOS ===================
-
--- Francisco (2 actividades, 1 presencia)
-EXEC actividades.GestionarPresentismoActividadExtra 'Alquiler de SUM', 'Dia', 'N', '45778667', '2025-06-01', 'P', 'Insertar';
-EXEC actividades.GestionarPresentismoActividadExtra 'Pileta verano', 'Dia', 'N', '45778667', '2025-06-05', 'A', 'Insertar'; -- Ausente
-GO
--- Mariana (1 actividad, 5 presencias)
-EXEC actividades.GestionarPresentismoActividadExtra 'Colonia de verano', 'Temporada', 'N', '40505050', '2025-06-01', 'P', 'Insertar';
-EXEC actividades.GestionarPresentismoActividadExtra 'Colonia de verano', 'Temporada', 'N', '40505050', '2025-06-02', 'P', 'Insertar';
-EXEC actividades.GestionarPresentismoActividadExtra 'Colonia de verano', 'Temporada', 'N', '40505050', '2025-06-03', 'P', 'Insertar';
-EXEC actividades.GestionarPresentismoActividadExtra 'Colonia de verano', 'Temporada', 'N', '40505050', '2025-06-04', 'P', 'Insertar';
-EXEC actividades.GestionarPresentismoActividadExtra 'Colonia de verano', 'Temporada', 'N', '40505050', '2025-06-05', 'P', 'Insertar';
-GO
--- Luciano (1 actividad, 2 presencias)
-EXEC actividades.GestionarPresentismoActividadExtra 'Pileta verano', 'Mes', 'N', '40707070', '2025-06-05', 'A', 'Insertar';
-EXEC actividades.GestionarPresentismoActividadExtra 'Pileta verano', 'Mes', 'N', '40707070', '2025-06-06', 'P', 'Insertar';
-EXEC actividades.GestionarPresentismoActividadExtra 'Pileta verano', 'Mes', 'N', '40707070', '2025-06-10', 'A', 'Insertar';
-EXEC actividades.GestionarPresentismoActividadExtra 'Pileta verano', 'Mes', 'N', '40707070', '2025-06-12', 'P', 'Insertar';
-GO
--- Lucia (2 actividades, 2 presencias)
-EXEC actividades.GestionarPresentismoActividadExtra 'Alquiler de SUM', 'Dia', 'S', '46501934', '2025-06-01', 'P', 'Insertar';
-EXEC actividades.GestionarPresentismoActividadExtra 'Pileta verano', 'Dia', 'S', '46501934', '2025-06-05', 'P', 'Insertar';
-GO
-
--- =================== GENERACI�N DE FACTURA INVITADOS ===================
-EXEC facturacion.GenerarFacturaInvitado '46501934', '20-12345678-4', 'Alquiler de SUM', '2025-06-01';
-EXEC facturacion.GenerarFacturaInvitado '46501934', '20-12345678-4', 'Pileta verano', '2025-06-05';
-GO
-
--- =================== GENERACI�N DE FACTURA SOCIOS ===================
-EXEC facturacion.GenerarFacturaSocioActExtra '45778667', '20-12345678-4', 'Alquiler de SUM', '2025-06-01';
-EXEC facturacion.GenerarFacturaSocioActExtra '45778667', '20-12345678-4', 'Pileta verano', '2025-06-01';
-EXEC facturacion.GenerarFacturaSocioActExtra '40505050', '20-12345678-4', 'Colonia de verano', '2025-06-01';
-EXEC facturacion.GenerarFacturaSocioActExtra '40707070', '20-12345678-4', 'Pileta verano', '2025-06-01';
-GO
-*/
 -- =================== VERIFICAR ===================
 
 -- ACTIVIDADES
