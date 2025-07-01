@@ -138,11 +138,18 @@ GO
    INSCRIPCIÓN DE SOCIOS A CLASES
 ========================================================== */
 -- FRANCISCO (45778667) - Mayor
-EXEC actividades.GestionarInscriptoClase '45778667', 'Futsal',     'Lunes 19:00',      'Mayor', '2025-06-13', 'Insertar';
-EXEC actividades.GestionarInscriptoClase '45778667', 'Taekwondo',  'Miércoles 19:00',  'Mayor', '2025-06-14', 'Insertar';
-EXEC actividades.GestionarInscriptoClase '45778667', 'Ajedrez',    'Sábado 19:00',     'Mayor', '2025-06-15', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',    'Lunes 19:00', 'Mayor', '2025-06-17', 'P', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',    'Lunes 19:00', 'Mayor', '2025-06-24', 'A', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-01', 'P', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-08', 'P', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-15', 'J', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-22', 'P', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-29', 'P', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-08-05', 'A', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-08-12', 'P', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Taekwondo', 'Miércoles 19:00', 'Mayor', '2025-06-19', 'J', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Ajedrez',   'Sábado 19:00', 'Mayor', '2025-06-22', 'P', 'Insertar';
 GO
-
 -- JUAN (33444555) - Cadete
 EXEC actividades.GestionarInscriptoClase '33444555', 'Taekwondo',  'Miércoles 14:00',  'Cadete', '2025-06-13', 'Insertar';
 EXEC actividades.GestionarInscriptoClase '33444555', 'Ajedrez',    'Sábado 14:00',     'Cadete', '2025-06-14', 'Insertar';
