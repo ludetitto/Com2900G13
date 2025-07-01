@@ -19,6 +19,15 @@ SET NOCOUNT ON;
    LIMPIEZA COMPLETA DE TABLAS SOCIOS Y GRUPOS FAMILIARES
 ========================================================== */
 
+DELETE FROM cobranzas.Reembolso
+DBCC CHECKIDENT ('cobranzas.Reembolso', RESEED, 0) WITH NO_INFOMSGS;
+
+DELETE FROM cobranzas.PagoACuenta
+DBCC CHECKIDENT ('cobranzas.PagoACuenta', RESEED, 0) WITH NO_INFOMSGS;
+
+DELETE FROM cobranzas.Mora
+DBCC CHECKIDENT ('cobranzas.Mora', RESEED, 0) WITH NO_INFOMSGS;
+
 DELETE FROM cobranzas.Pago
 DBCC CHECKIDENT ('cobranzas.pago', RESEED, 0) WITH NO_INFOMSGS;
 
@@ -88,6 +97,7 @@ EXEC socios.GestionarSocio
     @email = 'francisco.vignardel@email.com', @fecha_nacimiento = '2004-04-10',
     @telefono = '1231233234', @telefono_emergencia = '6624324321',
     @domicilio = 'Av. Mosconi 2345', @obra_social = 'OSPOCE', @nro_os = '654321',
+	@nro_socio = 'S4001',
     @es_responsable = 1, @operacion = 'Insertar';
 GO
 

@@ -176,14 +176,7 @@ BEGIN
 			RETURN;
 		END
 
-        INSERT INTO actividades.Clase (id_actividad, nombre_profesor, apellido_profesor, id_categoria, horario)
-        VALUES (@id_actividad, @nombre_profesor, @apellido_profesor, @id_categoria, @horario);
-        RETURN;
-    END
-
-    IF @operacion = 'Modificar'
-    BEGIN
-        SET @id_clase = (
+		SET @id_clase = (
             SELECT C.id_clase
             FROM actividades.Clase C
             WHERE C.id_actividad = @id_actividad
@@ -191,6 +184,28 @@ BEGIN
 			  AND C.apellido_profesor = @apellido_profesor
               AND C.horario = @horario
         );
+
+		IF @id_clase IS NOT NULL
+		BEGIN
+            RAISERROR('La clase ya existe.', 16, 1);
+            RETURN;
+        END
+
+        INSERT INTO actividades.Clase (id_actividad, nombre_profesor, apellido_profesor, id_categoria, horario)
+        VALUES (@id_actividad, @nombre_profesor, @apellido_profesor, @id_categoria, @horario);
+        RETURN;
+    END
+
+    IF @operacion = 'Modificar'
+    BEGIN
+		SET @id_clase = (
+            SELECT id_clase
+            FROM actividades.Clase
+            WHERE id_actividad = @id_actividad
+              AND nombre_profesor = @nombre_profesor
+			  AND apellido_profesor = @apellido_profesor
+        );
+
         IF @id_clase IS NULL
         BEGIN
             RAISERROR('No se encontró la clase para modificar.', 16, 1);

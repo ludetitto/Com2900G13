@@ -143,8 +143,10 @@ BEGIN
         @id_socio_ref INT,
         @id_grupo_ref INT,
         @id_grupo_nuevo INT;
-
-    IF @operacion = 'Insertar'
+	DECLARE @ultimo_nro VARCHAR(10);
+	DECLARE @numero INT;
+    
+	IF @operacion = 'Insertar'
     BEGIN
         IF @fecha_nacimiento IS NULL
         BEGIN
@@ -236,6 +238,21 @@ BEGIN
         END
         ELSE
         BEGIN
+			
+			IF @nro_socio IS NULL
+			BEGIN
+				-- Obtener el último nro_socio
+				SELECT TOP 1 @ultimo_nro = nro_socio
+				FROM socios.Socio
+				ORDER BY id_socio DESC;
+
+				-- Extraer parte numérica y convertir a int
+				SET @numero = CAST(SUBSTRING(@ultimo_nro, 2, LEN(@ultimo_nro) - 1) AS INT) + 1;
+
+				-- Armar el nuevo número con prefijo 'S'
+				SET @nro_socio = 'S' + CAST(@numero AS VARCHAR);
+			END
+
             INSERT INTO socios.Socio (
                 nombre, apellido, dni, email, fecha_nacimiento,
                 tel_contacto, tel_emergencia, domicilio,

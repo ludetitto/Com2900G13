@@ -160,6 +160,8 @@ BEGIN
         WHERE F.id_factura = @id_factura;
 
         -- Si hay excedente y es socio → registrar en PagoACuenta y actualizar saldo
+		--¿Y SI EL QUE ESTA PAGANDO ES UN TUTOR, COMO SABE A DONDE TIENE QUE GUARDAR EL EXCEDENTE?
+		--¿Y SI EL QUE ESTA PAGANDO ES UN SOCIO RESPONSABLE? --> se guarda en su saldo, funciona
         IF @monto > @monto_factura AND @id_socio IS NOT NULL
         BEGIN
             DECLARE @excedente DECIMAL(10,2) = @monto - @monto_factura;
@@ -451,52 +453,118 @@ GO
 IF OBJECT_ID('cobranzas.GenerarPagoACuenta', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.GenerarPagoACuenta;
 GO
-
-CREATE PROCEDURE cobranzas.GenerarPagoACuenta
+-- UN PAGO A CUENTA PUEDE SER SIN UNA FACTURA
+-- ¿POR QUE EL PAGO A CUENTA NECESITA EL ID_PAGO, Y SI PRIMERO VIENE EL PAGO A CUENTA Y EL SP GENERA UNA TUPLA EN LA TABLA PAGO?
+CREATE OR ALTER PROCEDURE cobranzas.RegistrarPagoACuenta
     @id_pago INT,
-    @dni_socio CHAR(8),
-    @monto DECIMAL(10,2)
+    @dni_pagador CHAR(13),
+    @dni_destinatario CHAR(13),
+    @monto DECIMAL(10,2),
+    @motivo VARCHAR(100)
 AS
 BEGIN
     SET NOCOUNT ON;
-    SET XACT_ABORT ON;
-    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
-
-    DECLARE @id_socio INT;
 
     BEGIN TRY
-        BEGIN TRAN;
+        BEGIN TRANSACTION;
 
-        -- Validar existencia del pago
+        -- 1. Validar monto positivo
+        IF @monto <= 0
+        BEGIN
+            RAISERROR('El monto debe ser mayor a cero.', 16, 1);
+            ROLLBACK;
+            RETURN;
+        END
+
+        -- 2. Validar que el pago exista y NO esté asociado a factura
         IF NOT EXISTS (SELECT 1 FROM cobranzas.Pago WHERE id_pago = @id_pago)
         BEGIN
-            RAISERROR('El pago especificado no existe.', 16, 1);
+            RAISERROR('El ID de pago proporcionado no existe.', 16, 1);
             ROLLBACK;
             RETURN;
         END
 
-        -- Buscar socio por DNI
-        SELECT @id_socio = id_socio
-        FROM socios.Socio
-        WHERE dni = @dni_socio AND eliminado = 0 AND activo = 1;
-
-        IF @id_socio IS NULL
+        IF EXISTS (SELECT 1 FROM cobranzas.Pago WHERE id_pago = @id_pago AND id_factura IS NOT NULL)
         BEGIN
-            RAISERROR('El socio especificado no existe o no está activo.', 16, 1);
+            RAISERROR('El pago ya está asociado a una factura. No puede utilizarse como pago a cuenta.', 16, 1);
             ROLLBACK;
             RETURN;
         END
 
-        -- Insertar el pago a cuenta
-        INSERT INTO cobranzas.PagoACuenta (id_pago, id_socio, fecha, monto)
-        VALUES (@id_pago, @id_socio, GETDATE(), @monto);
+        -- 3. Buscar socio destinatario
+        DECLARE @id_socio_dest INT;
+        SELECT @id_socio_dest = id_socio FROM socios.Socio WHERE dni = @dni_destinatario;
 
-        -- Actualizar saldo del socio
+        IF @id_socio_dest IS NULL
+        BEGIN
+            RAISERROR('El DNI destinatario no corresponde a un socio registrado.', 16, 1);
+            ROLLBACK;
+            RETURN;
+        END
+
+        -- 4. Buscar grupo del destinatario (si tiene)
+        DECLARE @id_grupo_dest INT;
+        SELECT @id_grupo_dest = id_grupo FROM socios.GrupoFamiliarSocio WHERE id_socio = @id_socio_dest;
+
+        -- 5. Verificar si el pagador es socio
+        IF EXISTS (SELECT 1 FROM socios.Socio WHERE dni = @dni_pagador)
+        BEGIN
+            -- Si el destinatario no tiene grupo, solo puede pagarse a sí mismo
+            IF @id_grupo_dest IS NULL AND @dni_pagador <> @dni_destinatario
+            BEGIN
+                RAISERROR('Un socio solo puede pagar por sí mismo si el destinatario no tiene grupo.', 16, 1);
+                ROLLBACK;
+                RETURN;
+            END
+
+            -- Si tiene grupo, verificar si el pagador es el responsable
+            IF @id_grupo_dest IS NOT NULL
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1
+                    FROM socios.GrupoFamiliar gf
+                    JOIN socios.Socio s ON gf.id_socio_rp = s.id_socio
+                    WHERE gf.id_grupo = @id_grupo_dest AND s.dni = @dni_pagador
+                )
+                BEGIN
+                    RAISERROR('El socio no es responsable del grupo del destinatario.', 16, 1);
+                    ROLLBACK;
+                    RETURN;
+                END
+            END
+        END
+
+        -- 6. O verificar si el pagador es tutor del grupo del destinatario
+        ELSE IF EXISTS (SELECT 1 FROM socios.Tutor WHERE dni = @dni_pagador)
+        BEGIN
+            DECLARE @id_grupo_tutor INT;
+            SELECT @id_grupo_tutor = id_grupo FROM socios.Tutor WHERE dni = @dni_pagador;
+
+            IF @id_grupo_tutor IS NULL OR @id_grupo_tutor <> @id_grupo_dest
+            BEGIN
+                RAISERROR('El tutor no tiene a cargo al socio destinatario.', 16, 1);
+                ROLLBACK;
+                RETURN;
+            END
+        END
+        ELSE
+        BEGIN
+            RAISERROR('El DNI pagador no corresponde a un socio ni tutor registrado.', 16, 1);
+            ROLLBACK;
+            RETURN;
+        END
+
+        -- 7. Registrar pago a cuenta
+        INSERT INTO cobranzas.PagoACuenta (id_pago, id_socio, fecha, monto, motivo)
+        SELECT @id_pago, @id_socio_dest, GETDATE(), @monto, @motivo;
+
+        -- 8. Actualizar saldo del socio
         UPDATE socios.Socio
         SET saldo = saldo + @monto
-        WHERE id_socio = @id_socio;
+        WHERE id_socio = @id_socio_dest;
 
         COMMIT;
+        PRINT 'Pago a cuenta registrado correctamente.';
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK;
