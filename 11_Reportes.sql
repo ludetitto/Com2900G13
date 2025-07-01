@@ -180,3 +180,69 @@ END;
 EXEC cobranzas.Reporte3
 
 SELECT * FROM actividades.presentismoClase ORDER BY id_socio, fecha;
+
+
+
+/*____________________________________________________________________
+  _____________________________ Reporte 4 ____________________________
+  ____________________________________________________________________*/
+/*
+Reporte que contenga a los socios que no han asistido a alguna clase de la actividad que
+realizan. El reporte debe contener: Nombre, Apellido, edad, categoría y la actividad
+  */
+
+/*____________________________________________________________________
+  _____________________________ Reporte 4 ____________________________
+  ____________________________________________________________________*/
+/*
+Reporte que contenga a los socios que no han asistido a alguna clase de la actividad que
+realizan. El reporte debe contener: Nombre, Apellido, edad, categoría y la actividad
+*/
+
+IF OBJECT_ID('actividades.SociosConInasistencias', 'P') IS NOT NULL
+    DROP PROCEDURE actividades.SociosConInasistencias;
+GO
+
+CREATE PROCEDURE actividades.SociosConInasistencias
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    ;WITH Inasistencias AS (
+        SELECT 
+            S.id_socio,
+            S.nombre,
+            S.apellido,
+            DATEDIFF(YEAR, S.fecha_nacimiento, GETDATE()) AS edad,
+            CS.nombre AS categoria,
+            A.nombre AS actividad
+        FROM actividades.InscriptoClase IC
+        INNER JOIN socios.Socio S ON S.id_socio = IC.id_socio
+        INNER JOIN actividades.Clase C ON C.id_clase = IC.id_clase
+        INNER JOIN actividades.Actividad A ON A.id_actividad = C.id_actividad
+        INNER JOIN socios.CategoriaSocio CS ON CS.id_categoria = C.id_categoria
+        WHERE EXISTS (
+            SELECT 1
+            FROM actividades.PresentismoClase PC
+            WHERE PC.id_socio = S.id_socio
+              AND PC.id_clase = C.id_clase
+              AND PC.estado IN ('A', 'J')
+        )
+    )
+    SELECT 
+        (
+            SELECT 
+                nombre AS [Nombre],
+                apellido AS [Apellido],
+                edad AS [Edad],
+                categoria AS [Categoria],
+                actividad AS [Actividad]
+            FROM Inasistencias
+            FOR XML PATH('Socio'), TYPE
+        ) AS [Socios]
+    FOR XML PATH('SociosConInasistencias'), ROOT('Reporte'), ELEMENTS;
+END;
+GO
+
+-- Ejecución de ejemplo:
+EXEC actividades.SociosConInasistencias;
