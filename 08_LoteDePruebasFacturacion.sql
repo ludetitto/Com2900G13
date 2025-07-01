@@ -296,6 +296,8 @@ EXEC facturacion.GenerarFacturasActividadesExtraPorFecha '2025-01-30';
 GO
 
 -- =================== VERIFICAR ===================
+select * from socios.Socio
+
 
 -- ACTIVIDADES
 SELECT id_actividad, nombre, costo, vigencia
