@@ -130,66 +130,61 @@ Reporte de la cantidad de socios que han realizado alguna actividad de forma alt
 (inasistencias) por categoría de socios y actividad, ordenado según cantidad de inasistencias
 ordenadas de mayor a menor
   */
-
 IF OBJECT_ID('cobranzas.Reporte3', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.Reporte3;
 GO
-CREATE OR ALTER PROCEDURE cobranzas.Reporte3
+
+CREATE PROCEDURE cobranzas.Reporte3
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    WITH AsistenciasConOrden AS (
+    WITH PresenciasOrdenadas AS (
         SELECT 
             pc.id_socio,
             c.id_actividad,
-            c.id_categoria,
-            pc.fecha,
             pc.estado,
+            pc.fecha,
             ROW_NUMBER() OVER (PARTITION BY pc.id_socio, c.id_actividad ORDER BY pc.fecha) AS orden
         FROM actividades.PresentismoClase pc
-        INNER JOIN actividades.Clase c ON c.id_clase = pc.id_clase
+        INNER JOIN actividades.Clase c ON pc.id_clase = c.id_clase
     ),
-    InasistenciasAlternadas AS (
+    SecuenciasAlternadas AS (
         SELECT 
-            a1.id_socio,
-            a1.id_actividad,
-            a1.id_categoria,
+            p1.id_socio,
+            p1.id_actividad,
             COUNT(*) AS inasistencias_alternadas
-        FROM AsistenciasConOrden a1
-        JOIN AsistenciasConOrden a2 
-          ON a1.id_socio = a2.id_socio 
-         AND a1.id_actividad = a2.id_actividad
-         AND a1.orden = a2.orden - 1
-        WHERE a1.estado IN ('A', 'J') AND a2.estado = 'P'
-        GROUP BY a1.id_socio, a1.id_actividad, a1.id_categoria
+        FROM PresenciasOrdenadas p1
+        JOIN PresenciasOrdenadas p2 ON 
+            p1.id_socio = p2.id_socio AND 
+            p1.id_actividad = p2.id_actividad AND 
+            p1.orden = p2.orden - 1
+        JOIN PresenciasOrdenadas p3 ON 
+            p1.id_socio = p3.id_socio AND 
+            p1.id_actividad = p3.id_actividad AND 
+            p1.orden = p3.orden - 2
+        WHERE 
+            p1.estado = 'P' AND 
+            p2.estado IN ('A', 'J') AND 
+            p3.estado = 'P'
+        GROUP BY p1.id_socio, p1.id_actividad
     )
     SELECT 
         CONCAT(s.nombre, ' ', s.apellido) AS nombre_socio,
-        act.nombre AS nombre_actividad,
-        cat.nombre AS nombre_categoria,
-        ia.inasistencias_alternadas
-    FROM InasistenciasAlternadas ia
-    INNER JOIN socios.Socio s ON s.id_socio = ia.id_socio
-    INNER JOIN actividades.Actividad act ON act.id_actividad = ia.id_actividad
-    INNER JOIN socios.CategoriaSocio cat ON cat.id_categoria = ia.id_categoria
-    ORDER BY ia.inasistencias_alternadas DESC
+        a.nombre AS nombre_actividad,
+        cs.nombre AS nombre_categoria,
+        sa.inasistencias_alternadas
+    FROM SecuenciasAlternadas sa
+    INNER JOIN socios.Socio s ON s.id_socio = sa.id_socio
+    INNER JOIN actividades.Actividad a ON a.id_actividad = sa.id_actividad
+    INNER JOIN actividades.InscriptoCategoriaSocio ics ON ics.id_socio = s.id_socio
+    INNER JOIN socios.CategoriaSocio cs ON cs.id_categoria = ics.id_categoria
+    ORDER BY sa.inasistencias_alternadas DESC
     FOR XML PATH('Socio'), ROOT('Socios'), ELEMENTS;
 END;
+GO
 
-EXEC cobranzas.Reporte3
-
-SELECT * FROM actividades.presentismoClase ORDER BY id_socio, fecha;
-
-
-
-/*____________________________________________________________________
-  _____________________________ Reporte 4 ____________________________
-  ____________________________________________________________________*/
-/*
-Reporte que contenga a los socios que no han asistido a alguna clase de la actividad que
-realizan. El reporte debe contener: Nombre, Apellido, edad, categoría y la actividad
-  */
+EXEC cobranzas.Reporte3;
 
 /*____________________________________________________________________
   _____________________________ Reporte 4 ____________________________
