@@ -67,7 +67,7 @@ set activo=1
 /*____________________________________________________________________
   ________________ PRUEBAS AplicarRecargoVencimiento _________________
   ____________________________________________________________________*/
-
+/*
 --SETUP TESTING SP AplicarRecargoVencimiento
 SELECT* FROM facturacion.Factura
 
@@ -255,7 +255,7 @@ select dni_receptor from facturacion.Factura  where facturacion.Factura.fecha_ve
 
 delete  from facturacion.Factura  where facturacion.Factura.fecha_vencimiento2 < GETDATE()
 
-select nombre, activo from socios.Socio where id_socio = (select id_socio from socios.GrupoFamiliarSocio where id_grupo = 2)
+select nombre, activo from socios.Socio where id_socio = (select id_socio from socios.GrupoFamiliarSocio where id_grupo = 2)*/
 
 
 
