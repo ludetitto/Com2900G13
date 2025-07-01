@@ -67,7 +67,7 @@ SELECT * FROM cobranzas.MedioDePago;
 GO
 
 /*_____________________________________________________________________
-  ________________ PRUEBAS registrar cobro ___________________
+  ____________________ PRUEBAS RegistrarCobranza ______________________
   _____________________________________________________________________
 */
 
@@ -76,10 +76,6 @@ SELECT id_socio, nombre, apellido, dni FROM socios.Socio WHERE activo = 1 AND el
 
 -- Ver medios de pago disponibles
 SELECT * FROM cobranzas.MedioDePago;
-
-
-
-
 
 /*_____________________________________________________________________
   ________________ PRUEBAS RegistrarReintegroLluvia ___________________
@@ -96,8 +92,9 @@ EXEC cobranzas.GenerarReintegroPorLluvia
     @path = 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\open-meteo-buenosaires_2025.csv';
 GO
 
+SELECT * FROM cobranzas.Reembolso
 SELECT * FROM cobranzas.PagoACuenta;
-SELECT * FROM administracion.vwSociosConCategoria ORDER BY apellido, nombre;
+SELECT * FROM socios.vwGrupoFamiliarConCategorias ORDER BY apellido, nombre;
 
 -- ❌ PRUEBA 2: Registrar reintegro con fecha futura inválida
 EXEC cobranzas.GenerarReintegroPorLluvia

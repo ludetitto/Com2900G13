@@ -1659,12 +1659,15 @@ BEGIN
 		INSERT INTO facturacion.DetalleFactura (id_factura, descripcion, monto, tipo_item, cantidad)
 		SELECT 
 			FA.id_factura,
-			'Actividades del mes',
+			A.nombre,
 			FG.monto_actividad,
 			'Actividad',
 			1
 		FROM facturacion.Factura FA
 		INNER JOIN #FacturasGeneradas FG ON FG.id_cuota_mensual = FA.id_cuota_mensual
+		INNER JOIN actividades.InscriptoClase IC ON IC.id_socio = FG.id_socio
+		INNER JOIN actividades.Clase C ON C.id_clase = IC.id_clase
+		INNER JOIN actividades.Actividad A ON A.id_actividad = C.id_actividad
 		WHERE FG.monto_actividad > 0;
 
 		-- Detalle: descuento por grupo familiar

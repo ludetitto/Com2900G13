@@ -19,8 +19,14 @@ GO
 
 -- ================== LIMPIEZA DE FACTURACIÓN ==================
 
+DELETE FROM cobranzas.Mora
+DBCC CHECKIDENT ('cobranzas.Mora', RESEED, 0) WITH NO_INFOMSGS;
+DELETE FROM cobranzas.Reembolso
+DBCC CHECKIDENT ('cobranzas.Reembolso', RESEED, 0) WITH NO_INFOMSGS;
+DELETE FROM cobranzas.PagoACuenta
+DBCC CHECKIDENT ('cobranzas.PagoACuenta', RESEED, 0) WITH NO_INFOMSGS;
 DELETE FROM cobranzas.pago
-DBCC CHECKIDENT ('cobranzas.pago', RESEED, 0) WITH NO_INFOMSGS;
+DBCC CHECKIDENT ('cobranzas.Pago', RESEED, 0) WITH NO_INFOMSGS;
 DELETE FROM cobranzas.MedioDePago;
 DBCC CHECKIDENT ('cobranzas.MedioDePago', RESEED, 0) WITH NO_INFOMSGS;
 DELETE FROM facturacion.DetalleFactura;
@@ -290,7 +296,7 @@ GO
 
 /*
 -- =================== GENERACI�N DE FACTURA MENSUAL ===================
-EXEC facturacion.GenerarFacturaSocioMensual '45778667', '20-12345678-4';
+EXEC facturacion.GenerarFacturaCuotasMensualesPorFecha '45778667', '20-12345678-4';
 EXEC facturacion.GenerarFacturaSocioMensual '33444555', '20-12345678-4';
 EXEC facturacion.GenerarFacturaSocioMensual '40707070', '20-12345678-4';
 GO
@@ -375,6 +381,8 @@ FROM facturacion.CuotaMensual
 SELECT *
 FROM facturacion.CargoActividadExtra
 
+SELECT * FROM socios.GrupoFamiliar
+SELECT * FROM socios.Tutor
 SELECT *
 FROM facturacion.vw_FacturasDetalladasConResponsables
 ORDER BY id_factura ASC
