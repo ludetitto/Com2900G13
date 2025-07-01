@@ -198,6 +198,13 @@ GO
 -- FRANCISCO (45778667) - Mayor
 EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',    'Lunes 19:00', 'Mayor', '2025-06-17', 'P', 'Insertar';
 EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',    'Lunes 19:00', 'Mayor', '2025-06-24', 'A', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-01', 'P', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-08', 'P', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-15', 'J', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-22', 'P', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-29', 'P', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-08-05', 'A', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-08-12', 'P', 'Insertar';
 EXEC actividades.GestionarPresentismoClase '45778667', 'Taekwondo', 'Miércoles 19:00', 'Mayor', '2025-06-19', 'J', 'Insertar';
 EXEC actividades.GestionarPresentismoClase '45778667', 'Ajedrez',   'Sábado 19:00', 'Mayor', '2025-06-22', 'P', 'Insertar';
 GO
@@ -211,6 +218,8 @@ GO
 -- CAMILA (40606060) - Cadete
 EXEC actividades.GestionarPresentismoClase '40606060', 'Natación', 'Viernes 14:00', 'Cadete', '2025-06-21', 'P', 'Insertar';
 EXEC actividades.GestionarPresentismoClase '40606060', 'Natación', 'Viernes 14:00', 'Cadete', '2025-06-28', 'A', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '40606060', 'Natación', 'Viernes 14:00', 'Cadete', '2025-06-14', 'P', 'Insertar';
+
 GO
 
 -- PEDRO (41111111) - Mayor
@@ -219,8 +228,10 @@ EXEC actividades.GestionarPresentismoClase '41111111', 'Vóley', 'Martes 19:00',
 GO
 
 -- JULIÁN (41111112) - Cadete
+EXEC actividades.GestionarPresentismoClase '41111112', 'Futsal', 'Lunes 14:00', 'Cadete', '2025-06-10', 'P', 'Insertar';
 EXEC actividades.GestionarPresentismoClase '41111112', 'Futsal', 'Lunes 14:00', 'Cadete', '2025-06-17', 'A', 'Insertar';
 EXEC actividades.GestionarPresentismoClase '41111112', 'Futsal', 'Lunes 14:00', 'Cadete', '2025-06-24', 'P', 'Insertar';
+
 GO
 
 -- ANDREA (42222222) - Mayor
