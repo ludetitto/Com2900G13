@@ -395,7 +395,7 @@ GO
 /*____________________________________________________________________
   _________________________ GenerarReembolso _________________________
   ____________________________________________________________________*/
-  /*
+
 IF OBJECT_ID('cobranzas.GenerarReembolso', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.GenerarReembolso;
 GO
@@ -432,7 +432,7 @@ BEGIN
         END
 
         -- Insertar reembolso
-        INSERT INTO cobranzas.Reembolso (id_pago, fecha, motivo, monto)
+        INSERT INTO cobranzas.Reembolso (id_pago, fecha_emision, motivo, monto)
         VALUES (@id_pago, GETDATE(), @motivo, @monto);
 
         COMMIT;
@@ -443,12 +443,11 @@ BEGIN
     END CATCH
 END;
 GO
-*/
 
 /*____________________________________________________________________
   ____________________________ GenerarPagoACuenta __________________________
   ____________________________________________________________________*/
-/*
+
 IF OBJECT_ID('cobranzas.GenerarPagoACuenta', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.GenerarPagoACuenta;
 GO
@@ -505,13 +504,11 @@ BEGIN
     END CATCH
 END;
 GO
-*/
-
 
 /*____________________________________________________________________
   ____________________________ AnularFactura __________________________
   ____________________________________________________________________*/
-  /*
+
 IF OBJECT_ID('facturacion.AnularFactura', 'P') IS NOT NULL
     DROP PROCEDURE facturacion.AnularFactura;
 GO
@@ -575,4 +572,3 @@ BEGIN
     END CATCH
 END;
 GO
-*/

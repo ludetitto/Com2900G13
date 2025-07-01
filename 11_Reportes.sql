@@ -45,15 +45,14 @@ BEGIN
 	WITH CantidadIncumplimientos AS (
 		SELECT
 			S.nro_socio AS [Nro_de_socio],
-			P.nombre + ' ' + P.apellido AS [Nombre_y_apellido],
+			S.nombre + ' ' + S.apellido AS [Nombre_y_apellido],
 			MONTH(F.fecha_vencimiento1) AS [Mes_incumplido],
-			COUNT(F.id_factura) AS [Cantidad_de_incumplimientos]
+			COUNT(M.id_mora) AS [Cantidad_de_incumplimientos]
 		FROM facturacion.Factura F
-		INNER JOIN administracion.Socio S ON F.id_socio = S.id_socio
-		INNER JOIN administracion.Persona P ON S.id_persona = P.id_persona
+		INNER JOIN cobranzas.Mora M ON M.id_factura = F.id_factura
+		INNER JOIN socios.Socio S ON S.id_socio = M.id_socio
 		WHERE F.fecha_vencimiento1 BETWEEN @fecha_inicio AND @fecha_fin
-		AND estado = 'No pagada'
-		GROUP BY S.nro_socio, P.nombre, P.apellido, MONTH(F.fecha_vencimiento1)
+		GROUP BY S.nro_socio, S.nombre, S.apellido, MONTH(F.fecha_vencimiento1)
 	)
 	SELECT
         @fecha_inicio AS [Periodo/@Desde],
