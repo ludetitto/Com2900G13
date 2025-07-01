@@ -19,8 +19,14 @@ GO
 
 -- ================== LIMPIEZA DE FACTURACIÓN ==================
 
+DELETE FROM cobranzas.Mora
+DBCC CHECKIDENT ('cobranzas.Mora', RESEED, 0) WITH NO_INFOMSGS;
+DELETE FROM cobranzas.Reembolso
+DBCC CHECKIDENT ('cobranzas.Reembolso', RESEED, 0) WITH NO_INFOMSGS;
+DELETE FROM cobranzas.PagoACuenta
+DBCC CHECKIDENT ('cobranzas.PagoACuenta', RESEED, 0) WITH NO_INFOMSGS;
 DELETE FROM cobranzas.pago
-DBCC CHECKIDENT ('cobranzas.pago', RESEED, 0) WITH NO_INFOMSGS;
+DBCC CHECKIDENT ('cobranzas.Pago', RESEED, 0) WITH NO_INFOMSGS;
 DELETE FROM cobranzas.MedioDePago;
 DBCC CHECKIDENT ('cobranzas.MedioDePago', RESEED, 0) WITH NO_INFOMSGS;
 DELETE FROM facturacion.DetalleFactura;
