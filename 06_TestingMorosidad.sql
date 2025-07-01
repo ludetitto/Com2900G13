@@ -16,6 +16,30 @@ en los juegos de prueba demuestren la correcta aplicación de las validaciones.
 USE COM2900G13;
 GO
 
+-- (PREVIAMENTE CARGAR LOS LOTES DE PRUEBA DE ADMINISTRATIVA, FACTURACION)
+-- FACTURAS CON PRIMER VENCIMIENTO VENCIDAS, SE APLICA RECARGO, NO SE BLOQUEAN A LOS SOCIOS
+INSERT INTO facturacion.Factura (id_cuota_mensual, id_emisor, tipo_factura, dni_receptor, condicion_iva_receptor, cae, monto_total, fecha_emision, fecha_vencimiento1, fecha_vencimiento2, estado, saldo_anterior, anulada)
+VALUES (3, 0, 'C', '45778667', 'Consumidor Final', '00000000000001', 55000.00, GETDATE(), DATEADD(DAY, -7, GETDATE()), DATEADD(DAY, +2, GETDATE()), 'Emitida', 0.00, 0);
+
+-- Juan Perez (id_socio = 2, id_cuota_mensual = 4)
+INSERT INTO facturacion.Factura (id_cuota_mensual, id_emisor, tipo_factura, dni_receptor, condicion_iva_receptor, cae, monto_total, fecha_emision, fecha_vencimiento1, fecha_vencimiento2, estado, saldo_anterior, anulada)
+VALUES (4, 0, 'C', '33444555', 'Consumidor Final', '00000000000002', 40000.00, GETDATE(), DATEADD(DAY, -10, GETDATE()), DATEADD(DAY, +5, GETDATE()), 'Emitida', 0.00, 0);
+ select * from facturacion.Factura
+
+-- FACTURA FICTICIA, 2DO VENCIMIENTO CUMPLIDO --> SE DEBE BLOQEAR EL SOCIO
+INSERT INTO facturacion.Factura (
+    id_cuota_mensual, id_emisor, tipo_factura, dni_receptor,
+    condicion_iva_receptor, cae, monto_total,
+    fecha_emision, fecha_vencimiento1, fecha_vencimiento2,
+    estado, saldo_anterior, anulada
+)
+VALUES (
+    5, 0, 'C', '40606060', 'Consumidor Final', '00000000000201',
+    55000.00,
+    GETDATE(), DATEADD(DAY, -15, GETDATE()), DATEADD(DAY, -10, GETDATE()),
+    'Emitida', 0.00, 0
+);
+
 /*____________________________________________________________________
   ____________________ PRUEBAS GestionarRecargo ______________________
   ____________________________________________________________________*/
@@ -47,6 +71,7 @@ EXEC cobranzas.AplicarRecargoVencimiento
     @descripcion_recargo = 'Mora'
 -- Resultado esperado: Inserta correctamente las moras a las facturas correspondientes.
 SELECT * FROM cobranzas.Mora;
+select saldo from socios.Socio where id_socio = 5
 GO
 
 /* ❌ PRUEBA 2: Recargo inválido */
@@ -65,8 +90,9 @@ EXEC cobranzas.AplicarBloqueoVencimiento
 -- Resultado esperado: Socios modificados, campo 'activo' = 0.
 SELECT * FROM administracion.Socio;
 GO
-
-
+select nombre, activo from socios.Socio where dni = 40606060
+update socios.Socio
+set activo=1
 /*____________________________________________________________________
   ________________ PRUEBAS AplicarRecargoVencimiento _________________
   ____________________________________________________________________*/
@@ -251,8 +277,7 @@ SELECT id_socio, dni, nombre, activo
 FROM socios.Socio;
 
 --RESET MANUAL
-update socios.Socio
-set activo=1
+
 
 select dni_receptor from facturacion.Factura  where facturacion.Factura.fecha_vencimiento2 < GETDATE()
 
