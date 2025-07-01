@@ -40,27 +40,6 @@ VALUES (
     'Emitida', 0.00, 0
 );
 
-/*____________________________________________________________________
-  ____________________ PRUEBAS GestionarRecargo ______________________
-  ____________________________________________________________________*/
-
-/* ✅ PRUEBA 1: Insertar un nuevo medio de pago */
-EXEC cobranzas.GestionarRecargo 
-    @porcentaje = 0.1,
-	@descripcion = 'Mora',
-	@vigencia = '2025-10-01',
-    @operacion = 'Insertar';
--- Resultado esperado: Inserta correctamente el recargo.
-SELECT * FROM facturacion.Recargo;
-GO
-
-/* ❌ PRUEBA 2: Recargo inválido */
-EXEC cobranzas.GestionarRecargo 
-    @porcentaje = NULL,
-	@descripcion = 'Mora',
-	@vigencia = NULL,
-    @operacion = 'Insertar';
--- Resultado esperado: 'La vigencia del recargo ingresada es inválida.'
 
 /*____________________________________________________________________
   ________________ PRUEBAS AplicarRecargoVencimiento _________________
@@ -68,17 +47,9 @@ EXEC cobranzas.GestionarRecargo
 
 /* ✅ PRUEBA 1: Aplicar recargo a los socios con facturas vencidas */
 EXEC cobranzas.AplicarRecargoVencimiento 
-    @descripcion_recargo = 'Mora'
 -- Resultado esperado: Inserta correctamente las moras a las facturas correspondientes.
 SELECT * FROM cobranzas.Mora;
 select saldo from socios.Socio where id_socio = 5
-GO
-
-/* ❌ PRUEBA 2: Recargo inválido */
-EXEC cobranzas.AplicarRecargoVencimiento 
-    @descripcion_recargo = 'Morosidad'
--- Resultado esperado: 'No se encontró un recargo válido con la descripción proporcionada.'.
-SELECT * FROM cobranzas.Mora;
 GO
 
 /*____________________________________________________________________
@@ -88,7 +59,7 @@ GO
 /* ✅ PRUEBA 1: Bloquear socios con facturas vencidas a la 2da fecha. */
 EXEC cobranzas.AplicarBloqueoVencimiento
 -- Resultado esperado: Socios modificados, campo 'activo' = 0.
-SELECT * FROM administracion.Socio;
+SELECT * FROM socios.Socio;
 GO
 select nombre, activo from socios.Socio where dni = 40606060
 update socios.Socio
