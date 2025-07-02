@@ -19,6 +19,7 @@ GO
 -- =============================
 
 -- Vistas que usan administracion
+DROP VIEW IF EXISTS facturacion.vwFacturaTotalGrupoFamiliar
 DROP VIEW IF EXISTS administracion.vwSociosConCategoria;
 DROP VIEW IF EXISTS administracion.vwSociosConObraSocial;
 
@@ -28,6 +29,7 @@ DROP PROCEDURE IF EXISTS cobranzas.AplicarBloqueoVencimiento;
 /* =============================
    ELIMINAR PROCEDIMIENTOS
    ============================= */
+DROP PROCEDURE IF EXISTS facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar
 DROP PROCEDURE IF EXISTS actividades.GestionarInscriptoPiletaVerano
 DROP PROCEDURE IF EXISTS actividades.GestionarActividad
 DROP PROCEDURE IF EXISTS actividades.GestionarActividadExtra
@@ -199,7 +201,7 @@ CREATE TABLE socios.Socio (
     nombre VARCHAR(50),
     apellido VARCHAR(50),
     dni CHAR(8) CONSTRAINT CHK_Socio_DNI CHECK (dni NOT LIKE '%[^0-9]%' AND LEN(dni) = 8),
-	nro_socio VARCHAR(50),
+	nro_socio VARCHAR(50) UNIQUE,
     email VARCHAR(100) CONSTRAINT CHK_Socio_Email CHECK (email IS NULL OR email LIKE '%@%.%'),
     fecha_nacimiento DATE,
     tel_contacto VARCHAR(20),
@@ -365,7 +367,7 @@ CREATE TABLE facturacion.CuotaMensual (
     id_cuota_mensual INT IDENTITY PRIMARY KEY,
 	id_inscripto_categoria INT,
 	monto_membresia DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CuotaMensual_CostoMembresia CHECK (monto_membresia > 0),
-	monto_actividad DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CuotaMensual_CostoActividad CHECK (monto_actividad > 0),
+	monto_actividad DECIMAL(10, 2) NOT NULL,
     fecha DATE NOT NULL
 );
 

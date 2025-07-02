@@ -34,6 +34,18 @@ GO
    INSERTAR MEDIOS DE PAGO
 =========================================================== */
 EXEC cobranzas.GestionarMedioDePago 'Tarjeta de débito', 'Insertar';
+GO
+EXEC cobranzas.GestionarMedioDePago 'Visa', 'Insertar';
+GO
+EXEC cobranzas.GestionarMedioDePago 'MasterCard', 'Insertar';
+GO
+EXEC cobranzas.GestionarMedioDePago 'Tarjeta Naranja', 'Insertar';
+GO
+EXEC cobranzas.GestionarMedioDePago 'Pago Fácil', 'Insertar'
+GO
+EXEC cobranzas.GestionarMedioDePago 'Rapipago', 'Insertar';
+GO
+EXEC cobranzas.GestionarMedioDePago 'Transferencia Mercado Pago', 'Insertar';
 
 /* ===========================================================
    VERIFICACIÓN: medios cargados
@@ -44,9 +56,9 @@ SELECT
 FROM cobranzas.MedioDePago;
 GO
 
-EXEC cobranzas.RegistrarCobranza 11, '2025-01-30', 200000, 1;
-EXEC cobranzas.RegistrarCobranza 12, '2025-01-30', 200000, 1;
-EXEC cobranzas.RegistrarCobranza 14, '2025-01-28', 2000, 1;
+EXEC cobranzas.RegistrarCobranza 11, '2025-01-30', 200000, 'Visa';
+EXEC cobranzas.RegistrarCobranza 12, '2025-01-30', 200000, 'Visa';
+EXEC cobranzas.RegistrarCobranza 14, '2025-01-28', 2000, 'Mastercard';
 
 SELECT *
 FROM cobranzas.Pago

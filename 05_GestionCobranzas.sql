@@ -83,97 +83,118 @@ GO
 IF OBJECT_ID('cobranzas.RegistrarCobranza', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.RegistrarCobranza;
 GO
-
+ 
 CREATE PROCEDURE cobranzas.RegistrarCobranza
     @id_factura INT,
     @fecha_pago DATE,
     @monto DECIMAL(10,2),
-    @id_medio_pago INT
+    @medio_de_pago VARCHAR(50)
 AS
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
     SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
-
+ 
     BEGIN TRY
-
-		BEGIN TRAN;
-
-		-- Validar existencia de factura
+        BEGIN TRAN;
+ 
+        DECLARE @id_medio_pago INT;
+        DECLARE @id_pago INT;
+        DECLARE @monto_factura DECIMAL(10,2);
+        DECLARE @id_socio_pago INT;
+ 
+        -- Validar existencia de factura
         IF NOT EXISTS (SELECT 1 FROM facturacion.Factura WHERE id_factura = @id_factura)
         BEGIN
             RAISERROR('No se encontró la factura especificada.', 16, 1);
-			ROLLBACK TRAN;
+            ROLLBACK TRAN;
             RETURN;
         END
-
-		-- Validar monto ingresado
-        IF NOT EXISTS (SELECT id_factura FROM facturacion.Factura WHERE monto_total <= @monto)
+ 
+        -- Validar monto ingresado
+        IF NOT EXISTS (SELECT 1 FROM facturacion.Factura WHERE id_factura = @id_factura AND monto_total <= @monto)
         BEGIN
             RAISERROR('Monto de pago insuficiente para la factura.', 16, 1);
-			ROLLBACK TRAN;
+            ROLLBACK TRAN;
             RETURN;
         END
-
+ 
+        -- Validar medio de pago
+        SET @id_medio_pago = (SELECT id_medio_pago FROM cobranzas.MedioDePago WHERE nombre = @medio_de_pago);
+        IF @id_medio_pago IS NULL
+        BEGIN
+            RAISERROR('Medio de pago no existente.', 16, 1);
+            ROLLBACK TRAN;
+            RETURN;
+        END
+ 
+        IF NOT EXISTS (
+            SELECT 1 FROM cobranzas.MedioDePago
+            WHERE id_medio_pago = @id_medio_pago
+              AND nombre IN ('Visa', 'MasterCard', 'Tarjeta Naranja', 'Pago Fácil', 'Rapipago', 'Transferencia Mercado Pago')
+        )
+        BEGIN
+            RAISERROR('El medio de pago no está permitido.', 16, 1);
+            ROLLBACK TRAN;
+            RETURN;
+        END
+ 
         -- Validar si ya fue pagada
         IF EXISTS (SELECT 1 FROM cobranzas.Pago WHERE id_factura = @id_factura)
         BEGIN
             RAISERROR('La factura ya fue pagada.', 16, 1);
-			ROLLBACK TRAN;
+            ROLLBACK TRAN;
             RETURN;
         END
-
-        -- Validar medio de pago permitido
-        IF NOT EXISTS (SELECT 1 FROM cobranzas.MedioDePago WHERE id_medio_pago = @id_medio_pago)
-        BEGIN
-            RAISERROR('Medio de pago no permitido.', 16, 1);
-			ROLLBACK TRAN;
-            RETURN;
-        END
-
+ 
         -- Insertar el pago
         INSERT INTO cobranzas.Pago (id_factura, nro_transaccion, fecha_emision, id_medio, monto, estado)
-        VALUES (@id_factura, RIGHT('00000000000000000000' + CAST(ABS(CHECKSUM(NEWID())) AS VARCHAR), 20), @fecha_pago, @id_medio_pago, @monto, 'Aprobado');
-
-        DECLARE @id_pago INT = SCOPE_IDENTITY();
-
-        -- Marcar factura como paga
+        VALUES (
+            @id_factura,
+            RIGHT('00000000000000000000' + CAST(ABS(CHECKSUM(NEWID())) AS VARCHAR), 20),
+            @fecha_pago,
+            @id_medio_pago,
+            @monto,
+            'Aprobado'
+        );
+ 
+        SET @id_pago = SCOPE_IDENTITY();
+ 
+        -- Obtener monto y socio responsable
+        SELECT 
+            @monto_factura = F.monto_total,
+            @id_socio_pago = COALESCE(SR.id_socio, S1.id_socio, S2.id_socio, S3.id_socio)
+        FROM facturacion.Factura F
+        LEFT JOIN facturacion.CuotaMensual CM ON CM.id_cuota_mensual = F.id_cuota_mensual
+        LEFT JOIN actividades.InscriptoCategoriaSocio ICS ON ICS.id_inscripto_categoria = CM.id_inscripto_categoria
+        LEFT JOIN socios.Socio S1 ON S1.id_socio = ICS.id_socio
+        LEFT JOIN socios.GrupoFamiliarSocio GFS ON GFS.id_socio = S1.id_socio
+        LEFT JOIN socios.GrupoFamiliar GF ON GF.id_grupo = GFS.id_grupo
+        LEFT JOIN socios.Socio SR ON SR.id_socio = GF.id_socio_rp
+        LEFT JOIN facturacion.CargoActividadExtra CAE ON CAE.id_cargo_extra = F.id_cargo_actividad_extra
+        LEFT JOIN actividades.InscriptoColoniaVerano IC ON IC.id_inscripto_colonia = CAE.id_inscripto_colonia
+        LEFT JOIN socios.Socio S2 ON S2.id_socio = IC.id_socio
+        LEFT JOIN socios.Socio S3 ON S3.dni = F.dni_receptor
+        WHERE F.id_factura = @id_factura;
+ 
+        -- Si hay excedente, registrar pago a cuenta y actualizar saldo
+        IF @monto > @monto_factura AND @id_socio_pago IS NOT NULL
+        BEGIN
+            DECLARE @excedente DECIMAL(10,2) = @monto - @monto_factura;
+ 
+            INSERT INTO cobranzas.PagoACuenta (id_pago, id_socio, fecha, monto, motivo)
+            VALUES (@id_pago, @id_socio_pago, @fecha_pago, @excedente, 'Excedente de pago.');
+ 
+            UPDATE socios.Socio
+            SET saldo += @excedente
+            WHERE id_socio = @id_socio_pago;
+        END
+ 
+        -- Marcar factura como pagada
         UPDATE facturacion.Factura
         SET estado = 'Paga'
         WHERE id_factura = @id_factura;
-
-        DECLARE 
-            @monto_factura DECIMAL(10,2),
-            @id_socio INT;
-
-        -- Obtener monto total y socio si aplica
-        SELECT 
-            @monto_factura = F.monto_total,
-            @id_socio = COALESCE(S1.id_socio, S2.id_socio)
-        FROM facturacion.Factura F
-        LEFT JOIN facturacion.CuotaMensual CM ON F.id_cuota_mensual = CM.id_cuota_mensual
-        LEFT JOIN actividades.InscriptoCategoriaSocio ICS ON ICS.id_inscripto_categoria = CM.id_inscripto_categoria
-        LEFT JOIN socios.Socio S1 ON S1.id_socio = ICS.id_socio
-        LEFT JOIN facturacion.CargoActividadExtra CAE ON F.id_cargo_actividad_extra = CAE.id_cargo_extra
-        LEFT JOIN actividades.InscriptoColoniaVerano IC ON CAE.id_inscripto_colonia = IC.id_inscripto_colonia
-        LEFT JOIN socios.Socio S2 ON S2.id_socio = IC.id_socio
-        WHERE F.id_factura = @id_factura;
-
-        -- Si hay excedente y es socio → registrar en PagoACuenta y actualizar saldo
-		--¿Y SI EL QUE ESTA PAGANDO ES UN TUTOR, COMO SABE A DONDE TIENE QUE GUARDAR EL EXCEDENTE?
-		--¿Y SI EL QUE ESTA PAGANDO ES UN SOCIO RESPONSABLE? --> se guarda en su saldo, funciona
-        IF @monto > @monto_factura AND @id_socio IS NOT NULL
-        BEGIN
-            DECLARE @excedente DECIMAL(10,2) = @monto - @monto_factura;
-
-            INSERT INTO cobranzas.PagoACuenta (id_pago, id_socio, fecha, monto)
-            VALUES (@id_pago, @id_socio, @fecha_pago, @excedente);
-
-            UPDATE socios.Socio
-            SET saldo += @excedente
-            WHERE id_socio = @id_socio;
-        END
-
+ 
         COMMIT;
     END TRY
     BEGIN CATCH
@@ -182,7 +203,6 @@ BEGIN
     END CATCH
 END;
 GO
-
 
 /*____________________________________________________________________
   ______________________ GenerarReintegroPorLluvia ___________________

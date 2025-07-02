@@ -25,7 +25,7 @@ acuerdo a lo que decidan) e indicar el RPO.
 USE COM2900G13
 GO
 
--- Eliminar columnas cifradas (ojo: perderás los datos cifrados)
+-- Eliminar columnas cifradas
 
 IF EXISTS (
     SELECT * FROM sys.columns 

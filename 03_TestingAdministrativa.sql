@@ -27,7 +27,7 @@ EXEC socios.GestionarCategoriaSocio
     @nombre_categoria  = 'Menor',
     @edad_minima = 0,
     @edad_maxima = 12,
-    @costo = 1000.00,
+    @costo = 10000.00,
     @vigencia = '2025-12-31',
     @operacion = 'Insertar';
 -- Resultado esperado: Categoría insertada correctamente
@@ -40,7 +40,7 @@ EXEC socios.GestionarCategoriaSocio
     @nombre_categoria  = 'Cadete',
     @edad_minima = 13,
     @edad_maxima = 17,
-    @costo = 1500.00,
+    @costo = 15000.00,
     @vigencia = '2025-12-31',
     @operacion = 'Insertar';
 -- Resultado esperado: Categoría insertada correctamente
@@ -53,7 +53,7 @@ EXEC socios.GestionarCategoriaSocio
     @nombre_categoria  = 'Mayor',
     @edad_minima = 18,
     @edad_maxima = 99,
-    @costo = 2000.00,
+    @costo = 25000.00,
     @vigencia = '2025-12-31',
     @operacion = 'Insertar';
 -- Resultado esperado: Categoría insertada correctamente
@@ -141,11 +141,10 @@ GO
 
 -- ✅ PRUEBA 1: Alta de socio mayor (individual)
 EXEC socios.GestionarSocio
-    @nombre = 'Carlos',
-    @apellido = 'Gómez',
-    @dni = '30000000',
-    @nro_socio = 'SN-4001',
-    @email = 'carlos.gomez@email.com',
+    @nombre = 'Valeria',
+    @apellido = 'De Rosa',
+    @dni = '10000000',
+    @email = 'valeria.derosa@email.com',
     @fecha_nacimiento = '1990-05-10',
     @telefono = '1111222233',
     @telefono_emergencia = '1133445566',
@@ -196,10 +195,9 @@ GO
 
 -- ✅ PRUEBA 3: Alta de menor a grupo existente (usando DNI de Julián)
 EXEC socios.GestionarSocio
-    @nombre = 'Martina',
+    @nombre = 'Valeria1',
     @apellido = 'Pérez',
-    @dni = '31111113',
-    @nro_socio = 'SN-4003',
+    @dni = '31111223',
     @email = 'martina.perez@email.com',
     @fecha_nacimiento = '2010-07-01',
     @telefono = '3344556677',
@@ -207,7 +205,37 @@ EXEC socios.GestionarSocio
     @domicilio = 'Calle del Sol 222',
     @obra_social = 'Galeno',
     @nro_os = 'G456',
-    @dni_integrante_grupo = '31111111',
+    @dni_integrante_grupo = '10000000',
+    @operacion = 'Insertar';
+GO
+
+EXEC socios.GestionarSocio
+    @nombre = 'Valeria2',
+    @apellido = 'Pérez',
+    @dni = '31111224',
+    @email = 'martina.perez@email.com',
+    @fecha_nacimiento = '2015-07-01',
+    @telefono = '3344556677',
+    @telefono_emergencia = '7788990011',
+    @domicilio = 'Calle del Sol 222',
+    @obra_social = 'Galeno',
+    @nro_os = 'G456',
+    @dni_integrante_grupo = '10000000',
+    @operacion = 'Insertar';
+GO
+
+EXEC socios.GestionarSocio
+    @nombre = 'Valeria3',
+    @apellido = 'Pérez',
+    @dni = '31111225',
+    @email = 'martina.perez@email.com',
+    @fecha_nacimiento = '2010-07-01',
+    @telefono = '3344556677',
+    @telefono_emergencia = '7788990011',
+    @domicilio = 'Calle del Sol 222',
+    @obra_social = 'Galeno',
+    @nro_os = 'G456',
+    @dni_integrante_grupo = '10000000',
     @operacion = 'Insertar';
 GO
 -- Verificacion de las tablas

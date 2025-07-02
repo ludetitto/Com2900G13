@@ -36,12 +36,26 @@ GO
 SELECT *
 FROM cobranzas.Mora;
 
+SELECT * FROM socios.Socio
+
 /* =====================================================
    Aplicar bloqueo por 2do vencimiento de factura
    ======================================================== */
 EXEC cobranzas.AplicarBloqueoVencimiento
 GO
 
+EXEC facturacion.GenerarCuotasMensualesPorFecha '2025-03-30';
+GO
+
+EXEC facturacion.GenerarFacturasMensualesPorFecha '2025-03-30';
+GO
+/*
+EXEC facturacion.GenerarCuotasMensualesPorFecha '2025-04-30';
+GO
+
+EXEC facturacion.GenerarFacturasMensualesPorFecha '2025-04-30';
+GO
+*/
 -- facturacion.Factura
 SELECT *
 FROM facturacion.Factura;
@@ -52,3 +66,6 @@ FROM facturacion.DetalleFactura
 -- administracion.vwSociosConCategoria
 SELECT *
 FROM socios.Socio
+
+SELECT *
+FROM cobranzas.Mora;

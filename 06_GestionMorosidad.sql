@@ -32,7 +32,7 @@ BEGIN
     SELECT 
         COALESCE(S.id_socio, ICV.id_socio, IPV.id_socio, RS.id_socio),
         F.id_factura,
-        GETDATE(),
+        DATEADD(DAY, 1, F.fecha_vencimiento1),
         'Recargo por vencimiento de cuota mensual o actividad extra',
         0,
         F.monto_total * @recargo
@@ -63,7 +63,8 @@ BEGIN
     FROM socios.Socio s
     INNER JOIN (
         SELECT id_socio, SUM(monto) AS total_mora
-        FROM cobranzas.Mora
+        FROM cobranzas.Mora M
+		INNER JOIN facturacion.Factura F ON F.id_factura = M.id_factura
         WHERE CAST(fecha_registro AS DATE) = CAST(GETDATE() AS DATE)
         GROUP BY id_socio
     ) t ON t.id_socio = s.id_socio;

@@ -273,9 +273,11 @@ BEGIN
 
     -- Buscar ID de socio activo
     DECLARE @id_socio INT = (
-        SELECT TOP 1 id_socio
-        FROM socios.Socio
-        WHERE dni = @dni_socio AND activo = 1 AND eliminado = 0
+        SELECT TOP 1 S.id_socio
+        FROM socios.Socio S
+		INNER JOIN actividades.InscriptoCategoriaSocio ICS ON ICS.id_socio = S.id_socio
+		INNER JOIN socios.CategoriaSocio CS ON CS.id_categoria = ICS.id_categoria
+        WHERE S.dni = @dni_socio AND S.activo = 1 AND eliminado = 0 AND CS.nombre = @nombre_categoria
     );
 
     -- Buscar ID de clase correspondiente
@@ -337,8 +339,8 @@ BEGIN
         IF @fecha_inscripcion IS NULL
             SET @fecha_inscripcion = GETDATE();
 
-        INSERT INTO actividades.InscriptoClase (id_socio, id_clase, fecha_inscripcion)
-        VALUES (@id_socio, @id_clase, @fecha_inscripcion);
+        INSERT INTO actividades.InscriptoClase (id_socio, id_clase, fecha_inscripcion, activa)
+        VALUES (@id_socio, @id_clase, @fecha_inscripcion, 1);
         RETURN;
     END
 END;
@@ -399,7 +401,7 @@ BEGIN
         SELECT TOP 1 id_inscripto_clase 
 		FROM actividades.InscriptoClase IC
 		INNER JOIN actividades.Clase C ON C.id_clase = IC.id_clase
-		WHERE C.id_clase = @id_clase AND IC.id_socio = @id_socio
+		WHERE IC.id_clase = @id_clase AND IC.id_socio = @id_socio
     );
 
 	-- Buscar presentismo existente
@@ -472,13 +474,7 @@ BEGIN
             SET @estado = 'P';
 
         -- Validación: evitar duplicados exactos
-        IF EXISTS (
-            SELECT 1
-            FROM actividades.presentismoClase PC
-			INNER JOIN actividades.Clase C ON C.id_clase = PC.id_clase
-			INNER JOIN actividades.InscriptoClase IC ON IC.id_clase = C.id_clase
-			WHERE C.id_clase = @id_clase AND IC.id_inscripto_clase = @id_inscripcion AND PC.fecha = @fecha
-        )
+        IF @id_presentismo IS NOT NULL
         BEGIN
             RAISERROR('Ya existe un presentismo registrado para esa clase, socio y fecha.', 16, 1);
             RETURN;
@@ -1464,14 +1460,13 @@ BEGIN
     INNER JOIN actividades.Clase C ON C.id_clase = IC.id_clase
     INNER JOIN actividades.Actividad A ON A.id_actividad = C.id_actividad
     WHERE IC.id_socio = @id_socio-- Buscando las clases a las cuales un socio está inscripto
-      AND IC.fecha_inscripcion < @fecha
-      AND NOT EXISTS (
+      AND IC.fecha_inscripcion <= @fecha
+	  AND NOT EXISTS (
 			SELECT 1
 			FROM facturacion.CargoClases CC
 			WHERE CC.id_inscripto_clase = IC.id_inscripto_clase
-			  AND CC.fecha >= DATEFROMPARTS(YEAR(@fecha), MONTH(@fecha), 1)
-			  AND CC.fecha < DATEADD(MONTH, 1, DATEFROMPARTS(YEAR(@fecha), MONTH(@fecha), 1))
-		)
+			  AND CC.fecha = @fecha
+		);
 
 END;
 GO
@@ -1579,7 +1574,6 @@ BEGIN
 			descuento_actividad DECIMAL(10,2)
 		);
 
-		-- Poblar la tabla temporal con datos
 		INSERT INTO #FacturasGeneradas (
 			id_cuota_mensual, id_socio, dni_socio, fecha_nacimiento,
 			monto_membresia, monto_actividad, saldo,
@@ -1656,7 +1650,7 @@ BEGIN
 			F.dni_facturar,
 			'Consumidor Final',
 			RIGHT('00000000000000' + CAST(ABS(CHECKSUM(NEWID())) AS VARCHAR), 14),
-			F.monto_membresia + F.monto_actividad,
+			F.monto_membresia + F.monto_actividad - F.descuento_actividad - F.descuento_membresia,
 			@ultimo_dia_mes,
 			DATEADD(DAY, 5, @ultimo_dia_mes),
 			DATEADD(DAY, 10, @ultimo_dia_mes),
@@ -1715,7 +1709,6 @@ BEGIN
 		JOIN #FacturasGeneradas FG ON FG.id_cuota_mensual = FA.id_cuota_mensual
 		WHERE FG.descuento_actividad > 0;
 
-		-- Insertar detalles por mora del mes
 		INSERT INTO facturacion.DetalleFactura (id_factura, descripcion, monto, tipo_item, cantidad)
 		SELECT 
 			FA.id_factura,
@@ -1723,21 +1716,177 @@ BEGIN
 			M.monto,
 			'Mora',
 			1
-		FROM facturacion.Factura FA
-		INNER JOIN #FacturasGeneradas FG ON FG.id_cuota_mensual = FA.id_cuota_mensual
-		INNER JOIN cobranzas.Mora M ON M.id_socio = FG.id_socio
-		WHERE M.fecha_registro BETWEEN @primer_dia_mes AND @ultimo_dia_mes;
+		FROM cobranzas.Mora M
+		LEFT JOIN facturacion.Factura FA ON M.id_factura = FA.id_factura
+		LEFT JOIN #FacturasGeneradas FG ON FG.id_cuota_mensual = FA.id_cuota_mensual
+		WHERE M.facturada = 0;
 
 		-- Marcar moras como facturadas
 		UPDATE M
 		SET M.facturada = 1
 		FROM cobranzas.Mora M
-		INNER JOIN #FacturasGeneradas FG ON FG.id_socio = M.id_socio
-		WHERE M.fecha_registro BETWEEN @primer_dia_mes AND @ultimo_dia_mes
-		  AND M.facturada = 0;
+		WHERE M.facturada = 0;
 
 		DROP TABLE #FacturasGeneradas;
 		COMMIT;
+    END TRY
+    BEGIN CATCH
+        ROLLBACK;
+        DECLARE @msg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR(@msg, 16, 1);
+    END CATCH
+END;
+GO
+
+/*____________________________________________________________________
+  __________ GenerarFacturasMensualesPorFechaGrupoFamiliar ___________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar', 'P') IS NOT NULL
+    DROP PROCEDURE facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar;
+GO
+ 
+CREATE PROCEDURE facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar
+    @fecha DATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+ 
+    BEGIN TRAN;
+    BEGIN TRY
+ 
+        IF @fecha IS NULL
+        BEGIN
+            RAISERROR('La fecha ingresada es inválida.', 16, 1);
+            ROLLBACK TRAN;
+            RETURN;
+        END
+ 
+        DECLARE @ultimo_dia_mes DATE = EOMONTH(@fecha);
+        DECLARE @primer_dia_mes DATE = DATEFROMPARTS(YEAR(@fecha), MONTH(@fecha), 1);
+ 
+        CREATE TABLE #DatosGrupoFamiliar (
+            id_grupo INT,
+            dni_facturar VARCHAR(13),
+            monto_membresia_total DECIMAL(10,2),
+            monto_actividad_total DECIMAL(10,2),
+            descuento_membresia_total DECIMAL(10,2),
+            descuento_actividad_total DECIMAL(10,2),
+            saldo_grupo DECIMAL(10,2)
+        );
+ 
+        -- Subconsulta para calcular la cantidad de actividades distintas por socio
+		;WITH ActividadesPorSocio AS (
+			SELECT IC.id_socio, COUNT(DISTINCT C.id_actividad) AS cantidad_actividades
+			FROM actividades.InscriptoClase IC
+			INNER JOIN actividades.Clase C ON C.id_clase = IC.id_clase
+			INNER JOIN actividades.Actividad A ON A.id_actividad = C.id_actividad
+			INNER JOIN facturacion.CargoClases CC ON CC.id_inscripto_clase = IC.id_inscripto_clase
+			WHERE CC.fecha BETWEEN @primer_dia_mes AND @ultimo_dia_mes
+			GROUP BY IC.id_socio
+		)
+
+		INSERT INTO #DatosGrupoFamiliar (
+			id_grupo, dni_facturar, monto_membresia_total, monto_actividad_total,
+			descuento_membresia_total, descuento_actividad_total, saldo_grupo
+		)
+		SELECT 
+			GF.id_grupo,
+			COALESCE(SR.dni, T.dni, MIN(S.dni)) AS dni_facturar,
+			SUM(CM.monto_membresia) AS monto_membresia_total,
+			SUM(CM.monto_actividad) AS monto_actividad_total,
+			CASE 
+				WHEN COUNT(S.id_socio) > 1 THEN ROUND(SUM(CM.monto_membresia) * 0.15, 2)
+				ELSE 0
+			END AS descuento_membresia_total,
+			SUM(CASE 
+				WHEN APS.cantidad_actividades > 1 THEN ROUND(CM.monto_actividad * 0.10, 2)
+				ELSE 0
+			END) AS descuento_actividad_total,
+			SUM(S.saldo) AS saldo_grupo
+		FROM socios.GrupoFamiliar GF
+		JOIN socios.GrupoFamiliarSocio GFS ON GFS.id_grupo = GF.id_grupo
+		JOIN socios.Socio S ON S.id_socio = GFS.id_socio AND S.activo = 1 AND S.eliminado = 0
+		JOIN actividades.InscriptoCategoriaSocio ICS ON ICS.id_socio = S.id_socio
+		JOIN facturacion.CuotaMensual CM ON CM.id_inscripto_categoria = ICS.id_inscripto_categoria AND CM.fecha = @ultimo_dia_mes
+		LEFT JOIN socios.Socio SR ON SR.id_socio = GF.id_socio_rp
+		LEFT JOIN socios.Tutor T ON T.id_grupo = GF.id_grupo
+		LEFT JOIN ActividadesPorSocio APS ON APS.id_socio = S.id_socio
+		GROUP BY GF.id_grupo, SR.dni, T.dni;
+
+ 
+        INSERT INTO facturacion.Factura (
+            id_emisor, id_cuota_mensual, nro_comprobante, tipo_factura,
+            dni_receptor, condicion_iva_receptor, cae,
+            monto_total, fecha_emision, fecha_vencimiento1, fecha_vencimiento2,
+            estado, saldo_anterior
+        )
+        SELECT
+            (SELECT TOP 1 id_emisor FROM facturacion.EmisorFactura ORDER BY id_emisor DESC),
+            NULL,
+            RIGHT('00000000' + CAST(ABS(CHECKSUM(NEWID())) AS VARCHAR), 8),
+            'C',
+            G.dni_facturar,
+            'Consumidor Final',
+            RIGHT('00000000000000' + CAST(ABS(CHECKSUM(NEWID())) AS VARCHAR), 14),
+            G.monto_membresia_total + G.monto_actividad_total - G.descuento_membresia_total - G.descuento_actividad_total,
+            @ultimo_dia_mes,
+            DATEADD(DAY, 5, @ultimo_dia_mes),
+            DATEADD(DAY, 10, @ultimo_dia_mes),
+            'Emitida',
+            G.saldo_grupo
+        FROM #DatosGrupoFamiliar G;
+ 
+        -- Detalles
+        INSERT INTO facturacion.DetalleFactura (id_factura, descripcion, monto, tipo_item, cantidad)
+        SELECT F.id_factura, 'Membresía mensual (grupo)', G.monto_membresia_total, 'Membresía', 1
+        FROM facturacion.Factura F
+        JOIN #DatosGrupoFamiliar G ON F.dni_receptor = G.dni_facturar
+        WHERE G.monto_membresia_total > 0;
+ 
+        INSERT INTO facturacion.DetalleFactura (id_factura, descripcion, monto, tipo_item, cantidad)
+        SELECT F.id_factura, 'Actividades mensuales (grupo)', G.monto_actividad_total, 'Actividad', 1
+        FROM facturacion.Factura F
+        JOIN #DatosGrupoFamiliar G ON F.dni_receptor = G.dni_facturar
+        WHERE G.monto_actividad_total > 0;
+ 
+        INSERT INTO facturacion.DetalleFactura (id_factura, descripcion, monto, tipo_item, cantidad)
+        SELECT F.id_factura, 'Descuento por grupo familiar (-15%)', G.descuento_membresia_total, 'Descuento', 1
+        FROM facturacion.Factura F
+        JOIN #DatosGrupoFamiliar G ON F.dni_receptor = G.dni_facturar
+        WHERE G.descuento_membresia_total > 0;
+ 
+        INSERT INTO facturacion.DetalleFactura (id_factura, descripcion, monto, tipo_item, cantidad)
+        SELECT F.id_factura, 'Descuento por múltiples actividades (-10%)', G.descuento_actividad_total, 'Descuento', 1
+        FROM facturacion.Factura F
+        JOIN #DatosGrupoFamiliar G ON F.dni_receptor = G.dni_facturar
+        WHERE G.descuento_actividad_total > 0;
+ 
+        INSERT INTO facturacion.DetalleFactura (id_factura, descripcion, monto, tipo_item, cantidad)
+        SELECT 
+            F.id_factura,
+            'Recargo por mora',
+            SUM(M.monto),
+            'Mora',
+            1
+        FROM facturacion.Factura F
+        JOIN #DatosGrupoFamiliar G ON F.dni_receptor = G.dni_facturar
+        JOIN socios.GrupoFamiliar GF ON GF.id_grupo = G.id_grupo
+        JOIN socios.GrupoFamiliarSocio GFS ON GFS.id_grupo = GF.id_grupo
+        JOIN cobranzas.Mora M ON M.id_socio = GFS.id_socio AND M.facturada = 0
+        WHERE M.fecha_registro BETWEEN @primer_dia_mes AND @ultimo_dia_mes
+        GROUP BY F.id_factura;
+ 
+        UPDATE M
+        SET M.facturada = 1
+        FROM cobranzas.Mora M
+        WHERE M.facturada = 0
+        AND M.fecha_registro BETWEEN @primer_dia_mes AND @ultimo_dia_mes;
+ 
+        DROP TABLE #DatosGrupoFamiliar;
+        COMMIT;
+ 
     END TRY
     BEGIN CATCH
         ROLLBACK;
@@ -1803,7 +1952,7 @@ BEGIN
 END;
 GO
 
--- Procedimiento: GenerarFacturasActividadesExtraPorFecha
+-- Procedimiento: sActividadesExtraPorFecha
 -- Transaccional con READ COMMITTED
 
 IF OBJECT_ID('facturacion.GenerarFacturasActividadesExtraPorFecha', 'P') IS NOT NULL
@@ -1877,11 +2026,14 @@ BEGIN
 				WHEN IP.id_invitado IS NOT NULL THEN I.dni     -- DNI invitado cuando corresponda
 				ELSE COALESCE(SR.dni, T.dni, S.dni)            -- Sino socio responsable o tutor
 			END AS dni_receptor,
-			S.saldo
+			CASE
+				WHEN IP.id_invitado IS NOT NULL THEN 0
+				ELSE S.saldo
+			END AS saldo
 		FROM facturacion.CargoActividadExtra CAE
 		JOIN actividades.InscriptoPiletaVerano IP ON CAE.id_inscripto_pileta = IP.id_inscripto_pileta
 		JOIN socios.Socio S ON S.id_socio = IP.id_socio
-		LEFT JOIN socios.Invitado I ON I.id_invitado = IP.id_invitado    -- <-- agregá este join
+		LEFT JOIN socios.Invitado I ON I.id_invitado = IP.id_invitado 
 		LEFT JOIN socios.GrupoFamiliarSocio GFS ON GFS.id_socio = S.id_socio
 		LEFT JOIN socios.GrupoFamiliar GF ON GF.id_grupo = GFS.id_grupo
 		LEFT JOIN socios.Socio SR ON SR.id_socio = GF.id_socio_rp
@@ -1992,3 +2144,24 @@ LEFT JOIN socios.GrupoFamiliar GF ON GF.id_grupo = GFS.id_grupo
 LEFT JOIN socios.Socio RS ON RS.id_socio = GF.id_socio_rp
 LEFT JOIN socios.Tutor T ON T.id_grupo = GF.id_grupo
 INNER JOIN facturacion.DetalleFactura DF ON DF.id_factura = F.id_factura;
+GO
+
+CREATE OR ALTER VIEW facturacion.vwFacturaTotalGrupoFamiliar
+AS
+SELECT 
+    RP.dni AS dni_responsable,
+    RP.apellido + ', ' + RP.nombre AS responsable,
+    F.fecha_emision,
+    SUM(F.monto_total) AS total_facturado_grupo,
+    COUNT(DISTINCT F.id_factura) AS cantidad_facturas,
+    MAX(F.fecha_vencimiento1) AS vencimiento_1,
+    MAX(F.fecha_vencimiento2) AS vencimiento_2
+FROM socios.GrupoFamiliar GF
+INNER JOIN socios.Socio RP ON RP.id_socio = GF.id_socio_rp
+INNER JOIN socios.GrupoFamiliarSocio GFS ON GFS.id_grupo = GF.id_grupo
+INNER JOIN socios.Socio S ON S.id_socio = GFS.id_socio
+INNER JOIN actividades.InscriptoCategoriaSocio ICS ON ICS.id_socio = S.id_socio
+INNER JOIN facturacion.CuotaMensual CM ON CM.id_inscripto_categoria = ICS.id_inscripto_categoria
+INNER JOIN facturacion.Factura F ON F.id_cuota_mensual = CM.id_cuota_mensual
+WHERE S.activo = 1 AND S.eliminado = 0
+GROUP BY RP.dni, RP.apellido, RP.nombre, F.fecha_emision;

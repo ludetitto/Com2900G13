@@ -299,19 +299,134 @@ GO
 -- EMILIA (44444444)
 EXEC facturacion.GenerarCargoClase '44444444', '2025-06-28'; -- Natación - P
 GO
+-- Aca empieza la defensa
 
+EXEC facturacion.GestionarEmisorFactura 'Sol del Norte S.A.', '20-12345678-4', 'Av. Presidente Per�n 1234', 'Argentina', 'La Matanza', '1234', 'Insertar'
 
-EXEC facturacion.GenerarCuotasMensualesPorFecha '2025-06-30';
+EXEC actividades.GestionarInscriptoClase '10000000', 'Futsal',  'Lunes 19:00',  'Mayor', '2025-06-13', 'Insertar';
+EXEC actividades.GestionarInscriptoClase '31111225', 'Taekwondo',  'Miércoles 14:00',  'Cadete', '2025-06-13', 'Insertar';
+EXEC actividades.GestionarInscriptoClase '31111224', 'Futsal',  'Lunes 08:00',  'Menor', '2025-06-13', 'Insertar';
+EXEC actividades.GestionarInscriptoClase '31111223', 'Futsal',  'Lunes 14:00',  'Cadete', '2025-06-13', 'Insertar';
+EXEC actividades.GestionarInscriptoClase '31111223', 'Taekwondo',  'Miércoles 14:00',  'Cadete', '2025-06-13', 'Insertar';
+
+EXEC facturacion.GenerarCargoClase '10000000', '2025-07-13';
+EXEC facturacion.GenerarCargoClase '31111225', '2025-07-13';
+EXEC facturacion.GenerarCargoClase '31111224', '2025-07-13';
+EXEC facturacion.GenerarCargoClase '31111223', '2025-07-13';
+
+DELETE FROM facturacion.DetalleFactura
+DELETE FROM facturacion.Factura
+DELETE FROM facturacion.CuotaMensual
+
+EXEC facturacion.GenerarCuotasMensualesPorFecha '2025-07-21';
 GO
 
-EXEC facturacion.GenerarFacturasMensualesPorFecha '2025-06-30';
+EXEC facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar '2025-07-21';
+
+EXEC facturacion.GenerarFacturasMensualesPorFecha '2025-07-21';
 GO
 
+SELECT * FROM actividades.Clase
+SELECT * FROM facturacion.CargoClases
+SELECT * FROM facturacion.CuotaMensual
+
+SELECT * FROM facturacion.Factura F
+INNER JOIN facturacion.CuotaMensual CM ON CM.id_cuota_mensual = F.id_cuota_mensual
+
+SELECT * FROM facturacion.CargoClases
+SELECT * FROM facturacion.Factura F
+WHERE MONTH(fecha_emision) = MONTH(GETDATE())
+SELECT * FROM facturacion.DetalleFactura DF
+INNER JOIN facturacion.Factura F ON F.id_factura =DF.id_factura
+WHERE MONTH(F.fecha_emision) = MONTH(GETDATE())
+
+SELECT * 
+FROM facturacion.vwFacturaTotalGrupoFamiliar
+WHERE dni_responsable = '10000000';
+
+EXEC cobranzas.GestionarMedioDePago 'Tarjeta de débito', 'Insertar';
+GO
+EXEC cobranzas.GestionarMedioDePago 'Visa', 'Insertar';
+GO
+EXEC cobranzas.GestionarMedioDePago 'MasterCard', 'Insertar';
+GO
+EXEC cobranzas.GestionarMedioDePago 'Tarjeta Naranja', 'Insertar';
+GO
+EXEC cobranzas.GestionarMedioDePago 'Pago Fácil', 'Insertar'
+GO
+EXEC cobranzas.GestionarMedioDePago 'Rapipago', 'Insertar';
+GO
+EXEC cobranzas.GestionarMedioDePago 'Transferencia Mercado Pago', 'Insertar';
+
+DELETE FROM cobranzas.PagoACuenta
+DELETE FROM cobranzas.Pago
+EXEC cobranzas.RegistrarCobranza 2, '2025-08-5', 180000, 'Visa';
+
+SELECT * FROM cobranzas.Pago
+SELECT * FROM socios.Socio
+SELECT * FROM cobranzas.PagoACuenta
+
+EXEC tarifas.GestionarTarifaPiletaVerano 'Mayor', '0', 25000, '2025-09-25', 'Insertar'
+
+EXEC tarifas.GestionarTarifaPiletaVerano 'Mayor', '1', 30000, '2025-09-25', 'Insertar'
+
+EXEC actividades.GestionarInscriptoPiletaVerano '10000000', NULL, NULL, NULL, NULL, NULL, NULL, '2025-07-15', 'Insertar';
+
+EXEC actividades.GestionarInscriptoPiletaVerano '10000000', '10000001', 'InvitadoVal', 'Gonzalez', 'Mayor', 'InvitadoVal@mail.com', 'Calle Falsa 100', '2025-07-28', 'Insertar';
+
+EXEC facturacion.GenerarCargosActividadExtraPorFecha '2025-07-30';
+GO
+
+EXEC facturacion.GenerarFacturasActividadesExtraPorFecha '2025-07-30';
+GO
+
+DELETE FROM facturacion.DetalleFactura
+WHERE id_factura IN (SELECT id_factura FROM facturacion.Factura WHERE dni_receptor = 10000001)
+
+DELETE FROM facturacion.Factura
+WHERE dni_receptor = 10000001 
+
+SELECT * FROM facturacion.CargoActividadExtra
+SELECT * FROM facturacion.Factura F
+WHERE MONTH(fecha_emision) = MONTH(GETDATE())
+SELECT * FROM facturacion.DetalleFactura DF
+INNER JOIN facturacion.Factura F ON F.id_factura =DF.id_factura
+WHERE MONTH(F.fecha_emision) = MONTH(GETDATE())
+
+DELETE FROM facturacion.DetalleFactura
+WHERE id_factura IN (SELECT id_factura FROM facturacion.Factura WHERE fecha_emision = '2025-06-30' )
+
+DELETE FROM facturacion.Factura
+WHERE fecha_emision = '2025-06-30' 
+
+SELECT * FROM facturacion.CargoActividadExtra
+SELECT * FROM facturacion.Factura F
+WHERE MONTH(fecha_emision) = MONTH(GETDATE()) - 1
+SELECT * FROM facturacion.DetalleFactura DF
+INNER JOIN facturacion.Factura F ON F.id_factura = DF.id_factura
+WHERE MONTH(F.fecha_emision) = MONTH(GETDATE()) - 1
+
+EXEC cobranzas.AplicarRecargoVencimiento
+GO
+
+SELECT *
+FROM cobranzas.Mora;
+
+SELECT * FROM socios.Socio
+
+EXEC cobranzas.AplicarBloqueoVencimiento
+GO
+
+SELECT * FROM cobranzas.Mora
+
+-- Aca termina la defensa
 EXEC facturacion.GenerarCargosActividadExtraPorFecha '2025-01-30';
 GO
 
 EXEC facturacion.GenerarFacturasActividadesExtraPorFecha '2025-01-30';
 GO
+
+SELECT * FROM actividades.InscriptoCategoriaSocio
 
 -- =================== VERIFICAR ===================
 select * from socios.Socio
