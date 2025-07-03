@@ -196,6 +196,7 @@ CREATE TABLE socios.CategoriaSocio (
     costo_membresia DECIMAL(10,2),
     vigencia DATE
 );
+
 CREATE TABLE socios.Socio (
     id_socio INT IDENTITY PRIMARY KEY,
     nombre VARCHAR(50),
@@ -218,7 +219,6 @@ CREATE TABLE socios.GrupoFamiliar (
     id_grupo INT IDENTITY PRIMARY KEY,
     id_socio_rp INT NULL
 );
-
 
 CREATE TABLE socios.GrupoFamiliarSocio (
     id_grupo INT NOT NULL,
