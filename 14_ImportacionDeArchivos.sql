@@ -1,10 +1,27 @@
-USE COM2900G13;
+锘縐SE COM2900G13;
 GO
---========================================
---IMPORTACION DEL ARCHIVO DATOS SOCIOS.CSV
---========================================
 
--- 1. Crear tabla temporal con columnas reales del archivo CSV
+/* ==========================================================
+   BLOQUE DE LIMPIEZA COMPLETA DE DATOS SOCIOS Y GRUPOS
+   ========================================================== */
+DELETE FROM socios.GrupoFamiliarSocio;
+DELETE FROM socios.GrupoFamiliar;
+DBCC CHECKIDENT ('socios.GrupoFamiliar', RESEED, 0) WITH NO_INFOMSGS;
+DELETE FROM socios.Socio;
+DBCC CHECKIDENT ('socios.Socio', RESEED, 0) WITH NO_INFOMSGS;
+GO
+
+-- ===============================
+-- PARTE 1: SOCIOS PRINCIPALES
+-- ===============================
+
+IF OBJECT_ID('tempdb..#GrupoTempResponsables') IS NOT NULL DROP TABLE #GrupoTempResponsables;
+CREATE TABLE #GrupoTempResponsables (
+    id_socio INT,
+    nro_socio VARCHAR(50)
+);
+GO
+
 IF OBJECT_ID('tempdb..#SociosRaw') IS NOT NULL DROP TABLE #SociosRaw;
 CREATE TABLE #SociosRaw (
     nro_socio NVARCHAR(50),
@@ -17,13 +34,12 @@ CREATE TABLE #SociosRaw (
     tel_emergencia NVARCHAR(100),
     obra_social NVARCHAR(100),
     nro_obra_social NVARCHAR(50),
-    tel_emergencia_2 NVARCHAR(100) -- se ignora
+    tel_emergencia_2 NVARCHAR(100)
 );
 GO
 
--- 2. Cargar datos desde el CSV con UTF-8
 BULK INSERT #SociosRaw
-FROM 'C:\Users\Cisco\Desktop\Unlam\Tercer_A駉\BDA\Com2900G13\ETL\Datos_socios.csv'
+FROM 'C:\Users\Cisco\Desktop\Unlam\Tercer_A帽o\BDA\Com2900G13\ETL\Datos_socios.csv'
 WITH (
     FIELDTERMINATOR = ';',
     ROWTERMINATOR = '0x0d0a',
@@ -32,142 +48,134 @@ WITH (
 );
 GO
 
--- 3. Verificaci髇 r醦ida
-SELECT TOP 5 * FROM #SociosRaw;
-SELECT COUNT(*) AS CantidadCargada FROM #SociosRaw;
-GO
-
--- 4. Crear tabla temporal limpia
-IF OBJECT_ID('tempdb..#SociosLimpios') IS NOT NULL DROP TABLE #SociosLimpios;
-CREATE TABLE #SociosLimpios (
-    nro_socio VARCHAR(50),
-    nombre NVARCHAR(50),
-    apellido NVARCHAR(50),
-    dni CHAR(8),
-    email NVARCHAR(100),
-    fecha_nacimiento DATE,
-    tel_contacto VARCHAR(20),
-    tel_emergencia VARCHAR(20),
-    domicilio NVARCHAR(200),
-    obra_social NVARCHAR(100),
-    nro_obra_social NVARCHAR(50)
-);
-GO
-
--- 5. Insertar transformando datos, limpiando emails y evitando duplicados
-INSERT INTO #SociosLimpios
-SELECT
-    LTRIM(RTRIM(nro_socio)),
-    LTRIM(RTRIM(nombre)),
-    LTRIM(RTRIM(apellido)),
-    RIGHT('00000000' + LTRIM(RTRIM(dni)), 8),
-    emailLimpio,
-    TRY_CAST(fecha_nacimiento AS DATE),
-    LEFT(tel_contacto, 20),
-    LEFT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
-        tel_emergencia, '(', ''), ')', ''), '-', ''), '/', ''), ' ', ''), '.', ''), '+', ''), ',', ''), ';', ''), ':', ''), 20),
-    '-' AS domicilio,
-    LTRIM(RTRIM(obra_social)),
-    LTRIM(RTRIM(nro_obra_social))
-FROM (
-    SELECT *,
-        LTRIM(RTRIM(REPLACE(email, ' ', ''))) AS emailLimpio
-    FROM #SociosRaw
-) AS SR
-WHERE 
-    TRY_CAST(fecha_nacimiento AS DATE) IS NOT NULL
-    AND LEN(LTRIM(RTRIM(dni))) BETWEEN 7 AND 10
-    AND CHARINDEX('@', emailLimpio) > 1
-    AND CHARINDEX('.', emailLimpio, CHARINDEX('@', emailLimpio)) > CHARINDEX('@', emailLimpio)
-    AND NOT EXISTS (
-        SELECT 1
-        FROM socios.Socio s
-        WHERE s.dni = RIGHT('00000000' + LTRIM(RTRIM(SR.dni)), 8)
-           OR s.nro_socio = LTRIM(RTRIM(SR.nro_socio))
-    );
-GO
-
--- 6. Insertar en tabla definitiva
 INSERT INTO socios.Socio (
     nombre, apellido, dni, nro_socio, email, fecha_nacimiento,
     tel_contacto, tel_emergencia, domicilio,
     obra_social, nro_obra_social,
     activo, eliminado, saldo
 )
+OUTPUT INSERTED.id_socio, INSERTED.nro_socio INTO #GrupoTempResponsables (id_socio, nro_socio)
 SELECT
+    LTRIM(RTRIM(nombre)),
+    LTRIM(RTRIM(apellido)),
+    RIGHT('00000000' + LTRIM(RTRIM(dni)), 8),
+    LTRIM(RTRIM(nro_socio)),
+    CASE WHEN email LIKE '%@%.%' THEN LTRIM(RTRIM(REPLACE(email, ' ', ''))) ELSE NULL END,
+    TRY_CONVERT(DATE, fecha_nacimiento, 103),
+    LEFT(tel_contacto, 20),
+    LEFT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+        tel_emergencia, '(', ''), ')', ''), '-', ''), '/', ''), ' ', ''), '.', ''), '+', ''), ',', ''), ';', ''), ':', ''), 20),
+    '-' AS domicilio,
+    LTRIM(RTRIM(obra_social)),
+    LTRIM(RTRIM(nro_obra_social)),
+    1, 0, 0.00
+FROM #SociosRaw SR
+WHERE TRY_CONVERT(DATE, fecha_nacimiento, 103) IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM socios.Socio s
+    WHERE s.dni = RIGHT('00000000' + LTRIM(RTRIM(SR.dni)), 8)
+       OR s.nro_socio = LTRIM(RTRIM(SR.nro_socio))
+);
+GO
+
+INSERT INTO socios.GrupoFamiliar (id_socio_rp)
+SELECT id_socio
+FROM #GrupoTempResponsables;
+GO
+
+INSERT INTO socios.GrupoFamiliarSocio (id_grupo, id_socio)
+SELECT GF.id_grupo, GTR.id_socio
+FROM socios.GrupoFamiliar GF
+JOIN #GrupoTempResponsables GTR ON GF.id_socio_rp = GTR.id_socio;
+GO
+
+-- Verificaci贸n de inserci贸n
+SELECT * FROM socios.Socio;
+SELECT * FROM socios.GrupoFamiliar;
+SELECT * FROM socios.GrupoFamiliarSocio;
+
+-- ===============================
+-- PARTE 2: GRUPOS FAMILIARES
+-- ===============================
+
+IF OBJECT_ID('tempdb..#GrupoFamiliarRaw') IS NOT NULL DROP TABLE #GrupoFamiliarRaw;
+CREATE TABLE #GrupoFamiliarRaw (
+    nro_socio NVARCHAR(50),
+    nro_socio_rp NVARCHAR(50),
+    nombre NVARCHAR(50),
+    apellido NVARCHAR(50),
+    dni CHAR(8),
+    email NVARCHAR(100),
+    fecha_nacimiento NVARCHAR(50),
+    tel_contacto NVARCHAR(50),
+    tel_emergencia NVARCHAR(100),
+    obra_social NVARCHAR(100),
+    nro_obra_social NVARCHAR(50),
+    tel_emergencia_2 NVARCHAR(100)
+);
+GO
+
+BULK INSERT #GrupoFamiliarRaw
+FROM 'C:\Users\Cisco\Desktop\Unlam\Tercer_A帽o\BDA\Com2900G13\ETL\Grupo_familiar.csv'
+WITH (
+    FIELDTERMINATOR = ';',
+    ROWTERMINATOR = '0x0d0a',
+    CODEPAGE = '65001',
+    FIRSTROW = 2
+);
+GO
+
+INSERT INTO socios.Socio (
     nombre, apellido, dni, nro_socio, email, fecha_nacimiento,
     tel_contacto, tel_emergencia, domicilio,
     obra_social, nro_obra_social,
+    activo, eliminado, saldo
+)
+OUTPUT INSERTED.id_socio, INSERTED.nro_socio INTO #GrupoTempResponsables (id_socio, nro_socio)
+SELECT
+    LTRIM(RTRIM(nombre)),
+    LTRIM(RTRIM(apellido)),
+    RIGHT('00000000' + LTRIM(RTRIM(dni)), 8),
+    LTRIM(RTRIM(nro_socio)),
+    CASE WHEN email LIKE '%@%.%' THEN LTRIM(RTRIM(REPLACE(email, ' ', ''))) ELSE NULL END,
+    TRY_CONVERT(DATE, fecha_nacimiento, 103),
+    LEFT(tel_contacto, 20),
+    LEFT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+        tel_emergencia, '(', ''), ')', ''), '-', ''), '/', ''), ' ', ''), '.', ''), '+', ''), ',', ''), ';', ''), ':', ''), 20),
+    '-' AS domicilio,
+    LTRIM(RTRIM(obra_social)),
+    LTRIM(RTRIM(nro_obra_social)),
     1, 0, 0.00
-FROM #SociosLimpios;
+FROM #GrupoFamiliarRaw GFR
+WHERE TRY_CONVERT(DATE, fecha_nacimiento, 103) IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM socios.Socio s
+    WHERE s.dni = RIGHT('00000000' + LTRIM(RTRIM(GFR.dni)), 8)
+       OR s.nro_socio = LTRIM(RTRIM(GFR.nro_socio))
+);
 GO
 
--- 7. Verificaci髇 final
-SELECT *
-FROM socios.Socio
-ORDER BY id_socio;
+INSERT INTO socios.GrupoFamiliarSocio (id_grupo, id_socio)
+SELECT
+    GF.id_grupo,
+    S.id_socio
+FROM #GrupoFamiliarRaw GFR
+JOIN socios.Socio S ON S.nro_socio = LTRIM(RTRIM(GFR.nro_socio))
+JOIN socios.Socio RP ON RP.nro_socio = LTRIM(RTRIM(GFR.nro_socio_rp))
+JOIN socios.GrupoFamiliar GF ON GF.id_socio_rp = RP.id_socio
+WHERE NOT EXISTS (
+    SELECT 1 FROM socios.GrupoFamiliarSocio GFS
+    WHERE GFS.id_grupo = GF.id_grupo AND GFS.id_socio = S.id_socio
+);
 GO
 
--- 8. Limpieza de temporales
+-- Verificaci贸n final de inserci贸n
+SELECT * FROM socios.Socio;
+SELECT * FROM socios.GrupoFamiliar;
+SELECT * FROM socios.GrupoFamiliarSocio;
+
+-- Limpieza de temporales
 DROP TABLE IF EXISTS #SociosRaw;
-DROP TABLE IF EXISTS #SociosLimpios;
+DROP TABLE IF EXISTS #GrupoFamiliarRaw;
+DROP TABLE IF EXISTS #GrupoTempResponsables;
 GO
-
-/* 
-=============================================================
-BLOQUE DE ELIMINACI覰 EN CASO DE REIMPORTACI覰
-=============================================================
-*/
-/*
-
--- 1. Eliminar cargos de clases
-DELETE FROM facturacion.CargoClases
-WHERE id_inscripto_clase IN (
-    SELECT id_inscripto_clase
-    FROM actividades.InscriptoClase
-    WHERE id_socio IN (
-        SELECT id_socio FROM socios.Socio WHERE nro_socio LIKE 'SN-4%'
-    )
-);
-GO
-
--- 2. Eliminar presentismo
-DELETE FROM actividades.PresentismoClase
-WHERE id_socio IN (
-    SELECT id_socio FROM socios.Socio WHERE nro_socio LIKE 'SN-4%'
-);
-GO
-
--- 3. Eliminar inscripciones a clases
-DELETE FROM actividades.InscriptoClase
-WHERE id_socio IN (
-    SELECT id_socio FROM socios.Socio WHERE nro_socio LIKE 'SN-4%'
-);
-GO
-
--- 4. Eliminar inscripciones a categor韆 socio
-DELETE FROM actividades.InscriptoCategoriaSocio
-WHERE id_socio IN (
-    SELECT id_socio FROM socios.Socio WHERE nro_socio LIKE 'SN-4%'
-);
-GO
-
--- 5. Eliminar v韓culos de grupo familiar
-DELETE FROM socios.GrupoFamiliarSocio
-WHERE id_socio IN (
-    SELECT id_socio FROM socios.Socio WHERE nro_socio LIKE 'SN-4%'
-);
-GO
-
--- 6. Eliminar los socios
-DELETE FROM socios.Socio
-WHERE nro_socio LIKE 'SN-4%';
-GO
-
--- 7. Confirmaci髇
-SELECT COUNT(*) AS SociosRestantes
-FROM socios.Socio
-WHERE nro_socio LIKE 'SN-4%';
-GO
-
-*/
