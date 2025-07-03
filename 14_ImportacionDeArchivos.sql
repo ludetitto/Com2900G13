@@ -24,17 +24,17 @@ GO
 
 IF OBJECT_ID('tempdb..#SociosRaw') IS NOT NULL DROP TABLE #SociosRaw;
 CREATE TABLE #SociosRaw (
-    nro_socio NVARCHAR(50),
-    nombre NVARCHAR(50),
-    apellido NVARCHAR(50),
-    dni NVARCHAR(20),
-    email NVARCHAR(100),
-    fecha_nacimiento NVARCHAR(50),
-    tel_contacto NVARCHAR(50),
-    tel_emergencia NVARCHAR(100),
-    obra_social NVARCHAR(100),
-    nro_obra_social NVARCHAR(50),
-    tel_emergencia_2 NVARCHAR(100)
+    nro_socio varchar(50),
+    nombre varchar(50),
+    apellido varchar(50),
+    dni varchar(20),
+    email varchar(100),
+    fecha_nacimiento varchar(50),
+    tel_contacto varchar(50),
+    tel_emergencia varchar(100),
+    obra_social varchar(100),
+    nro_obra_social varchar(50),
+    tel_emergencia_2 varchar(100)
 );
 GO
 
@@ -100,18 +100,18 @@ SELECT * FROM socios.GrupoFamiliarSocio;
 
 IF OBJECT_ID('tempdb..#GrupoFamiliarRaw') IS NOT NULL DROP TABLE #GrupoFamiliarRaw;
 CREATE TABLE #GrupoFamiliarRaw (
-    nro_socio NVARCHAR(50),
-    nro_socio_rp NVARCHAR(50),
-    nombre NVARCHAR(50),
-    apellido NVARCHAR(50),
+    nro_socio varchar(50),
+    nro_socio_rp varchar(50),
+    nombre varchar(50),
+    apellido varchar(50),
     dni CHAR(8),
-    email NVARCHAR(100),
-    fecha_nacimiento NVARCHAR(50),
-    tel_contacto NVARCHAR(50),
-    tel_emergencia NVARCHAR(100),
-    obra_social NVARCHAR(100),
-    nro_obra_social NVARCHAR(50),
-    tel_emergencia_2 NVARCHAR(100)
+    email varchar(100),
+    fecha_nacimiento varchar(50),
+    tel_contacto varchar(50),
+    tel_emergencia varchar(100),
+    obra_social varchar(100),
+    nro_obra_social varchar(50),
+    tel_emergencia_2 varchar(100)
 );
 GO
 
