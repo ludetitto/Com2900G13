@@ -3,12 +3,35 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # SQL Server Management Studio Solution File, Format Version 20.00
 VisualStudioVersion = 15.0.28307.421
 MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{1923EA24-E583-4067-8E5B-98F527E04797}"
+	ProjectSection(SolutionItems) = preProject
+		00_CreacionBaseDeDatos.sql = 00_CreacionBaseDeDatos.sql
+		01_CreacionDeTablas.sql = 01_CreacionDeTablas.sql
+		02_IndicesNoCluster.sql = 02_IndicesNoCluster.sql
+		03_GestionAdministrativa.sql = 03_GestionAdministrativa.sql
+		03_TestingAdministrativa.sql = 03_TestingAdministrativa.sql
+		04_GestionFacturacion.sql = 04_GestionFacturacion.sql
+		04_TestingFacturacion.sql = 04_TestingFacturacion.sql
+		05_GestionCobranzas.sql = 05_GestionCobranzas.sql
+		05_TestingCobranzas.sql = 05_TestingCobranzas.sql
+		06_GestionMorosidad.sql = 06_GestionMorosidad.sql
+		06_TestingMorosidad.sql = 06_TestingMorosidad.sql
+		07_LoteDePruebasAdministrativa.sql = 07_LoteDePruebasAdministrativa.sql
+		08_LoteDePruebasFacturacion.sql = 08_LoteDePruebasFacturacion.sql
+		09_LoteDePruebasCobranza.sql = 09_LoteDePruebasCobranza.sql
+		10_LoteDePruebasMorosidad.sql = 10_LoteDePruebasMorosidad.sql
+		11_Reportes.sql = 11_Reportes.sql
+		12_RequisitosSeguridad.sql = 12_RequisitosSeguridad.sql
+		13_OptimizarEstadisticas.sql = 13_OptimizarEstadisticas.sql
+		14_ImportacionDeArchivos.sql = 14_ImportacionDeArchivos.sql
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Default|Default = Default|Default
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{9198C0A1-1766-4A64-9A5B-F464C8FB606C}.Default|Default.ActiveCfg = Default
+		{976C1B36-730B-4BEB-AEB2-D6B162E38107}.Default|Default.ActiveCfg = Default
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
