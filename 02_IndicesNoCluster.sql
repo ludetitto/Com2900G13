@@ -34,7 +34,13 @@ IF NOT EXISTS (
 CREATE NONCLUSTERED INDEX IX_Socio_DNI
 ON socios.Socio (dni);
 GO
-
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes 
+    WHERE name = 'IX_Socio_DNI' AND object_id = OBJECT_ID('socios.Socio')
+)
+CREATE NONCLUSTERED INDEX IX_Socio_NroSocio
+ON socios.Socio (nro_socio);
+GO
 IF NOT EXISTS (
     SELECT 1 FROM sys.indexes 
     WHERE name = 'IX_Socio_NombreApellido' AND object_id = OBJECT_ID('socios.Socio')
