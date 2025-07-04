@@ -135,6 +135,7 @@ CREATE TABLE #GrupoFamiliarRaw (
 );
 GO
 
+
 /*
 	Cisco: C:\Users\Cisco\Desktop\Unlam\Tercer_Año\BDA\Com2900G13\ETL\Grupo_familiar.csv
 	Lu: C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Datos_socios.csv
