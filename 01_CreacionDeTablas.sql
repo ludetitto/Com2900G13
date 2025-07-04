@@ -70,6 +70,9 @@ DROP PROCEDURE IF EXISTS cobranzas.MorososRecurrentes
 DROP PROCEDURE IF EXISTS cobranzas.GenerarReembolsoPorPago
 DROP PROCEDURE IF EXISTS cobranzas.GenerarPagoACuentaPorReembolso
 DROP PROCEDURE IF EXISTS cobranzas.GestionarRecargo
+DROP PROCEDURE IF EXISTS cobranzas.GestionarTarjeta
+DROP PROCEDURE IF EXISTS cobranzas.EjecutarDebitoAutomatico
+
 DROP VIEW IF EXISTS cobranzas.vwNotasConMedioDePago
 
 DROP VIEW IF EXISTS facturacion.vw_FacturasDetalladasConResponsables
@@ -555,6 +558,9 @@ ADD CONSTRAINT FK_CargoClases_InscriptoClase
 ALTER TABLE actividades.InscriptoClase
 ADD CONSTRAINT FK_InscriptoClase_Clase
     FOREIGN KEY (id_clase) REFERENCES actividades.Clase(id_clase);
+
+ALTER TABLE cobranzas.TarjetaDeCredito
+ADD CONSTRAINT UQ_Tarjeta_Socio UNIQUE (id_socio);
 
 
 --Tablas de la base de datos
