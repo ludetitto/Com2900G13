@@ -696,3 +696,215 @@ BEGIN
     END CATCH
 END;
 GO
+
+/*____________________________________________________________________
+  ____________________________ GestionarTarjeta __________________________
+  ____________________________________________________________________*/
+IF OBJECT_ID('cobranzas.GestionarTarjeta', 'P') IS NOT NULL
+    DROP PROCEDURE cobranzas.GestionarTarjeta;
+GO
+
+CREATE PROCEDURE cobranzas.GestionarTarjeta
+    @id_tarjeta INT = NULL,
+    @nro_socio VARCHAR(20) = NULL,
+    @nro_tarjeta CHAR(16) = NULL,
+    @titular VARCHAR(50) = NULL,
+    @fecha_desde DATE = NULL,
+    @fecha_hasta DATE = NULL,
+    @cod_seguridad CHAR(3) = NULL,
+    @debito_automatico BIT = 0,
+    @operacion VARCHAR(20)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @id_socio INT;
+
+    IF @nro_socio IS NOT NULL
+        SELECT @id_socio = id_socio FROM socios.Socio WHERE nro_socio = @nro_socio;
+
+    IF @operacion = 'Insertar'
+    BEGIN
+        IF @id_socio IS NULL OR @nro_tarjeta IS NULL OR @titular IS NULL OR 
+           @fecha_desde IS NULL OR @fecha_hasta IS NULL OR @cod_seguridad IS NULL
+        BEGIN
+            RAISERROR('Faltan datos obligatorios para insertar tarjeta.', 16, 1);
+            RETURN;
+        END
+
+        -- Validar si el socio es responsable o tutor
+        IF NOT EXISTS (
+            SELECT 1 FROM socios.GrupoFamiliar WHERE id_socio_rp = @id_socio
+            UNION
+            SELECT 1 FROM socios.Tutor t 
+            JOIN socios.Socio s ON t.dni = s.dni
+            WHERE s.id_socio = @id_socio
+        )
+        BEGIN
+            RAISERROR('Solo un socio responsable o tutor puede registrar una tarjeta.', 16, 1);
+            RETURN;
+        END
+
+        IF EXISTS (SELECT 1 FROM cobranzas.TarjetaDeCredito WHERE id_socio = @id_socio)
+        BEGIN
+            RAISERROR('El socio ya tiene una tarjeta registrada. Debe modificarla o eliminarla.', 16, 1);
+            RETURN;
+        END
+
+        INSERT INTO cobranzas.TarjetaDeCredito
+        (id_socio, nro_tarjeta, titular, fecha_desde, fecha_hasta, cod_seguridad, debito_automatico)
+        VALUES
+        (@id_socio, @nro_tarjeta, @titular, @fecha_desde, @fecha_hasta, @cod_seguridad, @debito_automatico);
+    END
+
+    ELSE IF @operacion = 'Modificar'
+    BEGIN
+        IF @id_tarjeta IS NULL
+        BEGIN
+            RAISERROR('Debe proporcionar el ID de la tarjeta para modificar.', 16, 1);
+            RETURN;
+        END
+
+        UPDATE cobranzas.TarjetaDeCredito
+        SET nro_tarjeta = ISNULL(@nro_tarjeta, nro_tarjeta),
+            titular = ISNULL(@titular, titular),
+            fecha_desde = ISNULL(@fecha_desde, fecha_desde),
+            fecha_hasta = ISNULL(@fecha_hasta, fecha_hasta),
+            cod_seguridad = ISNULL(@cod_seguridad, cod_seguridad),
+            debito_automatico = ISNULL(@debito_automatico, debito_automatico)
+        WHERE id_tarjeta = @id_tarjeta;
+    END
+
+    ELSE IF @operacion = 'Eliminar'
+    BEGIN
+        IF @id_tarjeta IS NULL
+        BEGIN
+            RAISERROR('Debe proporcionar el ID de la tarjeta para eliminar.', 16, 1);
+            RETURN;
+        END
+
+        DELETE FROM cobranzas.TarjetaDeCredito
+        WHERE id_tarjeta = @id_tarjeta;
+    END
+
+    ELSE
+    BEGIN
+        RAISERROR('Operación no válida. Use: Insertar, Modificar o Eliminar.', 16, 1);
+    END
+END;
+GO
+/*____________________________________________________________________
+  ____________________ EjecutarDebitoAutomatico _____________________
+  ____________________________________________________________________*/
+IF OBJECT_ID('cobranzas.EjecutarDebitoAutomatico', 'P') IS NOT NULL
+    DROP PROCEDURE cobranzas.EjecutarDebitoAutomatico;
+GO
+
+CREATE PROCEDURE cobranzas.EjecutarDebitoAutomatico
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+
+    BEGIN TRY
+        DECLARE @fecha_actual DATE = CAST(GETDATE() AS DATE);
+        DECLARE @anio INT = YEAR(@fecha_actual);
+        DECLARE @mes INT = MONTH(@fecha_actual);
+
+        -- Tabla temporal con índice para iterar
+        IF OBJECT_ID('tempdb..#FacturasADebitar') IS NOT NULL
+            DROP TABLE #FacturasADebitar;
+
+        SELECT
+            ROW_NUMBER() OVER (ORDER BY f.id_factura) AS rn,
+            f.id_factura,
+            f.monto_total,
+            mp.nombre AS medio_pago,
+            t.nro_tarjeta,
+            s.nro_socio
+        INTO #FacturasADebitar
+        FROM cobranzas.TarjetaDeCredito t
+        JOIN socios.Socio s ON s.id_socio = t.id_socio
+        JOIN cobranzas.MedioDePago mp ON 
+            (t.nro_tarjeta LIKE '4%' AND mp.nombre = 'Visa') OR
+            (t.nro_tarjeta LIKE '5%' AND mp.nombre = 'MasterCard')
+        JOIN facturacion.Factura f ON f.dni_receptor = s.dni
+        WHERE 
+            t.debito_automatico = 1
+            AND MONTH(f.fecha_emision) = @mes
+            AND YEAR(f.fecha_emision) = @anio
+            AND f.anulada = 0
+            AND f.estado <> 'Paga';
+
+        DECLARE @max_rn INT = (SELECT MAX(rn) FROM #FacturasADebitar);
+        DECLARE @i INT = 1;
+
+        -- Variables de cada fila
+        DECLARE @id_factura INT,
+                @monto DECIMAL(10,2),
+                @medio_pago VARCHAR(50),
+                @nro_tarjeta CHAR(16),
+                @nro_socio VARCHAR(20),
+                @token NVARCHAR(20),
+                @resultado INT,
+                @id_medio_pago INT;
+
+        WHILE @i <= @max_rn
+        BEGIN
+            SELECT 
+                @id_factura = id_factura,
+                @monto = monto_total,
+                @medio_pago = medio_pago,
+                @nro_tarjeta = nro_tarjeta,
+                @nro_socio = nro_socio
+            FROM #FacturasADebitar
+            WHERE rn = @i;
+
+            SET @resultado = ABS(CHECKSUM(NEWID())) % 100;
+            SET @token = 'TK-' + RIGHT(@nro_tarjeta, 4);
+
+            PRINT 'Procesando débito para socio: ' + @nro_socio + ', tarjeta: ' + @medio_pago + ', monto: $' + CAST(@monto AS VARCHAR);
+
+            IF @resultado < 85
+            BEGIN
+                -- Pago aprobado
+                EXEC cobranzas.RegistrarCobranza
+                    @id_factura = @id_factura,
+                    @fecha_pago = @fecha_actual,
+                    @monto = @monto,
+                    @medio_de_pago = @medio_pago;
+
+                PRINT 'Débito exitoso registrado para factura ID: ' + CAST(@id_factura AS VARCHAR);
+            END
+            ELSE
+            BEGIN
+                -- Pago rechazado
+                SELECT @id_medio_pago = id_medio_pago FROM cobranzas.MedioDePago WHERE nombre = @medio_pago;
+
+                IF @id_medio_pago IS NOT NULL
+                BEGIN
+                    INSERT INTO cobranzas.Pago (id_factura, nro_transaccion, fecha_emision, id_medio, monto, estado)
+                    VALUES (@id_factura, @token, @fecha_actual, @id_medio_pago, @monto, 'Rechazado');
+
+                    PRINT 'Débito rechazado por el banco para factura ID: ' + CAST(@id_factura AS VARCHAR);
+                END
+                ELSE
+                BEGIN
+                    PRINT 'Medio de pago no válido para factura ID: ' + CAST(@id_factura AS VARCHAR);
+                END
+            END
+
+            SET @i += 1;
+        END
+
+        DROP TABLE #FacturasADebitar;
+
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK;
+        PRINT 'Error en débito automático: ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END;
+GO

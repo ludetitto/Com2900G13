@@ -59,7 +59,7 @@ GO
 */
 
 BULK INSERT #SociosRaw
-FROM 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Datos_socios.csv'
+FROM 'C:\Users\FranciscoVignardel\Desktop\UNLaM\BDA\Com2900G13\ETL\Datos_socios.csv'
 WITH (
     FIELDTERMINATOR = ';',
     ROWTERMINATOR = '0x0d0a',
@@ -142,7 +142,7 @@ GO
 */
 
 BULK INSERT #GrupoFamiliarRaw
-FROM 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Grupo_familiar.csv'
+FROM 'C:\Users\FranciscoVignardel\Desktop\UNLaM\BDA\Com2900G13\ETL\Grupo_familiar.csv'
 WITH (
     FIELDTERMINATOR = ';',
     ROWTERMINATOR = '0x0d0a',
@@ -257,7 +257,7 @@ GO
 */
 
 BULK INSERT #PresentismoRaw
-FROM 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Presentismo_actividades.csv'
+FROM 'C:\Users\FranciscoVignardel\Desktop\UNLaM\BDA\Com2900G13\ETL\Presentismo_actividades.csv'
 WITH (
     FIELDTERMINATOR = ';',
     ROWTERMINATOR = '0x0d0a',
