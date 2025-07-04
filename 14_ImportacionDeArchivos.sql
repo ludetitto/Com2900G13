@@ -61,12 +61,12 @@ GO
 BULK INSERT #SociosRaw
 FROM 'C:\Users\FranciscoVignardel\Desktop\UNLaM\BDA\Com2900G13\ETL\Datos_socios.csv'
 WITH (
-    FIELDTERMINATOR = ';',
-    ROWTERMINATOR = '0x0d0a',
-    CODEPAGE = '65001',
-    FIRSTROW = 2
+    DATAFILETYPE = 'char',       -- formato de datos de texto/caracteres
+    CODEPAGE = '65001',          -- UTF-8
+    FIELDTERMINATOR = ';',       -- separador de campos punto y coma
+    ROWTERMINATOR = '0x0A',      -- separador de filas LF (line feed)
+    FIRSTROW = 2                 -- iniciar en la segunda línea (saltando encabezado)
 );
-GO
 
 INSERT INTO socios.Socio (
     nombre, apellido, dni, nro_socio, email, fecha_nacimiento,
@@ -144,10 +144,11 @@ GO
 BULK INSERT #GrupoFamiliarRaw
 FROM 'C:\Users\FranciscoVignardel\Desktop\UNLaM\BDA\Com2900G13\ETL\Grupo_familiar.csv'
 WITH (
-    FIELDTERMINATOR = ';',
-    ROWTERMINATOR = '0x0d0a',
-    CODEPAGE = '65001',
-    FIRSTROW = 2
+    DATAFILETYPE = 'char',       -- formato de datos de texto/caracteres
+    CODEPAGE = '65001',          -- UTF-8
+    FIELDTERMINATOR = ';',       -- separador de campos punto y coma
+    ROWTERMINATOR = '0x0A',      -- separador de filas LF (line feed)
+    FIRSTROW = 2                 -- iniciar en la segunda línea (saltando encabezado)
 );
 GO
 
@@ -259,10 +260,11 @@ GO
 BULK INSERT #PresentismoRaw
 FROM 'C:\Users\FranciscoVignardel\Desktop\UNLaM\BDA\Com2900G13\ETL\Presentismo_actividades.csv'
 WITH (
-    FIELDTERMINATOR = ';',
-    ROWTERMINATOR = '0x0d0a',
-    CODEPAGE = '65001',
-    FIRSTROW = 2
+    DATAFILETYPE = 'char',       -- formato de datos de texto/caracteres
+    CODEPAGE = '65001',          -- UTF-8
+    FIELDTERMINATOR = ';',       -- separador de campos punto y coma
+    ROWTERMINATOR = '0x0A',      -- separador de filas LF (line feed)
+    FIRSTROW = 2                 -- iniciar en la segunda línea (saltando encabezado)
 );
 GO
 
