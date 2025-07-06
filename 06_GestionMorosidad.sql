@@ -266,8 +266,6 @@ BEGIN
     SET S.saldo -= I.monto
     FROM administracion.Socio S
     INNER JOIN inserted I ON S.id_socio = I.id_socio;
-=======
-    );
->>>>>>> Stashed changes
+
 END;
 GO

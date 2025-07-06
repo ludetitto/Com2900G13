@@ -473,8 +473,8 @@ BEGIN
         THROW;
     END CATCH
 END;
-select * from cobranzas.Pago, cobranzas.PagoACuenta
-
+select * from cobranzas.Pago, cobranzas.PagoACuenta;
+GO
 
 /*____________________________________________________________________
   ____________________________ AnularFactura __________________________
