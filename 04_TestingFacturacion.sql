@@ -133,7 +133,7 @@ EXEC actividades.GestionarInscriptoClase
     @fecha_inscripcion = '2025-06-12',
     @operacion = 'Insertar';
 
-select * from actividades.InscriptoClase
+SELECT * FROM actividades.InscriptoClase
 
 -- ✅ Mariana (Menor) se inscribe a Natación
 EXEC actividades.GestionarInscriptoClase
@@ -144,7 +144,7 @@ EXEC actividades.GestionarInscriptoClase
     @fecha_inscripcion = '2025-06-12',
     @operacion = 'Insertar';
 
-select * from actividades.InscriptoClase
+SELECT * FROM actividades.InscriptoClase
 
 -- ✅ Camila (Menor) se inscribe a Vóley
 EXEC actividades.GestionarInscriptoClase
@@ -155,7 +155,7 @@ EXEC actividades.GestionarInscriptoClase
     @fecha_inscripcion = '2025-06-12',
     @operacion = 'Insertar';
 
-select * from actividades.InscriptoClase
+SELECT * FROM actividades.InscriptoClase
 
 
 -- ✅ Luciano (Mayor) se inscribe a Futsal
@@ -167,7 +167,7 @@ EXEC actividades.GestionarInscriptoClase
     @fecha_inscripcion = '2025-06-12',
     @operacion = 'Insertar';
 
-select * from actividades.InscriptoClase
+SELECT * FROM actividades.InscriptoClase
 
 
 -- ✅ Juan Perez (Mayor) se inscribe a Baile artístico
@@ -179,7 +179,7 @@ EXEC actividades.GestionarInscriptoClase
     @fecha_inscripcion = '2025-06-12',
     @operacion = 'Insertar';
 
-	select * from actividades.InscriptoClase
+SELECT * FROM actividades.InscriptoClase
 
 
 -- ❌ Error esperado: José intenta inscribirse a clase inexistente

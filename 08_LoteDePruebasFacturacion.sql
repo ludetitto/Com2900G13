@@ -19,8 +19,14 @@ GO
 
 -- ================== LIMPIEZA DE FACTURACIÓN ==================
 
+DELETE FROM cobranzas.Mora
+DBCC CHECKIDENT ('cobranzas.Mora', RESEED, 0) WITH NO_INFOMSGS;
+DELETE FROM cobranzas.Reembolso
+DBCC CHECKIDENT ('cobranzas.Reembolso', RESEED, 0) WITH NO_INFOMSGS;
+DELETE FROM cobranzas.PagoACuenta
+DBCC CHECKIDENT ('cobranzas.PagoACuenta', RESEED, 0) WITH NO_INFOMSGS;
 DELETE FROM cobranzas.pago
-DBCC CHECKIDENT ('cobranzas.pago', RESEED, 0) WITH NO_INFOMSGS;
+DBCC CHECKIDENT ('cobranzas.Pago', RESEED, 0) WITH NO_INFOMSGS;
 DELETE FROM cobranzas.MedioDePago;
 DBCC CHECKIDENT ('cobranzas.MedioDePago', RESEED, 0) WITH NO_INFOMSGS;
 DELETE FROM facturacion.DetalleFactura;
@@ -132,11 +138,18 @@ GO
    INSCRIPCIÓN DE SOCIOS A CLASES
 ========================================================== */
 -- FRANCISCO (45778667) - Mayor
-EXEC actividades.GestionarInscriptoClase '45778667', 'Futsal',     'Lunes 19:00',      'Mayor', '2025-06-13', 'Insertar';
-EXEC actividades.GestionarInscriptoClase '45778667', 'Taekwondo',  'Miércoles 19:00',  'Mayor', '2025-06-14', 'Insertar';
-EXEC actividades.GestionarInscriptoClase '45778667', 'Ajedrez',    'Sábado 19:00',     'Mayor', '2025-06-15', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',    'Lunes 19:00', 'Mayor', '2025-06-17', 'P', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',    'Lunes 19:00', 'Mayor', '2025-06-24', 'A', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-01', 'P', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-08', 'P', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-15', 'J', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-22', 'P', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-29', 'P', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-08-05', 'A', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-08-12', 'P', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Taekwondo', 'Miércoles 19:00', 'Mayor', '2025-06-19', 'J', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Ajedrez',   'Sábado 19:00', 'Mayor', '2025-06-22', 'P', 'Insertar';
 GO
-
 -- JUAN (33444555) - Cadete
 EXEC actividades.GestionarInscriptoClase '33444555', 'Taekwondo',  'Miércoles 14:00',  'Cadete', '2025-06-13', 'Insertar';
 EXEC actividades.GestionarInscriptoClase '33444555', 'Ajedrez',    'Sábado 14:00',     'Cadete', '2025-06-14', 'Insertar';
@@ -173,17 +186,17 @@ GO
 /* ==========================================================
    INSCRIPCIÓN DE SOCIOS E INVITADOS A ACTIVIDADES EXTRA
    ========================================================== */
-EXEC actividades.GestionarInscriptoPiletaVerano '45778667', NULL, NULL, NULL, NULL, NULL, NULL, '2025-06-15', 'Insertar';
-EXEC actividades.GestionarInscriptoPiletaVerano '33444555', NULL, NULL, NULL, NULL, NULL, NULL, '2025-06-20', 'Insertar';
-EXEC actividades.GestionarInscriptoPiletaVerano '45778667', '55500001', 'Lucas', 'Gonzalez', 'Menor', 'lucas.gonzalez@mail.com', 'Calle Falsa 100', '2025-06-25', 'Insertar';
+EXEC actividades.GestionarInscriptoPiletaVerano '45778667', NULL, NULL, NULL, NULL, NULL, NULL, '2025-01-15', 'Insertar';
+EXEC actividades.GestionarInscriptoPiletaVerano '33444555', NULL, NULL, NULL, NULL, NULL, NULL, '2025-01-20', 'Insertar';
+EXEC actividades.GestionarInscriptoPiletaVerano '45778667', '55500001', 'Lucas', 'Gonzalez', 'Menor', 'lucas.gonzalez@mail.com', 'Calle Falsa 100', '2025-01-28', 'Insertar';
 GO
 
-EXEC actividades.GestionarInscriptoColonia '45778667', 'Mayor', 'Mes','2025-06-10', 'Insertar';
-EXEC actividades.GestionarInscriptoColonia '42222223', 'Menor', 'Temporada', '2025-06-12', 'Insertar';
+EXEC actividades.GestionarInscriptoColonia '45778667', 'Mayor', 'Mes','2025-01-17', 'Insertar';
+EXEC actividades.GestionarInscriptoColonia '42222223', 'Menor', 'Temporada', '2025-01-19', 'Insertar';
 GO
 
-EXEC actividades.GestionarReservaSum '45778667', '2025-06-05', '10:00', '13:00', 'Insertar';
-EXEC actividades.GestionarReservaSum '42222222', '2025-06-07', '15:00', '18:00', 'Insertar';
+EXEC actividades.GestionarReservaSum '45778667', '2025-01-05', '10:00', '13:00', 'Insertar';
+EXEC actividades.GestionarReservaSum '42222222', '2025-01-07', '15:00', '18:00', 'Insertar';
 GO
 
 -- =================== CARGA DE EMISOR DE FACTURA ===================
@@ -192,6 +205,13 @@ GO
 -- FRANCISCO (45778667) - Mayor
 EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',    'Lunes 19:00', 'Mayor', '2025-06-17', 'P', 'Insertar';
 EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',    'Lunes 19:00', 'Mayor', '2025-06-24', 'A', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-01', 'P', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-08', 'P', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-15', 'J', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-22', 'P', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-29', 'P', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-08-05', 'A', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-08-12', 'P', 'Insertar';
 EXEC actividades.GestionarPresentismoClase '45778667', 'Taekwondo', 'Miércoles 19:00', 'Mayor', '2025-06-19', 'J', 'Insertar';
 EXEC actividades.GestionarPresentismoClase '45778667', 'Ajedrez',   'Sábado 19:00', 'Mayor', '2025-06-22', 'P', 'Insertar';
 GO
@@ -205,6 +225,8 @@ GO
 -- CAMILA (40606060) - Cadete
 EXEC actividades.GestionarPresentismoClase '40606060', 'Natación', 'Viernes 14:00', 'Cadete', '2025-06-21', 'P', 'Insertar';
 EXEC actividades.GestionarPresentismoClase '40606060', 'Natación', 'Viernes 14:00', 'Cadete', '2025-06-28', 'A', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '40606060', 'Natación', 'Viernes 14:00', 'Cadete', '2025-06-14', 'P', 'Insertar';
+
 GO
 
 -- PEDRO (41111111) - Mayor
@@ -213,8 +235,10 @@ EXEC actividades.GestionarPresentismoClase '41111111', 'Vóley', 'Martes 19:00',
 GO
 
 -- JULIÁN (41111112) - Cadete
+EXEC actividades.GestionarPresentismoClase '41111112', 'Futsal', 'Lunes 14:00', 'Cadete', '2025-06-10', 'P', 'Insertar';
 EXEC actividades.GestionarPresentismoClase '41111112', 'Futsal', 'Lunes 14:00', 'Cadete', '2025-06-17', 'A', 'Insertar';
 EXEC actividades.GestionarPresentismoClase '41111112', 'Futsal', 'Lunes 14:00', 'Cadete', '2025-06-24', 'P', 'Insertar';
+
 GO
 
 -- ANDREA (42222222) - Mayor
@@ -276,62 +300,17 @@ GO
 EXEC facturacion.GenerarCargoClase '44444444', '2025-06-28'; -- Natación - P
 GO
 
-EXEC facturacion.GenerarCuotasMensualesPorFecha '2025-06-30';
+EXEC facturacion.GenerarCargosActividadExtraPorFecha '2025-01-30';
 GO
 
-EXEC facturacion.GenerarCargosActividadExtraPorFecha '2025-06-30';
+EXEC facturacion.GenerarFacturasActividadesExtraPorFecha '2025-01-30';
 GO
 
-EXEC facturacion.GenerarFacturasMensualesPorFecha '2025-06-30';
-GO
+SELECT * FROM actividades.InscriptoCategoriaSocio
 
-EXEC facturacion.GenerarFacturasActividadesExtraPorFecha '2025-06-30';
-GO
-
-/*
--- =================== GENERACI�N DE FACTURA MENSUAL ===================
-EXEC facturacion.GenerarFacturaCuotasMensualesPorFecha '45778667', '20-12345678-4';
-EXEC facturacion.GenerarFacturaSocioMensual '33444555', '20-12345678-4';
-EXEC facturacion.GenerarFacturaSocioMensual '40707070', '20-12345678-4';
-GO
-
--- =================== CARGA DE PRESENTISMO DE INVITADOS ===================
-
--- Francisco (2 actividades, 1 presencia)
-EXEC actividades.GestionarPresentismoActividadExtra 'Alquiler de SUM', 'Dia', 'N', '45778667', '2025-06-01', 'P', 'Insertar';
-EXEC actividades.GestionarPresentismoActividadExtra 'Pileta verano', 'Dia', 'N', '45778667', '2025-06-05', 'A', 'Insertar'; -- Ausente
-GO
--- Mariana (1 actividad, 5 presencias)
-EXEC actividades.GestionarPresentismoActividadExtra 'Colonia de verano', 'Temporada', 'N', '40505050', '2025-06-01', 'P', 'Insertar';
-EXEC actividades.GestionarPresentismoActividadExtra 'Colonia de verano', 'Temporada', 'N', '40505050', '2025-06-02', 'P', 'Insertar';
-EXEC actividades.GestionarPresentismoActividadExtra 'Colonia de verano', 'Temporada', 'N', '40505050', '2025-06-03', 'P', 'Insertar';
-EXEC actividades.GestionarPresentismoActividadExtra 'Colonia de verano', 'Temporada', 'N', '40505050', '2025-06-04', 'P', 'Insertar';
-EXEC actividades.GestionarPresentismoActividadExtra 'Colonia de verano', 'Temporada', 'N', '40505050', '2025-06-05', 'P', 'Insertar';
-GO
--- Luciano (1 actividad, 2 presencias)
-EXEC actividades.GestionarPresentismoActividadExtra 'Pileta verano', 'Mes', 'N', '40707070', '2025-06-05', 'A', 'Insertar';
-EXEC actividades.GestionarPresentismoActividadExtra 'Pileta verano', 'Mes', 'N', '40707070', '2025-06-06', 'P', 'Insertar';
-EXEC actividades.GestionarPresentismoActividadExtra 'Pileta verano', 'Mes', 'N', '40707070', '2025-06-10', 'A', 'Insertar';
-EXEC actividades.GestionarPresentismoActividadExtra 'Pileta verano', 'Mes', 'N', '40707070', '2025-06-12', 'P', 'Insertar';
-GO
--- Lucia (2 actividades, 2 presencias)
-EXEC actividades.GestionarPresentismoActividadExtra 'Alquiler de SUM', 'Dia', 'S', '46501934', '2025-06-01', 'P', 'Insertar';
-EXEC actividades.GestionarPresentismoActividadExtra 'Pileta verano', 'Dia', 'S', '46501934', '2025-06-05', 'P', 'Insertar';
-GO
-
--- =================== GENERACI�N DE FACTURA INVITADOS ===================
-EXEC facturacion.GenerarFacturaInvitado '46501934', '20-12345678-4', 'Alquiler de SUM', '2025-06-01';
-EXEC facturacion.GenerarFacturaInvitado '46501934', '20-12345678-4', 'Pileta verano', '2025-06-05';
-GO
-
--- =================== GENERACI�N DE FACTURA SOCIOS ===================
-EXEC facturacion.GenerarFacturaSocioActExtra '45778667', '20-12345678-4', 'Alquiler de SUM', '2025-06-01';
-EXEC facturacion.GenerarFacturaSocioActExtra '45778667', '20-12345678-4', 'Pileta verano', '2025-06-01';
-EXEC facturacion.GenerarFacturaSocioActExtra '40505050', '20-12345678-4', 'Colonia de verano', '2025-06-01';
-EXEC facturacion.GenerarFacturaSocioActExtra '40707070', '20-12345678-4', 'Pileta verano', '2025-06-01';
-GO
-*/
 -- =================== VERIFICAR ===================
+select * from socios.Socio
+
 
 -- ACTIVIDADES
 SELECT id_actividad, nombre, costo, vigencia

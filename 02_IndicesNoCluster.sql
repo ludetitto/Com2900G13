@@ -16,38 +16,46 @@ USE COM2900G13;
 GO
 
 /* ============================================
-   12_IndicesNoCluster.sql - Índices de mejora
-   Con verificación de existencia antes de crear
+   INDICES - Optimización de Consultas y Claves
+   Grupo 13 - COM2900G13
    ============================================ */
 
+USE COM2900G13;
+GO
+
 /* ==========================
-   ADMINISTRACIÓN
+   SOCIOS
    ========================== */
 
 IF NOT EXISTS (
     SELECT 1 FROM sys.indexes 
-    WHERE name = 'IX_Persona_DNI' AND object_id = OBJECT_ID('administracion.Persona')
+    WHERE name = 'IX_Socio_DNI' AND object_id = OBJECT_ID('socios.Socio')
 )
-CREATE NONCLUSTERED INDEX IX_Persona_DNI
-ON administracion.Persona (dni);
+CREATE NONCLUSTERED INDEX IX_Socio_DNI
+ON socios.Socio (dni);
+GO
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes 
+    WHERE name = 'IX_Socio_DNI' AND object_id = OBJECT_ID('socios.Socio')
+)
+CREATE NONCLUSTERED INDEX IX_Socio_NroSocio
+ON socios.Socio (nro_socio);
+GO
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes 
+    WHERE name = 'IX_Socio_NombreApellido' AND object_id = OBJECT_ID('socios.Socio')
+)
+CREATE NONCLUSTERED INDEX IX_Socio_NombreApellido
+ON socios.Socio (apellido, nombre);
 GO
 
 IF NOT EXISTS (
     SELECT 1 FROM sys.indexes 
-    WHERE name = 'IX_Socio_idPersona_idCategoria' AND object_id = OBJECT_ID('administracion.Socio')
+    WHERE name = 'IX_GrupoFamiliarSocio' AND object_id = OBJECT_ID('socios.GrupoFamiliarSocio')
 )
-CREATE NONCLUSTERED INDEX IX_Socio_idPersona_idCategoria
-ON administracion.Socio (id_persona, id_categoria);
+CREATE NONCLUSTERED INDEX IX_GrupoFamiliarSocio
+ON socios.GrupoFamiliarSocio (id_grupo, id_socio);
 GO
-
-IF NOT EXISTS (
-    SELECT 1 FROM sys.indexes 
-    WHERE name = 'IX_GrupoFamiliar_idSocio' AND object_id = OBJECT_ID('administracion.GrupoFamiliar')
-)
-CREATE NONCLUSTERED INDEX IX_GrupoFamiliar_idSocio
-ON administracion.GrupoFamiliar (id_socio);
-GO
-
 
 /* ==========================
    FACTURACIÓN
@@ -55,18 +63,18 @@ GO
 
 IF NOT EXISTS (
     SELECT 1 FROM sys.indexes 
-    WHERE name = 'IX_Factura_idSocio_Fecha' AND object_id = OBJECT_ID('facturacion.Factura')
+    WHERE name = 'IX_Factura_CargoCuota' AND object_id = OBJECT_ID('facturacion.Factura')
 )
-CREATE NONCLUSTERED INDEX IX_Factura_idSocio_Fecha
-ON facturacion.Factura (id_socio, fecha_emision DESC);
+CREATE NONCLUSTERED INDEX IX_Factura_CargoCuota
+ON facturacion.Factura (id_cargo_actividad_extra, id_cuota_mensual);
 GO
 
 IF NOT EXISTS (
     SELECT 1 FROM sys.indexes 
-    WHERE name = 'IX_Factura_EstadoVencimiento' AND object_id = OBJECT_ID('facturacion.Factura')
+    WHERE name = 'IX_Factura_EstadoFecha' AND object_id = OBJECT_ID('facturacion.Factura')
 )
-CREATE NONCLUSTERED INDEX IX_Factura_EstadoVencimiento
-ON facturacion.Factura (estado, fecha_vencimiento1, fecha_vencimiento2);
+CREATE NONCLUSTERED INDEX IX_Factura_EstadoFecha
+ON facturacion.Factura (estado, fecha_emision DESC);
 GO
 
 IF NOT EXISTS (
@@ -77,35 +85,33 @@ CREATE NONCLUSTERED INDEX IX_DetalleFactura_idFactura
 ON facturacion.DetalleFactura (id_factura);
 GO
 
-
 /* ==========================
    COBRANZAS
    ========================== */
 
 IF NOT EXISTS (
     SELECT 1 FROM sys.indexes 
-    WHERE name = 'IX_Pago_FacturaMedio' AND object_id = OBJECT_ID('cobranzas.Pago')
+    WHERE name = 'IX_Pago_FacturaEstado' AND object_id = OBJECT_ID('cobranzas.Pago')
 )
-CREATE NONCLUSTERED INDEX IX_Pago_FacturaMedio
-ON cobranzas.Pago (id_factura, id_medio);
+CREATE NONCLUSTERED INDEX IX_Pago_FacturaEstado
+ON cobranzas.Pago (id_factura, estado);
 GO
 
 IF NOT EXISTS (
     SELECT 1 FROM sys.indexes 
-    WHERE name = 'IX_Mora_idFactura' AND object_id = OBJECT_ID('cobranzas.Mora')
+    WHERE name = 'IX_Mora_SocioFactura' AND object_id = OBJECT_ID('cobranzas.Mora')
 )
-CREATE NONCLUSTERED INDEX IX_Mora_idFactura
-ON cobranzas.Mora (id_factura);
+CREATE NONCLUSTERED INDEX IX_Mora_SocioFactura
+ON cobranzas.Mora (id_socio, id_factura);
 GO
 
 IF NOT EXISTS (
     SELECT 1 FROM sys.indexes 
-    WHERE name = 'IX_Notificacion_FechaDestinatario' AND object_id = OBJECT_ID('cobranzas.Notificacion')
+    WHERE name = 'IX_PagoACuenta_SocioFecha' AND object_id = OBJECT_ID('cobranzas.PagoACuenta')
 )
-CREATE NONCLUSTERED INDEX IX_Notificacion_FechaDestinatario
-ON cobranzas.Notificacion (fecha, destinatario);
+CREATE NONCLUSTERED INDEX IX_PagoACuenta_SocioFecha
+ON cobranzas.PagoACuenta (id_socio, fecha);
 GO
-
 
 /* ==========================
    ACTIVIDADES
@@ -121,32 +127,36 @@ GO
 
 IF NOT EXISTS (
     SELECT 1 FROM sys.indexes 
-    WHERE name = 'IX_PresentismoClase_ClaseFecha' AND object_id = OBJECT_ID('actividades.presentismoClase')
-)
-CREATE NONCLUSTERED INDEX IX_PresentismoClase_ClaseFecha
-ON actividades.presentismoClase (id_clase, fecha);
-GO
-
-IF NOT EXISTS (
-    SELECT 1 FROM sys.indexes 
-    WHERE name = 'IX_InscriptoClase_SocioClase' AND object_id = OBJECT_ID('actividades.InscriptoClase')
-)
-CREATE NONCLUSTERED INDEX IX_InscriptoClase_SocioClase
-ON actividades.InscriptoClase (id_socio, id_clase);
-GO
-
-IF NOT EXISTS (
-    SELECT 1 FROM sys.indexes 
-    WHERE name = 'IX_PresentismoActividadExtra_Socio_Fecha' AND object_id = OBJECT_ID('actividades.presentismoActividadExtra')
-)
-CREATE NONCLUSTERED INDEX IX_PresentismoActividadExtra_Socio_Fecha
-ON actividades.presentismoActividadExtra (id_socio, fecha);
-GO
-
-IF NOT EXISTS (
-    SELECT 1 FROM sys.indexes 
     WHERE name = 'IX_Clase_ActividadCategoria' AND object_id = OBJECT_ID('actividades.Clase')
 )
 CREATE NONCLUSTERED INDEX IX_Clase_ActividadCategoria
 ON actividades.Clase (id_actividad, id_categoria);
+GO
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes 
+    WHERE name = 'IX_InscriptoClase_Socio' AND object_id = OBJECT_ID('actividades.InscriptoClase')
+)
+CREATE NONCLUSTERED INDEX IX_InscriptoClase_Socio
+ON actividades.InscriptoClase (id_socio);
+GO
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes 
+    WHERE name = 'IX_PresentismoClase_ClaseFecha' AND object_id = OBJECT_ID('actividades.PresentismoClase')
+)
+CREATE NONCLUSTERED INDEX IX_PresentismoClase_ClaseFecha
+ON actividades.PresentismoClase (id_clase, fecha);
+GO
+
+/* ==========================
+   TARIFAS & RESERVAS
+   ========================== */
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes 
+    WHERE name = 'IX_ReservaSum_SocioFecha' AND object_id = OBJECT_ID('reservas.ReservaSum')
+)
+CREATE NONCLUSTERED INDEX IX_ReservaSum_SocioFecha
+ON reservas.ReservaSum (id_socio, fecha);
 GO

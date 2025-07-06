@@ -19,6 +19,7 @@ GO
 -- =============================
 
 -- Vistas que usan administracion
+DROP VIEW IF EXISTS facturacion.vwFacturaTotalGrupoFamiliar
 DROP VIEW IF EXISTS administracion.vwSociosConCategoria;
 DROP VIEW IF EXISTS administracion.vwSociosConObraSocial;
 
@@ -28,6 +29,7 @@ DROP PROCEDURE IF EXISTS cobranzas.AplicarBloqueoVencimiento;
 /* =============================
    ELIMINAR PROCEDIMIENTOS
    ============================= */
+DROP PROCEDURE IF EXISTS facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar
 DROP PROCEDURE IF EXISTS actividades.GestionarInscriptoPiletaVerano
 DROP PROCEDURE IF EXISTS actividades.GestionarActividad
 DROP PROCEDURE IF EXISTS actividades.GestionarActividadExtra
@@ -68,6 +70,9 @@ DROP PROCEDURE IF EXISTS cobranzas.MorososRecurrentes
 DROP PROCEDURE IF EXISTS cobranzas.GenerarReembolsoPorPago
 DROP PROCEDURE IF EXISTS cobranzas.GenerarPagoACuentaPorReembolso
 DROP PROCEDURE IF EXISTS cobranzas.GestionarRecargo
+DROP PROCEDURE IF EXISTS cobranzas.GestionarTarjeta
+DROP PROCEDURE IF EXISTS cobranzas.EjecutarDebitoAutomatico
+
 DROP VIEW IF EXISTS cobranzas.vwNotasConMedioDePago
 
 DROP VIEW IF EXISTS facturacion.vw_FacturasDetalladasConResponsables
@@ -194,12 +199,13 @@ CREATE TABLE socios.CategoriaSocio (
     costo_membresia DECIMAL(10,2),
     vigencia DATE
 );
+
 CREATE TABLE socios.Socio (
     id_socio INT IDENTITY PRIMARY KEY,
     nombre VARCHAR(50),
     apellido VARCHAR(50),
     dni CHAR(8) CONSTRAINT CHK_Socio_DNI CHECK (dni NOT LIKE '%[^0-9]%' AND LEN(dni) = 8),
-	nro_socio VARCHAR(50),
+	nro_socio VARCHAR(50) UNIQUE,
     email VARCHAR(100) CONSTRAINT CHK_Socio_Email CHECK (email IS NULL OR email LIKE '%@%.%'),
     fecha_nacimiento DATE,
     tel_contacto VARCHAR(20),
@@ -216,7 +222,6 @@ CREATE TABLE socios.GrupoFamiliar (
     id_grupo INT IDENTITY PRIMARY KEY,
     id_socio_rp INT NULL
 );
-
 
 CREATE TABLE socios.GrupoFamiliarSocio (
     id_grupo INT NOT NULL,
@@ -361,13 +366,11 @@ CREATE TABLE reservas.ReservaSum (
 -- ===============================
 
 
-
-
 CREATE TABLE facturacion.CuotaMensual (
     id_cuota_mensual INT IDENTITY PRIMARY KEY,
 	id_inscripto_categoria INT,
 	monto_membresia DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CuotaMensual_CostoMembresia CHECK (monto_membresia > 0),
-	monto_actividad DECIMAL(10, 2) NOT NULL CONSTRAINT CHK_CuotaMensual_CostoActividad CHECK (monto_actividad > 0),
+	monto_actividad DECIMAL(10, 2) NOT NULL,
     fecha DATE NOT NULL
 );
 
@@ -470,7 +473,8 @@ CREATE TABLE cobranzas.PagoACuenta (
 
 CREATE TABLE cobranzas.MedioDePago (
     id_medio_pago INT IDENTITY PRIMARY KEY,
-    nombre VARCHAR(50) NOT NULL
+    nombre VARCHAR(50) NOT NULL,
+	borrado BIT NOT NULL
 );
 
 CREATE TABLE cobranzas.TarjetaDeCredito(
@@ -555,6 +559,9 @@ ADD CONSTRAINT FK_CargoClases_InscriptoClase
 ALTER TABLE actividades.InscriptoClase
 ADD CONSTRAINT FK_InscriptoClase_Clase
     FOREIGN KEY (id_clase) REFERENCES actividades.Clase(id_clase);
+
+ALTER TABLE cobranzas.TarjetaDeCredito
+ADD CONSTRAINT UQ_Tarjeta_Socio UNIQUE (id_socio);
 
 
 --Tablas de la base de datos

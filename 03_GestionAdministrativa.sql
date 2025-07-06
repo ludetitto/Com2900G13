@@ -72,6 +72,8 @@ BEGIN
             RETURN;
         END
 
+		DECLARE @id_categoria INT;
+
         UPDATE socios.CategoriaSocio
         SET 
             edad_minima			  = COALESCE(@edad_minima, edad_minima),
@@ -79,6 +81,12 @@ BEGIN
             costo_membresia       = COALESCE(@costo, costo_membresia),
             vigencia			  = COALESCE(@vigencia, vigencia)
         WHERE nombre = @nombre_categoria;
+
+		SET @id_categoria = (SELECT id_categoria FROM socios.CategoriaSocio WHERE nombre = @nombre_categoria)
+
+		UPDATE actividades.InscriptoCategoriaSocio
+		SET monto       = COALESCE(@costo, monto)
+		WHERE id_categoria = @id_categoria;
     END
 
     ELSE IF @operacion = 'Eliminar'
@@ -113,7 +121,6 @@ CREATE PROCEDURE socios.GestionarSocio
     @domicilio           VARCHAR(200) = NULL,
     @obra_social         VARCHAR(100) = NULL,
     @nro_os              VARCHAR(50) = NULL,
-    @nro_socio           VARCHAR(50) = NULL,
     @dni_integrante_grupo CHAR(8) = NULL,
     @nombre_tutor        VARCHAR(50) = NULL,
     @apellido_tutor      VARCHAR(50) = NULL,
@@ -143,8 +150,11 @@ BEGIN
         @id_socio_ref INT,
         @id_grupo_ref INT,
         @id_grupo_nuevo INT;
-
-    IF @operacion = 'Insertar'
+	DECLARE @ultimo_nro VARCHAR(10);
+	DECLARE @numero INT;
+	DECLARE @nro_socio VARCHAR(50);
+    
+	IF @operacion = 'Insertar'
     BEGIN
         IF @fecha_nacimiento IS NULL
         BEGIN
@@ -236,6 +246,21 @@ BEGIN
         END
         ELSE
         BEGIN
+			
+			IF @nro_socio IS NULL
+			BEGIN
+				-- Obtener el último nro_socio
+				SELECT TOP 1 @ultimo_nro = nro_socio
+				FROM socios.Socio
+				ORDER BY id_socio DESC;
+
+				-- Extraer parte numérica y convertir a int
+				SET @numero = CAST(SUBSTRING(@ultimo_nro, 4, LEN(@ultimo_nro) - 1) AS INT) + 1;
+
+				-- Armar el nuevo número con prefijo 'S'
+				SET @nro_socio = 'SN-' + CAST(@numero AS VARCHAR);
+			END
+
             INSERT INTO socios.Socio (
                 nombre, apellido, dni, email, fecha_nacimiento,
                 tel_contacto, tel_emergencia, domicilio,
@@ -245,7 +270,7 @@ BEGIN
             VALUES (
                 @nombre, @apellido, @dni, @email, @fecha_nacimiento,
                 @telefono, @telefono_emergencia, @domicilio,
-                @obra_social, @nro_os, @nro_socio,
+                @obra_social, @nro_os, COALESCE(@nro_socio, CAST('SN-4001' AS VARCHAR(50))),
                 1, 0, 0
             );
 
