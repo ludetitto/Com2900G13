@@ -473,7 +473,8 @@ CREATE TABLE cobranzas.PagoACuenta (
 
 CREATE TABLE cobranzas.MedioDePago (
     id_medio_pago INT IDENTITY PRIMARY KEY,
-    nombre VARCHAR(50) NOT NULL
+    nombre VARCHAR(50) NOT NULL,
+	borrado BIT NOT NULL
 );
 
 CREATE TABLE cobranzas.TarjetaDeCredito(
