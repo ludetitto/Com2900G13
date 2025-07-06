@@ -59,7 +59,7 @@ GO
 */
 
 BULK INSERT #SociosRaw
-FROM 'C:\Users\FranciscoVignardel\Desktop\UNLaM\BDA\Com2900G13\ETL\Datos_socios.csv'
+FROM 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Datos_socios.csv'
 WITH (
     DATAFILETYPE = 'char',       -- formato de datos de texto/caracteres
     CODEPAGE = '65001',          -- UTF-8
@@ -138,11 +138,11 @@ GO
 
 /*
 	Cisco: C:\Users\Cisco\Desktop\Unlam\Tercer_Año\BDA\Com2900G13\ETL\Grupo_familiar.csv
-	Lu: C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Datos_socios.csv
+	Lu: C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Grupo_familiar.csv
 */
 
 BULK INSERT #GrupoFamiliarRaw
-FROM 'C:\Users\FranciscoVignardel\Desktop\UNLaM\BDA\Com2900G13\ETL\Grupo_familiar.csv'
+FROM 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Grupo_familiar.csv'
 WITH (
     DATAFILETYPE = 'char',       -- formato de datos de texto/caracteres
     CODEPAGE = '65001',          -- UTF-8
@@ -258,7 +258,7 @@ GO
 */
 
 BULK INSERT #PresentismoRaw
-FROM 'C:\Users\FranciscoVignardel\Desktop\UNLaM\BDA\Com2900G13\ETL\Presentismo_actividades.csv'
+FROM 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Presentismo_actividades.csv'
 WITH (
     DATAFILETYPE = 'char',       -- formato de datos de texto/caracteres
     CODEPAGE = '65001',          -- UTF-8

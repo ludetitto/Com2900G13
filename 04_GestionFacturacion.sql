@@ -159,17 +159,20 @@ BEGIN
 
 	IF @operacion = 'Insertar'
     BEGIN
-
+		
+		-- Validar actividad existente
 		IF @id_actividad IS NULL
 		BEGIN
 			RAISERROR('No existe la actividad ingresada.', 16, 1);
 			RETURN;
 		END
+		-- Validar datos de profesor
 		IF @nombre_profesor IS NULL OR @apellido_profesor IS NULL
 		BEGIN
 			RAISERROR('No existe el profesor con nombre y apellido ingresados.', 16, 1);
 			RETURN;
 		END
+		-- Validar categoría ingrsada
 		IF @id_categoria IS NULL
 		BEGIN
 			RAISERROR('No existe la categoría de socio ingresada.', 16, 1);
@@ -184,7 +187,7 @@ BEGIN
 			  AND C.apellido_profesor = @apellido_profesor
               AND C.horario = @horario
         );
-
+		-- Validar existencia de clase
 		IF @id_clase IS NOT NULL
 		BEGIN
             RAISERROR('La clase ya existe.', 16, 1);
@@ -913,83 +916,6 @@ END;
 GO
 
 /*____________________________________________________________________
-  __________________ GestionarTarifaColoniaVerano ____________________
-  ____________________________________________________________________*/
-/*
-IF OBJECT_ID('tarifas.GestionarTarifaColoniaVerano', 'P') IS NOT NULL
-    DROP PROCEDURE tarifas.GestionarTarifaColoniaVerano;
-GO
-
-CREATE PROCEDURE tarifas.GestionarTarifaColoniaVerano
-	@categoria VARCHAR(50),
-	@periodo CHAR(10),
-	@costo DECIMAL(10,2),
-	@operacion CHAR(10)
-AS
-BEGIN
-
-	--Verificación de operaciones válidas
-    IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
-    BEGIN
-        RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
-        RETURN;
-    END
-	
-	IF @operacion = 'Insertar'
-	BEGIN
-
-		IF @costo IS NULL
-		BEGIN
-			RAISERROR('Monto obligatorio para insertar.', 16, 1);
-			RETURN;
-		END
-
-		IF @categoria IS NULL
-		BEGIN
-			RAISERROR('Categoria obligatoria para insertar.', 16, 1);
-			RETURN;
-		END
-
-		IF @categoria IS NULL
-		BEGIN
-			RAISERROR('Categoria obligatoria para insertar.', 16, 1);
-			RETURN;
-		END
-
-		IF @periodo IS NULL
-		BEGIN
-			RAISERROR('Periodo obligatoria para insertar.', 16, 1);
-			RETURN;
-		END
-
-		IF EXISTS (SELECT TOP 1 id_tarifa 
-				   FROM tarifas.TarifaColoniaVerano 
-				   WHERE categoria = @categoria
-				   AND periodo = @periodo)
-		BEGIN
-			RAISERROR('Tarifa de colonia de verano ya existente.', 16, 1);
-        RETURN;
-    END
-	END
-	ELSE IF @operacion = 'Modificar'
-	BEGIN
-		UPDATE tarifas.TarifaColoniaVerano
-		SET costo = COALESCE(@costo, costo)
-		WHERE categoria = @categoria
-		AND periodo = @periodo
-	END
-	ELSE 
-	BEGIN
-		DELETE FROM tarifas.TarifaColoniaVerano
-		WHERE categoria = @categoria
-		AND periodo = @periodo
-	END
-
-END;
-GO
-*/
-
-/*____________________________________________________________________
   ___________________ GestionarTarifaPiletaVerano ____________________
   ____________________________________________________________________*/
 
@@ -1132,7 +1058,7 @@ BEGIN
 		FROM socios.Socio
 		WHERE dni = @dni_socio AND activo = 1 AND eliminado = 0
 	);
-
+	-- Validar socio, que en ambos casos debe completarse
 	IF @id_socio IS NULL
 	BEGIN
 		RAISERROR('No se encontró un socio válido con ese DNI.', 16, 1);
@@ -1153,7 +1079,7 @@ BEGIN
 					   END
 				FROM socios.Socio S
 				JOIN InscriptoCategoriaSocio ICS ON ICS.id_socio = S.id_socio
-				JOIN socios.CategoriaSocio CS ON CS.id_categoria = ICS.id_categoria
+				JOIN socios.CategoriaSocio CS ON CS.id_categoria = ICS.id_categoria -- Asumiendo que es inscripción de socio
 				WHERE S.id_socio = @id_socio
 			)
 			AND es_invitado = 0
@@ -1169,7 +1095,7 @@ BEGIN
 			FROM socios.Invitado
 			WHERE dni = @dni_invitado
 		);
-
+		-- Validar invitado
 		IF @id_invitado IS NULL
 		BEGIN
 			IF @nombre IS NULL OR @apellido IS NULL OR @categoria IS NULL OR @email IS NULL OR @domicilio IS NULL
@@ -1352,69 +1278,6 @@ BEGIN
 END;
 GO
 
-/*
-DROP TABLE IF EXISTS facturacion.DetalleFactura;
-DROP TABLE IF EXISTS facturacion.Factura;
-DROP TABLE IF EXISTS facturacion.CargoActividadExtra;
-DROP TABLE IF EXISTS facturacion.CargoClases;
-DROP TABLE IF EXISTS facturacion.CargoMembresias;
-DROP TABLE IF EXISTS facturacion.CuotaMensual;*/
-
-/*____________________________________________________________________
-  _______________________ GenerarCargoMembresia ______________________
-  ____________________________________________________________________*/
-
-IF OBJECT_ID('facturacion.GenerarCargoMembresia', 'P') IS NOT NULL
-    DROP PROCEDURE facturacion.GenerarCargoMembresia;
-GO
-
-CREATE PROCEDURE facturacion.GenerarCargoMembresia
-    @dni_socio VARCHAR(100),
-	@fecha DATE
-AS
-BEGIN
-	
-	DECLARE @id_socio INT;
-	DECLARE @id_inscripcion_categoria INT;
-
-	-- Validar existencia de FECHA
-	IF @fecha IS NULL
-	BEGIN
-		RAISERROR('La fecha ingresada es inválida', 16, 1);
-            RETURN;
-	END
-
-	-- Se busca el SOCIOS al que se le quiere generar el cargo
-	SET @id_socio = (SELECT TOP 1 id_socio
-					 FROM socios.Socio
-					 WHERE dni = @dni_socio
-					 AND activo = 1
-					 AND eliminado = 0)
-
-	-- Validar existencia de SOCIO
-	IF @id_socio IS NULL
-	BEGIN
-		RAISERROR('El socio no existe o no está activo.', 16, 1);
-            RETURN;
-	END
-
-	-- Se busca LA INSCRIPCION al que se le quiere generar el cargo
-	SET @id_inscripcion_categoria = (SELECT TOP 1 id_inscripto_categoria
-									 FROM actividades.InscriptoCategoriaSocio
-									 WHERE id_socio = @id_socio
-									 AND fecha <= @fecha
-									 ORDER BY fecha DESC)
-
-	-- Validar existencia de INSCRIPCION
-	IF @id_inscripcion_categoria IS NULL
-	BEGIN
-		RAISERROR('No existe inscripción para el socio ingresado.', 16, 1);
-            RETURN;
-	END
-
-END;
-GO
-
 /*____________________________________________________________________
   _________________________ GenerarCargoClase ________________________
   ____________________________________________________________________*/
@@ -1424,7 +1287,6 @@ IF OBJECT_ID('facturacion.GenerarCargoClase', 'P') IS NOT NULL
 GO
 
 CREATE PROCEDURE facturacion.GenerarCargoClase
-    @dni_socio VARCHAR(100),
     @fecha DATE
 AS
 BEGIN
@@ -1439,27 +1301,17 @@ BEGIN
         RETURN;
     END
 
-    -- Buscar el socio
-    SELECT @id_socio = id_socio
-    FROM socios.Socio
-    WHERE dni = @dni_socio AND activo = 1 AND eliminado = 0;
-
-    IF @id_socio IS NULL
-    BEGIN
-        RAISERROR('El socio no existe o no está activo.', 16, 1);
-        RETURN;
-    END
-
-    -- Insertar un cargo por cada clase en la que esté inscripto ese día (sin duplicados)
+    -- Insertar un cargo por cada clase en la que esté inscripto ese día cada spcop (sin duplicados)
     INSERT INTO facturacion.CargoClases (id_inscripto_clase, monto, fecha)
     SELECT
         IC.id_inscripto_clase,
         A.costo,
         @fecha
-    FROM actividades.InscriptoClase IC
+    FROM socios.Socio S
+    INNER JOIN actividades.InscriptoClase IC ON IC.id_socio = S.id_socio
     INNER JOIN actividades.Clase C ON C.id_clase = IC.id_clase
     INNER JOIN actividades.Actividad A ON A.id_actividad = C.id_actividad
-    WHERE IC.id_socio = @id_socio-- Buscando las clases a las cuales un socio está inscripto
+    WHERE S.activo = 1 AND S.eliminado = 0
       AND IC.fecha_inscripcion <= @fecha
 	  AND NOT EXISTS (
 			SELECT 1
@@ -1485,6 +1337,9 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
+	-- Generar cargos de actividades
+	EXEC facturacion.GenerarCargoClase @fecha;
+
     -- Validar fecha
     IF @fecha IS NULL
     BEGIN
@@ -1495,6 +1350,7 @@ BEGIN
     DECLARE @primer_dia_mes DATE = DATEFROMPARTS(YEAR(@fecha), MONTH(@fecha), 1);
     DECLARE @ultimo_dia_mes DATE = EOMONTH(@fecha);
 
+	-- Uso de CTEs para la generación de cuotas basada en cargos e inscripción
     ;WITH ClasesPorSocio AS (
         SELECT S.id_socio, SUM(CC.monto) AS monto_actividad
         FROM socios.Socio S
@@ -1952,8 +1808,9 @@ BEGIN
 END;
 GO
 
--- Procedimiento: sActividadesExtraPorFecha
--- Transaccional con READ COMMITTED
+/*____________________________________________________________________
+  ______________ GenerarFacturasActividadesExtraPorFecha _____________
+  ____________________________________________________________________*/
 
 IF OBJECT_ID('facturacion.GenerarFacturasActividadesExtraPorFecha', 'P') IS NOT NULL
     DROP PROCEDURE facturacion.GenerarFacturasActividadesExtraPorFecha;
@@ -1964,6 +1821,9 @@ CREATE PROCEDURE facturacion.GenerarFacturasActividadesExtraPorFecha
 AS
 BEGIN
     SET NOCOUNT ON;
+
+	-- Generar cargos por actividades extra
+	EXEC facturacion.GenerarCargosActividadExtraPorFecha @fecha;
 
     IF @fecha IS NULL
     BEGIN
