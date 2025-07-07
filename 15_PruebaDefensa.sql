@@ -17,41 +17,15 @@ GO
 SET NOCOUNT ON;
 GO
 
--- ✅ PRUEBA 1: Inserción válida de categoría "Menor"
-EXEC socios.GestionarCategoriaSocio
-    @nombre_categoria  = 'Menor',
-    @edad_minima = 0,
-    @edad_maxima = 12,
-    @costo = 10000.00,
-    @vigencia = '2025-12-31',
-    @operacion = 'Insertar';
--- Resultado esperado: Categoría insertada correctamente
-GO
+-- Inserción de categorias
+EXEC socios.GestionarCategoriaSocio 'Menor', 0, 12, 10000.00, '2025-12-31', 'Insertar';
+EXEC socios.GestionarCategoriaSocio 'Cadete', 13, 17, 15000.00, '2025-12-31', 'Insertar';
+EXEC socios.GestionarCategoriaSocio 'Mayor', 18, 99, 25000.00, '2025-12-31', 'Insertar';
 
--- ✅ PRUEBA 2: Inserción válida de categoría "Cadete"
-EXEC socios.GestionarCategoriaSocio
-    @nombre_categoria  = 'Cadete',
-    @edad_minima = 13,
-    @edad_maxima = 17,
-    @costo = 15000.00,
-    @vigencia = '2025-12-31',
-    @operacion = 'Insertar';
--- Resultado esperado: Categoría insertada correctamente
-GO
-
--- ✅ PRUEBA 3: Inserción válida de categoría "Mayor"
-EXEC socios.GestionarCategoriaSocio
-    @nombre_categoria  = 'Mayor',
-    @edad_minima = 18,
-    @edad_maxima = 99,
-    @costo = 25000.00,
-    @vigencia = '2025-12-31',
-    @operacion = 'Insertar';
--- Resultado esperado: Categoría insertada correctamente
-GO
 SELECT * FROM socios.CategoriaSocio;
 GO
 
+-- Alta de socios
 EXEC socios.GestionarSocio
     @nombre = 'Valeria',
     @apellido = 'De Rosa',
@@ -66,8 +40,6 @@ EXEC socios.GestionarSocio
     @operacion = 'Insertar';
 GO
 
-
--- ✅ PRUEBA 3: Alta de menor a grupo existente (usando DNI de Julián)
 EXEC socios.GestionarSocio
     @nombre = 'Valeria1',
     @apellido = 'Pérez',
@@ -112,16 +84,17 @@ EXEC socios.GestionarSocio
     @dni_integrante_grupo = '10000000',
     @operacion = 'Insertar';
 GO
--- Verificacion de las tablas
+
 SELECT * FROM socios.Socio ORDER BY id_socio;
 SELECT * FROM socios.GrupoFamiliar ORDER BY id_grupo;
 SELECT * FROM socios.GrupoFamiliarSocio ORDER BY id_grupo, id_socio;
 SELECT * FROM socios.Tutor ORDER BY id_grupo;
 GO
 
+-- Inserción de emisor factura
 EXEC facturacion.GestionarEmisorFactura 'Sol del Norte S.A.', '20-12345678-4', 'Av. Presidente Per�n 1234', 'Argentina', 'La Matanza', '1234', 'Insertar'
 
--- Insertar actividades base (sin horarios)
+-- Inserción de actividades base (sin horarios)
 EXEC actividades.GestionarActividad 'Futsal', 25000, '2025-05-31', 'Insertar';
 EXEC actividades.GestionarActividad 'Vóley', 30000, '2025-05-31', 'Insertar';
 EXEC actividades.GestionarActividad 'Taekwondo', 25000, '2025-05-31', 'Insertar';
@@ -130,6 +103,7 @@ EXEC actividades.GestionarActividad 'Natación', 45000, '2025-05-31', 'Insertar'
 EXEC actividades.GestionarActividad 'Ajedrez', 2000, '2025-05-31', 'Insertar';
 GO
 
+-- Inserción de clases
 -- FUTSAL - Lunes
 EXEC actividades.GestionarClase 'Futsal', 'Gabriel', 'Mirabelli', 'Lunes 08:00', 'Menor', 'Insertar';
 EXEC actividades.GestionarClase 'Futsal', 'Jair', 'Hnatiuk', 'Lunes 14:00', 'Cadete', 'Insertar';
@@ -161,21 +135,21 @@ EXEC actividades.GestionarClase 'Ajedrez', 'Matias', 'Mendoza', 'Sábado 14:00',
 EXEC actividades.GestionarClase 'Ajedrez', 'Gabriel', 'Mirabelli', 'Sábado 19:00', 'Mayor', 'Insertar';
 GO
 
-EXEC actividades.GestionarInscriptoClase '10000000', 'Futsal',  'Lunes 19:00',  'Mayor', '2025-06-13', 'Insertar';
-EXEC actividades.GestionarInscriptoClase '31111225', 'Taekwondo',  'Miércoles 14:00',  'Cadete', '2025-06-13', 'Insertar';
-EXEC actividades.GestionarInscriptoClase '31111224', 'Futsal',  'Lunes 08:00',  'Menor', '2025-06-13', 'Insertar';
-EXEC actividades.GestionarInscriptoClase '31111223', 'Futsal',  'Lunes 14:00',  'Cadete', '2025-06-13', 'Insertar';
-EXEC actividades.GestionarInscriptoClase '31111223', 'Taekwondo',  'Miércoles 14:00',  'Cadete', '2025-06-13', 'Insertar';
+EXEC actividades.GestionarInscriptoClase '10000000', 'Futsal',  'Lunes 19:00',  'Mayor', '2025-05-13', 'Insertar';
+EXEC actividades.GestionarInscriptoClase '31111225', 'Taekwondo',  'Miércoles 14:00',  'Cadete', '2025-05-13', 'Insertar';
+EXEC actividades.GestionarInscriptoClase '31111224', 'Futsal',  'Lunes 08:00',  'Menor', '2025-05-13', 'Insertar';
+EXEC actividades.GestionarInscriptoClase '31111223', 'Futsal',  'Lunes 14:00',  'Cadete', '2025-05-13', 'Insertar';
+EXEC actividades.GestionarInscriptoClase '31111223', 'Taekwondo',  'Miércoles 14:00',  'Cadete', '2025-05-13', 'Insertar';
 
-DELETE FROM facturacion.DetalleFactura
-DELETE FROM facturacion.Factura
-DELETE FROM facturacion.CuotaMensual
-
+-- Generación de cuotas
 EXEC facturacion.GenerarCuotasMensualesPorFecha '2025-07-21';
 GO
 
+-- Generación de facturas grupales
 EXEC facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar '2025-07-21';
+GO
 
+-- Generación de facturas individuales
 EXEC facturacion.GenerarFacturasMensualesPorFecha '2025-07-21';
 GO
 
@@ -197,31 +171,27 @@ SELECT *
 FROM facturacion.vwFacturaTotalGrupoFamiliar
 WHERE dni_responsable = '10000000';
 
+-- Inserción de medios de pago
 EXEC cobranzas.GestionarMedioDePago 'Tarjeta de débito', 'Insertar';
-GO
 EXEC cobranzas.GestionarMedioDePago 'Visa', 'Insertar';
-GO
 EXEC cobranzas.GestionarMedioDePago 'MasterCard', 'Insertar';
-GO
 EXEC cobranzas.GestionarMedioDePago 'Tarjeta Naranja', 'Insertar';
-GO
 EXEC cobranzas.GestionarMedioDePago 'Pago Fácil', 'Insertar'
-GO
 EXEC cobranzas.GestionarMedioDePago 'Rapipago', 'Insertar';
-GO
 EXEC cobranzas.GestionarMedioDePago 'Transferencia Mercado Pago', 'Insertar';
+GO
 
-DELETE FROM cobranzas.PagoACuenta
-DELETE FROM cobranzas.Pago
+-- Registrar pago
 EXEC cobranzas.RegistrarCobranza 1, '2025-08-5', 180000, 'Visa';
 
 SELECT * FROM cobranzas.Pago
 SELECT * FROM socios.Socio
 SELECT * FROM cobranzas.PagoACuenta
 
+-- Inserción de tarifas de pileta de verano
 EXEC tarifas.GestionarTarifaPiletaVerano 'Mayor', '0', 25000, '2025-09-25', 'Insertar'
-
 EXEC tarifas.GestionarTarifaPiletaVerano 'Mayor', '1', 30000, '2025-09-25', 'Insertar'
+GO
 
 EXEC actividades.GestionarInscriptoPiletaVerano '10000000', NULL, NULL, NULL, NULL, NULL, NULL, '2025-07-15', 'Insertar';
 
@@ -230,12 +200,6 @@ EXEC actividades.GestionarInscriptoPiletaVerano '10000000', '10000001', 'Invitad
 EXEC facturacion.GenerarFacturasActividadesExtraPorFecha '2025-07-30';
 GO
 
-DELETE FROM facturacion.DetalleFactura
-WHERE id_factura IN (SELECT id_factura FROM facturacion.Factura WHERE dni_receptor = 10000001)
-
-DELETE FROM facturacion.Factura
-WHERE dni_receptor = 10000001 
-
 SELECT * FROM facturacion.CargoActividadExtra
 SELECT * FROM facturacion.Factura F
 WHERE MONTH(fecha_emision) = MONTH(GETDATE())
@@ -243,30 +207,56 @@ SELECT * FROM facturacion.DetalleFactura DF
 INNER JOIN facturacion.Factura F ON F.id_factura =DF.id_factura
 WHERE MONTH(F.fecha_emision) = MONTH(GETDATE())
 
-DELETE FROM facturacion.DetalleFactura
-WHERE id_factura IN (SELECT id_factura FROM facturacion.Factura WHERE fecha_emision = '2025-06-30' )
+EXEC cobranzas.RegistrarCobranza 4, '2025-07-28', 30000, 'Visa';
+
+-- Se modifica manualmente la inscripción para probar módulo de morosidad
+UPDATE actividades.InscriptoCategoriaSocio
+SET fecha = '2025-05-01'
+WHERE id_socio IN (SELECT GFS.id_socio 
+				   FROM socios.GrupoFamiliarSocio GFS
+				   INNER JOIN socios.GrupoFamiliar GF ON GF.id_grupo = GFS.id_grupo
+				   INNER JOIN socios.Socio S ON S.id_socio = GF.id_socio_rp
+				   WHERE S.dni = 10000000);
+
+SELECT * FROM actividades.InscriptoCategoriaSocio
+
+-- Generación de cuotas
+EXEC facturacion.GenerarCuotasMensualesPorFecha '2025-05-21';
+GO
+
+SELECT * FROM facturacion.CuotaMensual;
+
+-- Generación de facturas grupales (vencidas)
+EXEC facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar '2025-05-21';
+GO
 
 DELETE FROM facturacion.Factura
-WHERE fecha_emision = '2025-06-30' 
+WHERE MONTH(fecha_emision) = 5
 
-SELECT * FROM facturacion.CargoActividadExtra
+DELETE FROM facturacion.DetalleFactura
+WHERE id_factura IN (SELECT id_factura
+					 FROM facturacion.Factura
+					 WHERE MONTH(fecha_emision) = 5)
+
 SELECT * FROM facturacion.Factura F
-WHERE MONTH(fecha_emision) = MONTH(GETDATE()) - 1
+WHERE MONTH(fecha_emision) = MONTH(GETDATE())
 SELECT * FROM facturacion.DetalleFactura DF
-INNER JOIN facturacion.Factura F ON F.id_factura = DF.id_factura
-WHERE MONTH(F.fecha_emision) = MONTH(GETDATE()) - 1
+INNER JOIN facturacion.Factura F ON F.id_factura =DF.id_factura
+WHERE MONTH(F.fecha_emision) = MONTH(GETDATE())
 
-EXEC cobranzas.RegistrarCobranza 2, '2025-08-5', 25000, 'Visa';
 
 EXEC cobranzas.AplicarRecargoVencimiento
 GO
 
-SELECT *
-FROM cobranzas.Mora;
+SELECT * FROM cobranzas.Mora;
 
 SELECT * FROM socios.Socio
 
 EXEC cobranzas.AplicarBloqueoVencimiento
 GO
 
+SELECT * FROM socios.Socio
+
+
+ -- Faltaria generar facturas posteriores y ver si la mora se factura bien
 SELECT * FROM cobranzas.Mora
