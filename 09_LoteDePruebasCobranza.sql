@@ -55,9 +55,9 @@ SELECT
     nombre
 FROM cobranzas.MedioDePago;
 GO
-EXEC cobranzas.RegistrarCobranza 7, '2025-01-30', 200000, 'Visa';
-EXEC cobranzas.RegistrarCobranza 6, '2025-01-30', 200000, 'Visa';
-EXEC cobranzas.RegistrarCobranza 5, '2025-01-28', 2000, 'Mastercard';
+EXEC cobranzas.RegistrarCobranza 7, 200000, 'Visa';
+EXEC cobranzas.RegistrarCobranza 6, 200000, 'Visa';
+EXEC cobranzas.RegistrarCobranza 5, 2000, 'Mastercard';
 
 SELECT *
 FROM cobranzas.Pago
