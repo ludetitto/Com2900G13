@@ -54,12 +54,6 @@ BEGIN
         BEGIN TRY
             BEGIN TRANSACTION;
 
-            -- Eliminar presentismo
-            DELETE pc
-            FROM actividades.presentismoClase AS pc
-            INNER JOIN actividades.Clase AS c ON pc.id_clase = c.id_clase
-            WHERE c.id_actividad = @id_actividad;
-
             -- Eliminar inscripciones
             DELETE ic
             FROM actividades.InscriptoClase AS ic
@@ -129,7 +123,7 @@ END;
 GO
 
 /*____________________________________________________________________
-  _______________________ GestionarClase ________________________
+  __________________________ GestionarClase __________________________
   ____________________________________________________________________*/
 
 IF OBJECT_ID('actividades.GestionarClase', 'P') IS NOT NULL
@@ -137,11 +131,12 @@ IF OBJECT_ID('actividades.GestionarClase', 'P') IS NOT NULL
 GO
 
 CREATE PROCEDURE actividades.GestionarClase
-    @nombre_actividad  VARCHAR(100),
-    @dni_profesor      VARCHAR(10),
-    @horario           VARCHAR(20),
-    @nombre_categoria  VARCHAR(50),
-    @operacion         CHAR(10)
+    @nombre_actividad	VARCHAR(100),
+    @nombre_profesor    VARCHAR(50),
+	@apellido_profesor	VARCHAR(50),
+    @horario			VARCHAR(20),
+    @nombre_categoria	VARCHAR(50),
+    @operacion			CHAR(10)
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -152,53 +147,68 @@ BEGIN
         RETURN;
     END
 
-    DECLARE @actividad_id INT;
-    DECLARE @profesor_id  INT;
+    DECLARE @id_actividad INT;
     DECLARE @id_clase     INT;
     DECLARE @id_categoria INT;
 
     /* Obtener IDs */
-    SET @actividad_id = (SELECT id_actividad FROM actividades.Actividad WHERE nombre = @nombre_actividad);
-    SET @profesor_id = (
-        SELECT Pr.id_profesor
-        FROM administracion.Profesor Pr
-        JOIN administracion.Persona Pe ON Pr.id_persona = Pe.id_persona
-        WHERE Pe.dni = @dni_profesor
-    );
-    SET @id_categoria = (SELECT id_categoria FROM administracion.CategoriaSocio WHERE nombre = @nombre_categoria);
+    
+    SET @id_categoria = (SELECT id_categoria FROM socios.CategoriaSocio WHERE nombre = @nombre_categoria);
 
-    IF @actividad_id IS NULL
-    BEGIN
-        RAISERROR('No existe la actividad "%s".', 16, 1, @nombre_actividad);
-        RETURN;
-    END
-    IF @profesor_id IS NULL
-    BEGIN
-        RAISERROR('No existe el profesor con DNI %s.', 16, 1, @dni_profesor);
-        RETURN;
-    END
-    IF @id_categoria IS NULL
-    BEGIN
-        RAISERROR('No existe la categoría de socio "%s".', 16, 1, @nombre_categoria);
-        RETURN;
-    END
+	SET @id_actividad = (SELECT id_actividad FROM actividades.Actividad WHERE nombre = @nombre_actividad)
 
-    IF @operacion = 'Insertar'
+	IF @operacion = 'Insertar'
     BEGIN
-        INSERT INTO actividades.Clase (id_actividad, id_profesor, id_categoria, horario)
-        VALUES (@actividad_id, @profesor_id, @id_categoria, @horario);
+		
+		-- Validar actividad existente
+		IF @id_actividad IS NULL
+		BEGIN
+			RAISERROR('No existe la actividad ingresada.', 16, 1);
+			RETURN;
+		END
+		-- Validar datos de profesor
+		IF @nombre_profesor IS NULL OR @apellido_profesor IS NULL
+		BEGIN
+			RAISERROR('No existe el profesor con nombre y apellido ingresados.', 16, 1);
+			RETURN;
+		END
+		-- Validar categoría ingrsada
+		IF @id_categoria IS NULL
+		BEGIN
+			RAISERROR('No existe la categoría de socio ingresada.', 16, 1);
+			RETURN;
+		END
+
+		SET @id_clase = (
+            SELECT C.id_clase
+            FROM actividades.Clase C
+            WHERE C.id_actividad = @id_actividad
+              AND C.nombre_profesor = @nombre_profesor
+			  AND C.apellido_profesor = @apellido_profesor
+              AND C.horario = @horario
+        );
+		-- Validar existencia de clase
+		IF @id_clase IS NOT NULL
+		BEGIN
+            RAISERROR('La clase ya existe.', 16, 1);
+            RETURN;
+        END
+
+        INSERT INTO actividades.Clase (id_actividad, nombre_profesor, apellido_profesor, id_categoria, horario)
+        VALUES (@id_actividad, @nombre_profesor, @apellido_profesor, @id_categoria, @horario);
         RETURN;
     END
 
     IF @operacion = 'Modificar'
     BEGIN
-        SET @id_clase = (
-            SELECT C.id_clase
-            FROM actividades.Clase C
-            WHERE C.id_actividad = @actividad_id
-              AND C.id_profesor = @profesor_id
-              AND C.horario = @horario
+		SET @id_clase = (
+            SELECT id_clase
+            FROM actividades.Clase
+            WHERE id_actividad = @id_actividad
+              AND nombre_profesor = @nombre_profesor
+			  AND apellido_profesor = @apellido_profesor
         );
+
         IF @id_clase IS NULL
         BEGIN
             RAISERROR('No se encontró la clase para modificar.', 16, 1);
@@ -206,8 +216,9 @@ BEGIN
         END
 
         UPDATE actividades.Clase
-        SET id_actividad = @actividad_id,
-            id_profesor  = @profesor_id,
+        SET id_actividad = @id_actividad,
+            nombre_profesor  = @nombre_profesor,
+			apellido_profesor = @apellido_profesor,
             id_categoria = @id_categoria,
             horario      = @horario
         WHERE id_clase = @id_clase;
@@ -219,8 +230,9 @@ BEGIN
         SET @id_clase = (
             SELECT id_clase
             FROM actividades.Clase
-            WHERE id_actividad = @actividad_id
-              AND id_profesor = @profesor_id
+            WHERE id_actividad = @id_actividad
+              AND nombre_profesor = @nombre_profesor
+			  AND apellido_profesor = @apellido_profesor
               AND horario = @horario
               AND id_categoria = @id_categoria
         );
@@ -238,13 +250,13 @@ END;
 GO
 
 /*____________________________________________________________________
-  _______________________ GestionarInscripcion _______________________
+  ____________________ GestionarInscriptoClase _______________________
   ____________________________________________________________________*/
-IF OBJECT_ID('actividades.GestionarInscripcion', 'P') IS NOT NULL
-    DROP PROCEDURE actividades.GestionarInscripcion;
+IF OBJECT_ID('actividades.GestionarInscriptoClase', 'P') IS NOT NULL
+    DROP PROCEDURE actividades.GestionarInscriptoClase;
 GO
 
-CREATE PROCEDURE actividades.GestionarInscripcion
+CREATE PROCEDURE actividades.GestionarInscriptoClase
     @dni_socio VARCHAR(10),
     @nombre_actividad VARCHAR(100),
     @horario VARCHAR(50),
@@ -256,18 +268,19 @@ BEGIN
     SET NOCOUNT ON;
 
     -- Validar operación
-    IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
+    IF @operacion NOT IN ('Insertar', 'Eliminar')
     BEGIN
-        RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
+        RAISERROR('Operación inválida. Usar Insertar o Eliminar.', 16, 1);
         RETURN;
     END
 
     -- Buscar ID de socio activo
     DECLARE @id_socio INT = (
         SELECT TOP 1 S.id_socio
-        FROM administracion.Socio S
-        JOIN administracion.Persona P ON S.id_persona = P.id_persona
-        WHERE P.dni = @dni_socio AND S.activo = 1
+        FROM socios.Socio S
+		INNER JOIN actividades.InscriptoCategoriaSocio ICS ON ICS.id_socio = S.id_socio
+		INNER JOIN socios.CategoriaSocio CS ON CS.id_categoria = ICS.id_categoria
+        WHERE S.dni = @dni_socio AND S.activo = 1 AND eliminado = 0 AND CS.nombre = @nombre_categoria
     );
 
     -- Buscar ID de clase correspondiente
@@ -275,15 +288,15 @@ BEGIN
         SELECT TOP 1 C.id_clase
         FROM actividades.Clase C
         JOIN actividades.Actividad A ON A.id_actividad = C.id_actividad
-        JOIN administracion.CategoriaSocio Cat ON Cat.id_categoria = C.id_categoria
+        JOIN socios.CategoriaSocio Ca ON Ca.id_categoria = C.id_categoria
         WHERE A.nombre = @nombre_actividad
           AND C.horario = @horario
-          AND Cat.nombre = @nombre_categoria
+          AND Ca.nombre = @nombre_categoria
     );
 
     -- Buscar inscripción existente
-    DECLARE @id_inscripto INT = (
-        SELECT TOP 1 IC.id_inscripto
+    DECLARE @id_inscripcion INT = (
+        SELECT TOP 1 IC.id_inscripto_clase
         FROM actividades.InscriptoClase IC
         WHERE IC.id_socio = @id_socio AND IC.id_clase = @id_clase
     );
@@ -291,31 +304,18 @@ BEGIN
     -- === Eliminar ===
     IF @operacion = 'Eliminar'
     BEGIN
-        IF @id_inscripto IS NULL
+        IF @id_inscripcion IS NULL
         BEGIN
             RAISERROR('No existe la inscripción para eliminar.', 16, 1);
             RETURN;
         END
 
-        DELETE FROM actividades.InscriptoClase WHERE id_inscripto = @id_inscripto;
+        UPDATE actividades.InscriptoClase 
+		SET activa = 0
+		WHERE id_inscripto_clase = @id_inscripcion;
         RETURN;
     END
-
-    -- === Modificar ===
-    IF @operacion = 'Modificar'
-    BEGIN
-        IF @id_inscripto IS NULL
-        BEGIN
-            RAISERROR('No existe la inscripción para modificar.', 16, 1);
-            RETURN;
-        END
-
-        UPDATE actividades.InscriptoClase
-        SET fecha_inscripcion = COALESCE(@fecha_inscripcion, fecha_inscripcion)
-        WHERE id_inscripto = @id_inscripto;
-        RETURN;
-    END
-
+	ELSE
     -- === Insertar ===
     IF @operacion = 'Insertar'
     BEGIN
@@ -334,7 +334,7 @@ BEGIN
         IF EXISTS (
             SELECT 1
             FROM actividades.InscriptoClase
-            WHERE id_socio = @id_socio AND id_clase = @id_clase
+            WHERE id_socio = @id_socio AND id_clase = @id_clase AND activa = 1
         )
         BEGIN
             RAISERROR('El socio ya está inscripto en esa clase.', 16, 1);
@@ -344,12 +344,13 @@ BEGIN
         IF @fecha_inscripcion IS NULL
             SET @fecha_inscripcion = GETDATE();
 
-        INSERT INTO actividades.InscriptoClase (id_socio, id_clase, fecha_inscripcion)
-        VALUES (@id_socio, @id_clase, @fecha_inscripcion);
+        INSERT INTO actividades.InscriptoClase (id_socio, id_clase, fecha_inscripcion, activa)
+        VALUES (@id_socio, @id_clase, @fecha_inscripcion, 1);
         RETURN;
     END
 END;
 GO
+
 /*____________________________________________________________________
   _____________________ GestionarPresentismoClase ____________________
   ____________________________________________________________________*/
@@ -359,12 +360,12 @@ IF OBJECT_ID('actividades.GestionarPresentismoClase', 'P') IS NOT NULL
 GO
 
 CREATE PROCEDURE actividades.GestionarPresentismoClase
-    @nombre_actividad VARCHAR(100),
     @dni_socio VARCHAR(10),
+	@nombre_actividad VARCHAR(100),
     @horario VARCHAR(20),
     @nombre_categoria VARCHAR(50),
     @fecha DATE,
-    @condicion CHAR(1) = NULL,
+    @estado CHAR(1) = NULL,
     @operacion CHAR(10)
 AS
 BEGIN
@@ -373,6 +374,7 @@ BEGIN
 	DECLARE @id_clase INT;
 	DECLARE @id_socio INT;
 	DECLARE @id_presentismo INT;
+	DECLARE @id_inscripcion INT;
 
     -- Validación de operación
     IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
@@ -386,25 +388,34 @@ BEGIN
         SELECT C.id_clase
         FROM actividades.Clase C
         JOIN actividades.Actividad A ON A.id_actividad = C.id_actividad
-        JOIN administracion.CategoriaSocio Cat ON Cat.id_categoria = C.id_categoria
+        JOIN socios.CategoriaSocio Ca ON Ca.id_categoria = C.id_categoria
         WHERE A.nombre = @nombre_actividad
           AND C.horario = @horario
-          AND Cat.nombre = @nombre_categoria
+          AND Ca.nombre = @nombre_categoria
     );
 
     -- Obtener ID del socio
     SET @id_socio = (
-        SELECT S.id_socio
-        FROM administracion.Socio S
-        JOIN administracion.Persona P ON S.id_persona = P.id_persona
-        WHERE P.dni = @dni_socio
+        SELECT id_socio
+        FROM socios.Socio
+        WHERE dni = @dni_socio
     );
 
-    -- Buscar presentismo existente
+	-- Buscar inscripción existente
+    SET @id_inscripcion = (
+        SELECT TOP 1 id_inscripto_clase 
+		FROM actividades.InscriptoClase IC
+		INNER JOIN actividades.Clase C ON C.id_clase = IC.id_clase
+		WHERE IC.id_clase = @id_clase AND IC.id_socio = @id_socio
+    );
+
+	-- Buscar presentismo existente
     SET @id_presentismo = (
         SELECT TOP 1 id_presentismo
-        FROM actividades.presentismoClase
-        WHERE id_clase = @id_clase AND id_socio = @id_socio AND fecha = COALESCE(@fecha, CONVERT(date, GETDATE()))
+        FROM actividades.presentismoClase PC
+		INNER JOIN actividades.Clase C ON C.id_clase = PC.id_clase
+		INNER JOIN actividades.InscriptoClase IC ON IC.id_clase = C.id_clase
+        WHERE C.id_clase = @id_clase AND IC.id_inscripto_clase = @id_inscripcion AND PC.fecha = @fecha
     );
 
     -- === Eliminar ===
@@ -431,9 +442,8 @@ BEGIN
 
         UPDATE actividades.presentismoClase
         SET id_clase = COALESCE(@id_clase, id_clase),
-            id_socio = COALESCE(@id_socio, id_socio),
             fecha = COALESCE(@fecha, fecha),
-            condicion = COALESCE(@condicion, condicion)
+            estado = COALESCE(@estado, estado)
         WHERE id_presentismo = @id_presentismo;
         RETURN;
     END
@@ -453,7 +463,10 @@ BEGIN
             RETURN;
         END
 
-		IF @id_socio IN (SELECT id_socio FROM administracion.Socio WHERE activo = 0)
+		IF @id_socio IN (SELECT id_socio 
+						 FROM socios.Socio 
+						 WHERE activo = 0
+						 AND eliminado = 0)
         BEGIN
             RAISERROR('El socio especificado se encuentra inactivo.', 16, 1);
             RETURN;
@@ -462,169 +475,126 @@ BEGIN
         IF @fecha IS NULL
             SET @fecha = GETDATE();
 
-        IF @condicion IS NULL
-            SET @condicion = 'P';
+        IF @estado IS NULL
+            SET @estado = 'P';
 
         -- Validación: evitar duplicados exactos
-        IF EXISTS (
-            SELECT 1
-            FROM actividades.presentismoClase
-            WHERE id_clase = @id_clase AND id_socio = @id_socio AND fecha = @fecha
-        )
+        IF @id_presentismo IS NOT NULL
         BEGIN
             RAISERROR('Ya existe un presentismo registrado para esa clase, socio y fecha.', 16, 1);
             RETURN;
         END
 
-        INSERT INTO actividades.presentismoClase (id_clase, id_socio, fecha, condicion)
-        VALUES (@id_clase, @id_socio, @fecha, @condicion);
+        INSERT INTO actividades.presentismoClase (id_clase, id_socio, fecha, estado)
+        VALUES (
+			@id_clase, 
+			@id_socio,
+			@fecha, 
+			@estado);
         RETURN;
-    END
-END;
-GO
-
-/*_________________________________________________________________________
-  ____________________ GestionarActividadExtra ____________________________
-  _________________________________________________________________________*/
-  IF OBJECT_ID('actividades.GestionarActividadExtra', 'P') IS NOT NULL
-    DROP PROCEDURE actividades.GestionarActividadExtra;
-GO
-
-CREATE PROCEDURE actividades.GestionarActividadExtra
-    @nombre      VARCHAR(100),
-    @costo       DECIMAL(10,2),
-    @periodo     CHAR(10),
-    @es_invitado CHAR(1),
-    @vigencia    DATE,
-	@categoria	 VARCHAR(50),
-    @operacion   CHAR(10)
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    -- 1) Verificar operación válida
-    IF @operacion NOT IN ('Insertar','Modificar','Eliminar')
-    BEGIN
-        RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.',16,1);
-        RETURN;
-    END
-
-    -- 2) Contar y preparar variable única para id_extra
-    DECLARE 
-        @count_extra INT,
-        @id_extra    INT;
-
-    SELECT @count_extra = COUNT(*)
-    FROM actividades.ActividadExtra
-    WHERE nombre      = @nombre
-      AND periodo     = @periodo
-	  AND categoria	  = @categoria
-      AND es_invitado = @es_invitado;
-
-    -- 3) Eliminar
-    IF @operacion = 'Eliminar'
-    BEGIN
-        IF @count_extra = 0
-        BEGIN
-            RAISERROR('No existe la actividad extra para eliminar.',16,1);
-            RETURN;
-        END
-        IF @count_extra > 1
-        BEGIN
-            RAISERROR('Hay más de una fila que coincide; operación ambigua.',16,1);
-            RETURN;
-        END
-
-        SELECT @id_extra = id_extra
-        FROM actividades.ActividadExtra
-        WHERE nombre=@nombre AND periodo=@periodo AND es_invitado=@es_invitado;
-
-        DELETE FROM actividades.ActividadExtra
-        WHERE id_extra = @id_extra;
-        RETURN;
-    END
-
-    -- 4) Modificar
-    ELSE IF @operacion = 'Modificar'
-    BEGIN
-        IF @count_extra = 0
-        BEGIN
-            RAISERROR('No existe la actividad extra para modificar.',16,1);
-            RETURN;
-        END
-        IF @count_extra > 1
-        BEGIN
-            RAISERROR('Hay más de una fila que coincide; operación ambigua.',16,1);
-            RETURN;
-        END
-
-        SELECT @id_extra = id_extra
-        FROM actividades.ActividadExtra
-        WHERE nombre=@nombre AND periodo=@periodo AND es_invitado = @es_invitado;
-
-        UPDATE actividades.ActividadExtra
-        SET 
-            nombre      = COALESCE(@nombre,      nombre),
-            costo       = COALESCE(@costo,       costo),
-            periodo     = COALESCE(@periodo,     periodo),
-			categoria	= COALESCE(@categoria,	 categoria),
-            es_invitado = COALESCE(@es_invitado, es_invitado),
-            vigencia    = COALESCE(@vigencia,    vigencia)
-        WHERE id_extra = @id_extra;
-        RETURN;
-    END
-
-    -- 5) Insertar + validación de duplicados
-    ELSE /* Insertar */
-    BEGIN
-        IF @nombre IS NULL OR LTRIM(RTRIM(@nombre)) = ''
-        BEGIN
-            RAISERROR('El nombre de la actividad extra es obligatorio.',16,1);
-            RETURN;
-        END
-        IF @costo IS NULL OR @costo < 0
-        BEGIN
-            RAISERROR('El costo debe ser un número positivo.',16,1);
-            RETURN;
-        END
-        IF @count_extra > 0
-        BEGIN
-            RAISERROR('Ya existe una actividad extra con esos parámetros.',16,1);
-            RETURN;
-        END
-
-        INSERT INTO actividades.ActividadExtra
-            (nombre, costo, periodo, categoria, es_invitado, vigencia)
-        VALUES
-            (@nombre, @costo, @periodo, @categoria, @es_invitado, @vigencia);
     END
 END;
 GO
 
 /*____________________________________________________________________
-  _______________ GestionarPresentismoActividadExtra _________________
+  __________________ GestionarTarifaColoniaVerano ___________________
   ____________________________________________________________________*/
-IF OBJECT_ID('actividades.GestionarPresentismoActividadExtra', 'P') IS NOT NULL
-    DROP PROCEDURE actividades.GestionarPresentismoActividadExtra;
-GO
 
-CREATE PROCEDURE actividades.GestionarPresentismoActividadExtra
-    @nombre_actividad_extra VARCHAR(100),
+IF OBJECT_ID('tarifas.GestionarTarifaColoniaVerano', 'P') IS NOT NULL
+    DROP PROCEDURE tarifas.GestionarTarifaColoniaVerano;
+GO
+CREATE PROCEDURE tarifas.GestionarTarifaColoniaVerano
+    @categoria VARCHAR(50),
     @periodo CHAR(10),
-    @es_invitado CHAR(1),
-    @dni VARCHAR(10) = NULL,
-    @fecha DATE = NULL,
-    @condicion CHAR(1) = NULL,
+    @costo DECIMAL(10,2),
+	@vigencia DATE,
     @operacion CHAR(10)
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    DECLARE @id_presentismo INT;
-    DECLARE @categoria VARCHAR(50);
+    IF @operacion NOT IN ('Insertar', 'Eliminar')
+    BEGIN
+        RAISERROR('Operación inválida. Usar Insertar o Eliminar.', 16, 1);
+        RETURN;
+    END
+
+    IF @operacion = 'Insertar'
+    BEGIN
+        IF @costo IS NULL
+        BEGIN
+            RAISERROR('Monto obligatorio para insertar.', 16, 1);
+            RETURN;
+        END
+
+		IF @vigencia IS NULL
+        BEGIN
+            RAISERROR('La vigencia es obligatoria para insertar.', 16, 1);
+            RETURN;
+        END
+
+        IF @categoria IS NULL
+        BEGIN
+            RAISERROR('Categoría obligatoria para insertar.', 16, 1);
+            RETURN;
+        END
+
+        IF @periodo IS NULL
+        BEGIN
+            RAISERROR('Periodo obligatorio para insertar.', 16, 1);
+            RETURN;
+        END
+
+        IF EXISTS (
+            SELECT 1
+            FROM tarifas.TarifaColoniaVerano
+            WHERE categoria = @categoria AND periodo = @periodo)
+        BEGIN
+            RAISERROR('Tarifa de colonia de verano ya existente.', 16, 1);
+            RETURN;
+        END
+
+        INSERT INTO tarifas.TarifaColoniaVerano (categoria, periodo, costo, vigencia)
+        VALUES (@categoria, @periodo, @costo, @vigencia);
+    END
+    ELSE -- Eliminar
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM tarifas.TarifaColoniaVerano
+            WHERE categoria = @categoria AND periodo = @periodo)
+        BEGIN
+            RAISERROR('No existe tarifa para eliminar.', 16, 1);
+            RETURN;
+        END
+
+        DELETE FROM tarifas.TarifaColoniaVerano
+        WHERE categoria = @categoria AND periodo = @periodo;
+    END
+END;
+GO
+
+/*____________________________________________________________________
+  ____________________ GestionarInscriptoColonia _____________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('actividades.GestionarInscriptoColonia', 'P') IS NOT NULL
+    DROP PROCEDURE actividades.GestionarInscriptoColonia;
+GO
+
+CREATE PROCEDURE actividades.GestionarInscriptoColonia
+    @dni_socio VARCHAR(10),
+    @descripcion_categoria VARCHAR(50),
+    @periodo CHAR(10),
+    @fecha_inscripcion DATE,
+    @operacion CHAR(10)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
     DECLARE @id_socio INT;
-    DECLARE @id_invitado INT;
-    DECLARE @id_extra INT;
+    DECLARE @id_tarifa INT;
+    DECLARE @monto DECIMAL(18,2);
+    DECLARE @id_inscripcion INT;
 
     -- Validar operación
     IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
@@ -633,136 +603,595 @@ BEGIN
         RETURN;
     END
 
-    SET @es_invitado = UPPER(@es_invitado);
-    IF @es_invitado NOT IN ('S', 'N')
+    -- Buscar ID de socio activo
+    SET @id_socio = (
+        SELECT TOP 1 id_socio
+        FROM socios.Socio
+        WHERE dni = @dni_socio AND activo = 1 AND eliminado = 0
+    );
+
+    IF @id_socio IS NULL
     BEGIN
-        RAISERROR('El campo es_invitado solo puede ser S o N.', 16, 1);
+        RAISERROR('El socio no existe o no está activo.', 16, 1);
         RETURN;
     END
 
-    IF @fecha IS NULL
-        SET @fecha = CAST(GETDATE() AS DATE);
-    IF @condicion IS NULL
-        SET @condicion = 'P';
+    -- Buscar tarifa vigente correspondiente
+    SET @id_tarifa = (
+        SELECT TOP 1 id_tarifa_colonia
+        FROM tarifas.TarifaColoniaVerano
+        WHERE periodo = @periodo
+          AND categoria = @descripcion_categoria
+          AND vigencia >= GETDATE()
+        ORDER BY vigencia DESC
+    );
 
-    -- Obtener datos del participante
-    IF @es_invitado = 'N'
+    IF @id_tarifa IS NULL
     BEGIN
-        -- SOCIO
-        IF @dni IS NULL OR LTRIM(RTRIM(@dni)) = ''
-        BEGIN
-            RAISERROR('El DNI del socio es obligatorio.', 16, 1);
-            RETURN;
-        END
-
-        SELECT 
-            @id_socio = S.id_socio,
-            @categoria = C.nombre
-        FROM administracion.Socio S
-        INNER JOIN administracion.Persona P ON P.id_persona = S.id_persona
-        INNER JOIN administracion.CategoriaSocio C ON C.id_categoria = S.id_categoria
-        WHERE P.dni = @dni AND S.activo = 1;
-
-        IF @id_socio IS NULL OR @categoria IS NULL
-        BEGIN
-            RAISERROR('No se encontró un socio activo con ese DNI.', 16, 1);
-            RETURN;
-        END
-    END
-    ELSE
-    BEGIN
-        -- INVITADO
-        IF @dni IS NOT NULL
-        BEGIN
-            SELECT 
-                @id_invitado = id_invitado,
-                @categoria = categoria
-            FROM administracion.Invitado
-            WHERE dni = @dni;
-
-            IF @id_invitado IS NULL
-            BEGIN
-                RAISERROR('No existe un invitado con ese DNI.', 16, 1);
-                RETURN;
-            END
-        END
-    END
-
-    -- Obtener ID de la actividad extra
-    SELECT TOP 1 @id_extra = id_extra
-    FROM actividades.ActividadExtra
-    WHERE nombre = @nombre_actividad_extra
-        AND periodo = @periodo
-        AND categoria = @categoria
-        AND es_invitado = @es_invitado
-    ORDER BY vigencia DESC;
-
-    IF @id_extra IS NULL
-    BEGIN
-        RAISERROR('No existe una actividad extra para los datos proporcionados.', 16, 1);
+        RAISERROR('La tarifa de colonia de verano no existe con esos parámetros o no está vigente.', 16, 1);
         RETURN;
     END
 
-    -- Verificar existencia del presentismo
-    SELECT TOP 1 @id_presentismo = P.id_presentismo_extra
-    FROM actividades.presentismoActividadExtra P
-    WHERE P.id_extra = @id_extra
-        AND P.fecha = @fecha
-        AND (
-            (@es_invitado = 'N' AND P.id_socio = @id_socio)
-            OR (@es_invitado = 'S' AND P.id_invitado = @id_invitado)
-        );
+    SET @monto = (
+        SELECT TOP 1 costo -- o monto, según el nombre correcto en la tabla
+        FROM tarifas.TarifaColoniaVerano
+        WHERE id_tarifa_colonia = @id_tarifa
+    );
 
-    -- OPERACIÓN: INSERTAR
+    IF @monto IS NULL
+    BEGIN
+        RAISERROR('No se pudo obtener el monto de la tarifa.', 16, 1);
+        RETURN;
+    END
+
+    -- Buscar inscripción existente
+    SET @id_inscripcion = (
+        SELECT TOP 1 id_inscripto_colonia
+        FROM actividades.InscriptoColoniaVerano
+        WHERE id_socio = @id_socio AND id_tarifa_colonia = @id_tarifa
+    );
+
+    -- === Insertar ===
     IF @operacion = 'Insertar'
     BEGIN
-        IF @id_presentismo IS NOT NULL
+        IF @id_inscripcion IS NOT NULL
         BEGIN
-            RAISERROR('Ya se registró el presentismo para ese participante en esa fecha.', 16, 1);
+            RAISERROR('El socio ya está inscripto en esa tarifa de colonia.', 16, 1);
             RETURN;
         END
 
-        INSERT INTO actividades.presentismoActividadExtra (id_extra, id_socio, id_invitado, fecha, condicion)
-        VALUES (@id_extra, @id_socio, @id_invitado, @fecha, @condicion);
+        IF @fecha_inscripcion IS NULL
+            SET @fecha_inscripcion = GETDATE();
+
+        INSERT INTO actividades.InscriptoColoniaVerano(id_socio, id_tarifa_colonia, fecha, monto)
+        VALUES (@id_socio, @id_tarifa, @fecha_inscripcion, @monto);
+
         RETURN;
     END
 
-    -- OPERACIÓN: ELIMINAR
-    IF @operacion = 'Eliminar'
+    -- === Modificar ===
+    ELSE IF @operacion = 'Modificar'
     BEGIN
-        IF @id_presentismo IS NULL
+        IF @id_inscripcion IS NULL
         BEGIN
-            RAISERROR('No se encontró el presentismo para eliminar.', 16, 1);
+            RAISERROR('No existe la inscripción para modificar.', 16, 1);
             RETURN;
         END
 
-        DELETE FROM actividades.presentismoActividadExtra
-        WHERE id_presentismo_extra = @id_presentismo;
+        UPDATE actividades.InscriptoColoniaVerano
+        SET fecha = COALESCE(@fecha_inscripcion, fecha)
+        WHERE id_inscripto_colonia = @id_inscripcion;
+
         RETURN;
     END
 
-    -- OPERACIÓN: MODIFICAR
-    IF @operacion = 'Modificar'
+    -- === Eliminar ===
+    ELSE IF @operacion = 'Eliminar'
     BEGIN
-        IF @id_presentismo IS NULL
+        IF @id_inscripcion IS NULL
         BEGIN
-            RAISERROR('No se encontró el presentismo para modificar.', 16, 1);
+            RAISERROR('No existe la inscripción para eliminar.', 16, 1);
             RETURN;
         END
 
-        UPDATE actividades.presentismoActividadExtra
-        SET
-            id_extra = @id_extra,
-            id_socio = @id_socio,
-            id_invitado = @id_invitado,
-            fecha = @fecha,
-            condicion = @condicion
-        WHERE id_presentismo_extra = @id_presentismo;
+        DELETE FROM actividades.InscriptoColoniaVerano
+        WHERE id_inscripto_colonia = @id_inscripcion;
+
         RETURN;
     END
 END;
 GO
 
+/*____________________________________________________________________
+  ____________________ GestionarTarifaReservaSum _____________________
+  ____________________________________________________________________*/
+IF OBJECT_ID('tarifas.GestionarTarifaReservaSum', 'P') IS NOT NULL
+    DROP PROCEDURE tarifas.GestionarTarifaReservaSum;
+GO
+
+CREATE PROCEDURE tarifas.GestionarTarifaReservaSum
+	@costo DECIMAL(10,2),
+	@vigencia DATE,
+	@operacion CHAR(10)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+	DECLARE @id_tarifa INT;
+
+    IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
+    BEGIN
+        RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
+        RETURN;
+    END
+
+	-- === INSERTAR ===
+	IF @operacion = 'Insertar'
+	BEGIN
+		IF @costo IS NULL OR @vigencia IS NULL
+		BEGIN
+			RAISERROR('Costo y vigencia son obligatorios para insertar.', 16, 1);
+			RETURN;
+		END
+
+		IF EXISTS (
+			SELECT 1 FROM tarifas.TarifaReservaSum
+			WHERE vigencia = @vigencia
+		)
+		BEGIN
+			RAISERROR('Ya existe una tarifa con esa vigencia.', 16, 1);
+			RETURN;
+		END
+
+		INSERT INTO tarifas.TarifaReservaSum (costo, vigencia)
+		VALUES (@costo, @vigencia);
+		RETURN;
+	END
+
+	-- === MODIFICAR ===
+	ELSE IF @operacion = 'Modificar'
+	BEGIN
+		IF NOT EXISTS (
+			SELECT 1 FROM tarifas.TarifaReservaSum
+			WHERE vigencia = @vigencia
+		)
+		BEGIN
+			RAISERROR('No existe una tarifa con esa vigencia para modificar.', 16, 1);
+			RETURN;
+		END
+
+		UPDATE tarifas.TarifaReservaSum
+		SET costo = COALESCE(@costo, costo)
+		WHERE vigencia = @vigencia;
+		RETURN;
+	END
+
+	-- === ELIMINAR ===
+	ELSE
+	BEGIN
+		IF NOT EXISTS (
+			SELECT 1 FROM tarifas.TarifaReservaSum
+			WHERE vigencia = @vigencia
+		)
+		BEGIN
+			RAISERROR('No existe una tarifa con esa vigencia para eliminar.', 16, 1);
+			RETURN;
+		END
+
+		DELETE FROM tarifas.TarifaReservaSum
+		WHERE vigencia = @vigencia;
+		RETURN;
+	END
+END;
+GO
+
+
+/*____________________________________________________________________
+  _______________________ GestionarReservaSum ________________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('actividades.GestionarReservaSum', 'P') IS NOT NULL
+    DROP PROCEDURE actividades.GestionarReservaSum;
+GO
+
+CREATE PROCEDURE actividades.GestionarReservaSum
+    @dni_socio VARCHAR(10),
+    @fecha_inscripcion DATE,
+    @hora_inicio TIME,
+    @hora_fin TIME,
+    @operacion CHAR(10)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @id_socio INT;
+    DECLARE @id_tarifa INT;
+    DECLARE @id_reserva INT;
+
+    -- Validar operación
+    IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
+    BEGIN
+        RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
+        RETURN;
+    END
+
+    -- Buscar ID de socio activo
+    SET @id_socio = (
+        SELECT TOP 1 id_socio
+        FROM socios.Socio
+        WHERE dni = @dni_socio AND activo = 1 AND eliminado = 0
+    );
+
+    IF @id_socio IS NULL
+    BEGIN
+        RAISERROR('El socio no existe o no está activo.', 16, 1);
+        RETURN;
+    END
+
+    -- Buscar tarifa vigente para reserva SUM
+    SET @id_tarifa = (
+        SELECT TOP 1 id_tarifa_sum
+        FROM tarifas.TarifaReservaSum
+        WHERE vigencia > GETDATE()
+        ORDER BY vigencia DESC
+    );
+
+    IF @id_tarifa IS NULL
+    BEGIN
+        RAISERROR('No hay una tarifa vigente para la reserva del SUM.', 16, 1);
+        RETURN;
+    END
+
+    -- Buscar reserva existente para el socio, misma fecha y horario
+    SET @id_reserva = (
+        SELECT TOP 1 id_reserva_sum
+        FROM reservas.ReservaSum
+        WHERE id_tarifa_sum = @id_tarifa
+          AND id_socio = @id_socio
+          AND fecha = @fecha_inscripcion
+          AND hora_inicio = @hora_inicio
+          AND hora_fin = @hora_fin
+    );
+
+    -- === Insertar ===
+    IF @operacion = 'Insertar'
+    BEGIN
+        IF @id_reserva IS NOT NULL
+        BEGIN
+            RAISERROR('El socio ya tiene una reserva con la tarifa vigente en esa fecha y horario.', 16, 1);
+            RETURN;
+        END
+
+        IF @fecha_inscripcion IS NULL
+            SET @fecha_inscripcion = GETDATE();
+
+        IF @hora_inicio IS NULL OR @hora_fin IS NULL
+        BEGIN
+            RAISERROR('Debe especificar hora_inicio y hora_fin para la reserva.', 16, 1);
+            RETURN;
+        END
+
+        INSERT INTO reservas.ReservaSum(id_socio, id_tarifa_sum, fecha, hora_inicio, hora_fin, monto)
+        VALUES (
+            @id_socio, 
+            @id_tarifa,
+            @fecha_inscripcion,
+            @hora_inicio,
+            @hora_fin,
+			(SELECT costo FROM tarifas.tarifaReservaSum WHERE id_tarifa_sum = @id_tarifa)
+        );
+        RETURN;
+    END
+
+    -- === Modificar ===
+    ELSE IF @operacion = 'Modificar'
+    BEGIN
+        IF @id_reserva IS NULL
+        BEGIN
+            RAISERROR('No existe la reserva para modificar.', 16, 1);
+            RETURN;
+        END
+
+        UPDATE reservas.ReservaSum
+        SET 
+            fecha = COALESCE(@fecha_inscripcion, fecha),
+            hora_inicio = COALESCE(@hora_inicio, hora_inicio),
+            hora_fin = COALESCE(@hora_fin, hora_fin)
+        WHERE id_reserva_sum = @id_reserva;
+        RETURN;
+    END
+
+    -- === Eliminar ===
+    ELSE IF @operacion = 'Eliminar'
+    BEGIN
+        IF @id_reserva IS NULL
+        BEGIN
+            RAISERROR('No existe la reserva para eliminar.', 16, 1);
+            RETURN;
+        END
+
+        DELETE FROM reservas.ReservaSum 
+        WHERE id_reserva_sum = @id_reserva;
+        RETURN;
+    END
+END;
+GO
+
+/*____________________________________________________________________
+  ___________________ GestionarTarifaPiletaVerano ____________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('tarifas.GestionarTarifaPiletaVerano', 'P') IS NOT NULL
+    DROP PROCEDURE tarifas.GestionarTarifaPiletaVerano;
+GO
+
+CREATE PROCEDURE tarifas.GestionarTarifaPiletaVerano
+	@categoria VARCHAR(50),
+	@es_invitado BIT,
+	@costo DECIMAL(10,2),
+	@vigencia DATE,
+	@operacion CHAR(10)
+AS
+BEGIN
+	SET NOCOUNT ON;
+
+	DECLARE @id_tarifa INT;
+
+	IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
+	BEGIN
+		RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
+		RETURN;
+	END
+
+	-- === INSERTAR ===
+	IF @operacion = 'Insertar'
+	BEGIN
+		IF @costo IS NULL
+			RAISERROR('Costo obligatorio para insertar.', 16, 1);
+		IF @vigencia IS NULL
+			RAISERROR('La vigencia es obligatoria para insertar.', 16, 1);
+		IF @categoria IS NULL
+			RAISERROR('Categoría obligatoria para insertar.', 16, 1);
+		IF @es_invitado IS NULL
+			RAISERROR('Condición de invitado obligatoria para insertar.', 16, 1);
+
+		IF EXISTS (
+			SELECT 1
+			FROM tarifas.TarifaPiletaVerano
+			WHERE categoria = @categoria AND es_invitado = @es_invitado
+		)
+		BEGIN
+			RAISERROR('Ya existe una tarifa para esa categoría y condición.', 16, 1);
+			RETURN;
+		END
+
+		INSERT INTO tarifas.TarifaPiletaVerano (categoria, es_invitado, costo, vigencia)
+		VALUES (@categoria, @es_invitado, @costo, @vigencia);
+		RETURN;
+	END
+
+	-- === MODIFICAR ===
+	ELSE IF @operacion = 'Modificar'
+	BEGIN
+		IF NOT EXISTS (
+			SELECT 1
+			FROM tarifas.TarifaPiletaVerano
+			WHERE categoria = @categoria AND es_invitado = @es_invitado
+		)
+		BEGIN
+			RAISERROR('No existe una tarifa con esa categoría y condición para modificar.', 16, 1);
+			RETURN;
+		END
+
+		UPDATE tarifas.TarifaPiletaVerano
+		SET costo = COALESCE(@costo, costo),
+			vigencia = COALESCE(@vigencia, vigencia)
+		WHERE categoria = @categoria AND es_invitado = @es_invitado;
+		RETURN;
+	END
+
+	-- === ELIMINAR ===
+	ELSE
+	BEGIN
+		SET @id_tarifa = (
+			SELECT id_tarifa_pileta
+			FROM tarifas.TarifaPiletaVerano
+			WHERE categoria = @categoria AND es_invitado = @es_invitado
+		);
+
+		IF @id_tarifa IS NULL
+		BEGIN
+			RAISERROR('No existe la tarifa para eliminar.', 16, 1);
+			RETURN;
+		END
+
+		DELETE FROM tarifas.TarifaPiletaVerano
+		WHERE id_tarifa_pileta = @id_tarifa;
+		RETURN;
+	END
+END;
+GO
+
+
+
+/*____________________________________________________________________
+  ________________ GestionarInscriptoPiletaVerano ____________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('actividades.GestionarInscriptoPiletaVerano', 'P') IS NOT NULL
+    DROP PROCEDURE actividades.GestionarInscriptoPiletaVerano;
+GO
+
+CREATE PROCEDURE actividades.GestionarInscriptoPiletaVerano
+    @dni_socio VARCHAR(10),
+	@dni_invitado  CHAR(10),
+	@nombre CHAR(50),
+	@apellido CHAR(50),
+	@categoria VARCHAR(50),
+	@email VARCHAR(70),
+	@domicilio VARCHAR(200),
+    @fecha_inscripcion DATE,
+    @operacion CHAR(10)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+	DECLARE @id_socio INT;
+	DECLARE @id_invitado INT;
+	DECLARE @id_inscripcion INT;
+	DECLARE @id_tarifa INT;
+
+    -- Validar operación
+    IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
+    BEGIN
+        RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
+        RETURN;
+    END
+
+    -- Validar que venga al menos socio o invitado
+    IF @dni_socio IS NULL AND @dni_invitado IS NULL
+    BEGIN
+        RAISERROR('Debe indicarse el DNI del socio o del invitado.', 16, 1);
+        RETURN;
+    END
+
+	SET @id_socio = (
+		SELECT TOP 1 id_socio
+		FROM socios.Socio
+		WHERE dni = @dni_socio AND activo = 1 AND eliminado = 0
+	);
+	-- Validar socio, que en ambos casos debe completarse
+	IF @id_socio IS NULL
+	BEGIN
+		RAISERROR('No se encontró un socio válido con ese DNI.', 16, 1);
+		RETURN;
+	END
+
+    -- === Caso Socio ===
+	IF @dni_invitado IS NULL
+	BEGIN
+
+		SET @id_tarifa = (
+			SELECT TOP 1 id_tarifa_pileta
+			FROM tarifas.TarifaPiletaVerano
+			WHERE categoria = (
+				SELECT CASE 
+							WHEN CS.nombre IN ('Mayor', 'Cadete') THEN 'Mayor'
+							ELSE CS.nombre
+					   END
+				FROM socios.Socio S
+				JOIN InscriptoCategoriaSocio ICS ON ICS.id_socio = S.id_socio
+				JOIN socios.CategoriaSocio CS ON CS.id_categoria = ICS.id_categoria -- Asumiendo que es inscripción de socio
+				WHERE S.id_socio = @id_socio
+			)
+			AND es_invitado = 0
+			AND vigencia > GETDATE()
+			ORDER BY vigencia DESC
+		);
+	END
+	-- === Caso Invitado ===
+	ELSE
+	BEGIN
+		SET @id_invitado = (
+			SELECT id_invitado
+			FROM socios.Invitado
+			WHERE dni = @dni_invitado
+		);
+		-- Validar invitado
+		IF @id_invitado IS NULL
+		BEGIN
+			IF @nombre IS NULL OR @apellido IS NULL OR @categoria IS NULL OR @email IS NULL OR @domicilio IS NULL
+			BEGIN
+				RAISERROR('Faltan datos obligatorios para registrar al invitado.', 16, 1);
+				RETURN;
+			END
+
+			INSERT INTO socios.Invitado(id_socio, dni, nombre, apellido, categoria, email, domicilio)
+			VALUES(@id_socio, @dni_invitado, @nombre, @apellido, @categoria, @email, @domicilio);
+
+			SET @id_invitado = SCOPE_IDENTITY();
+		END
+
+		SET @id_tarifa = (
+			SELECT TOP 1 id_tarifa_pileta
+			FROM tarifas.TarifaPiletaVerano
+			WHERE categoria = @categoria
+			AND es_invitado = 1
+			AND vigencia > GETDATE()
+			ORDER BY vigencia DESC
+		);
+	END
+
+	-- Validar tarifa encontrada
+	IF @id_tarifa IS NULL
+	BEGIN
+		RAISERROR('No se encontró una tarifa válida para la categoría y condición.', 16, 1);
+		RETURN;
+	END
+
+	-- Buscar inscripción existente
+    SET @id_inscripcion = (
+        SELECT TOP 1 id_inscripto_pileta
+        FROM actividades.InscriptoPiletaVerano
+        WHERE (id_socio = @id_socio OR id_invitado = @id_invitado)
+        AND fecha = @fecha_inscripcion
+    );
+
+    -- === Eliminar ===
+    IF @operacion = 'Eliminar'
+    BEGIN
+        IF @id_inscripcion IS NULL
+        BEGIN
+            RAISERROR('No existe la inscripción para eliminar.', 16, 1);
+            RETURN;
+        END
+
+        DELETE FROM actividades.InscriptoPiletaVerano 
+        WHERE id_inscripto_pileta = @id_inscripcion;
+        RETURN;
+    END
+
+    -- === Modificar ===
+    IF @operacion = 'Modificar'
+    BEGIN
+        IF @id_inscripcion IS NULL
+        BEGIN
+            RAISERROR('No existe la inscripción para modificar.', 16, 1);
+            RETURN;
+        END
+
+        UPDATE actividades.InscriptoPiletaVerano
+        SET fecha = COALESCE(@fecha_inscripcion, fecha)
+        WHERE id_inscripto_pileta = @id_inscripcion;
+        RETURN;
+    END
+
+    -- === Insertar ===
+    IF @operacion = 'Insertar'
+    BEGIN
+        IF @id_inscripcion IS NOT NULL
+        BEGIN
+            RAISERROR('Ya existe una inscripción para ese día.', 16, 1);
+            RETURN;
+        END
+
+        IF @fecha_inscripcion IS NULL
+            SET @fecha_inscripcion = GETDATE();
+
+        INSERT INTO actividades.InscriptoPiletaVerano(id_socio, id_invitado, id_tarifa_pileta, fecha, monto)
+        VALUES (
+			@id_socio,
+			@id_invitado,
+			@id_tarifa,
+			@fecha_inscripcion,
+			(SELECT costo
+			 FROM tarifas.TarifaPiletaVerano
+			 WHERE id_tarifa_pileta = @id_tarifa)
+		);
+        RETURN;
+    END
+END;
+GO
 
 /*____________________________________________________________________
   ______________________ GestionarEmisorFactura ______________________
@@ -795,7 +1224,7 @@ BEGIN
     DECLARE @id_emisor INT = (
         SELECT id_emisor 
         FROM facturacion.EmisorFactura 
-        WHERE cuil = @cuil
+        WHERE cuit_emisor = @cuil
     );
 
     /* CASO 1: Eliminar */
@@ -837,613 +1266,782 @@ BEGIN
             RETURN;
         END
 
-        IF EXISTS (SELECT 1 FROM facturacion.EmisorFactura WHERE cuil = @cuil)
+        IF EXISTS (SELECT 1 FROM facturacion.EmisorFactura WHERE cuit_emisor = @cuil)
         BEGIN
             RAISERROR('Ya existe un emisor con ese CUIL.', 16, 1);
             RETURN;
         END
 
         INSERT INTO facturacion.EmisorFactura 
-            (razon_social, cuil, direccion, pais, localidad, codigo_postal)
+            (razon_social, cuit_emisor, direccion, pais, localidad, codigo_postal, condicion_iva_emisor)
         VALUES
-            (@razon_social, @cuil, @direccion, @pais, @localidad, @codigo_postal);
+            (@razon_social, @cuil, @direccion, @pais, @localidad, @codigo_postal, 'Responsable inscripto');
     END
 END;
 GO
 
 /*____________________________________________________________________
-  ______________________ GenerarFacturaSocioMensual ___________________
+  _________________________ GenerarCargoClase ________________________
   ____________________________________________________________________*/
-IF OBJECT_ID('facturacion.GenerarFacturaSocioMensual', 'P') IS NOT NULL
-    DROP PROCEDURE facturacion.GenerarFacturaSocioMensual;
+
+IF OBJECT_ID('facturacion.GenerarCargoClase', 'P') IS NOT NULL
+    DROP PROCEDURE facturacion.GenerarCargoClase;
 GO
 
-CREATE PROCEDURE facturacion.GenerarFacturaSocioMensual
-(
-    @dni_socio CHAR(10),
-    @cuil_emisor VARCHAR(20)
-)
+CREATE PROCEDURE facturacion.GenerarCargoClase
+    @fecha DATE
 AS
 BEGIN
     SET NOCOUNT ON;
-	/*Se realiza mediante una transacción a fin de garantizar ACID*/
+
+    DECLARE @id_socio INT;
+
+    -- Validar existencia de FECHA
+    IF @fecha IS NULL
+    BEGIN
+        RAISERROR('La fecha ingresada es inválida.', 16, 1);
+        RETURN;
+    END
+
+    -- Insertar un cargo por cada clase en la que esté inscripto ese día cada spcop (sin duplicados)
+    INSERT INTO facturacion.CargoClases (id_inscripto_clase, monto, fecha)
+    SELECT
+        IC.id_inscripto_clase,
+        A.costo,
+        @fecha
+    FROM socios.Socio S
+    INNER JOIN actividades.InscriptoClase IC ON IC.id_socio = S.id_socio
+    INNER JOIN actividades.Clase C ON C.id_clase = IC.id_clase
+    INNER JOIN actividades.Actividad A ON A.id_actividad = C.id_actividad
+    WHERE S.activo = 1 AND S.eliminado = 0
+      AND IC.fecha_inscripcion <= @fecha
+	  AND NOT EXISTS (
+			SELECT 1
+			FROM facturacion.CargoClases CC
+			WHERE CC.id_inscripto_clase = IC.id_inscripto_clase
+			  AND CC.fecha = @fecha
+		);
+
+END;
+GO
+
+/*____________________________________________________________________
+  ___________________ GenerarCuotasMensualesPorFecha _________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('facturacion.GenerarCuotasMensualesPorFecha', 'P') IS NOT NULL
+    DROP PROCEDURE facturacion.GenerarCuotasMensualesPorFecha;
+GO
+
+CREATE PROCEDURE facturacion.GenerarCuotasMensualesPorFecha
+    @fecha DATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+	-- Generar cargos de actividades
+	EXEC facturacion.GenerarCargoClase @fecha;
+
+    -- Validar fecha
+    IF @fecha IS NULL
+    BEGIN
+        RAISERROR('La fecha ingresada es inválida.', 16, 1);
+        RETURN;
+    END
+
+    DECLARE @primer_dia_mes DATE = DATEFROMPARTS(YEAR(@fecha), MONTH(@fecha), 1);
+    DECLARE @ultimo_dia_mes DATE = EOMONTH(@fecha);
+
+	-- Uso de CTEs para la generación de cuotas basada en cargos e inscripción
+    ;WITH ClasesPorSocio AS (
+        SELECT S.id_socio, SUM(CC.monto) AS monto_actividad
+        FROM socios.Socio S
+        INNER JOIN actividades.InscriptoClase IC ON IC.id_socio = S.id_socio
+        INNER JOIN facturacion.CargoClases CC
+            ON CC.id_inscripto_clase = IC.id_inscripto_clase
+            AND CC.fecha BETWEEN @primer_dia_mes AND @ultimo_dia_mes
+        GROUP BY S.id_socio
+    ),
+    TotalesPorSocio AS (
+        SELECT
+            S.id_socio,
+            ICS.id_inscripto_categoria,
+            ICS.monto AS monto_membresia,
+            C.monto_actividad
+        FROM socios.Socio S
+        LEFT JOIN actividades.InscriptoCategoriaSocio ICS ON ICS.id_socio = S.id_socio
+        LEFT JOIN ClasesPorSocio C ON C.id_socio = S.id_socio
+        WHERE S.activo = 1 AND S.eliminado = 0
+    )
+
+    INSERT INTO facturacion.CuotaMensual (id_inscripto_categoria, monto_membresia, monto_actividad, fecha)
+    SELECT 
+        id_inscripto_categoria,
+        ISNULL(monto_membresia, 0),
+        ISNULL(monto_actividad, 0),
+        @ultimo_dia_mes
+    FROM TotalesPorSocio TPS
+    WHERE (ISNULL(TPS.monto_actividad, 0) > 0 OR ISNULL(TPS.monto_membresia, 0) > 0)
+      AND NOT EXISTS (
+          SELECT 1 FROM facturacion.CuotaMensual CM
+          WHERE CM.fecha = @ultimo_dia_mes
+            AND CM.id_inscripto_categoria = TPS.id_inscripto_categoria
+      );
+END;
+GO
+/*____________________________________________________________________
+  __________________ GenerarFacturasMensualesPorFecha ________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('facturacion.GenerarFacturasMensualesPorFecha', 'P') IS NOT NULL
+    DROP PROCEDURE facturacion.GenerarFacturasMensualesPorFecha;
+GO
+
+CREATE PROCEDURE facturacion.GenerarFacturasMensualesPorFecha
+    @fecha DATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+    BEGIN TRAN;
+
     BEGIN TRY
-        BEGIN TRANSACTION;
-		/*Creación de variables auxiliares para id_socio e id_emisor*/
-        DECLARE @id_socio INT;
-        DECLARE @id_emisor INT;
-		DECLARE @monto_total DECIMAL(10, 2) = 0;
-		DECLARE @descuentoMembresias DECIMAL(10,2) = 0;
-		DECLARE @descuentoActividades DECIMAL(10,2) = 0;
-		DECLARE @id_factura INT;
 
-        /*Se obtiene el id_socio asociado a su correspondiente DNI*/
-        SELECT @id_socio = id_socio 
-        FROM administracion.Socio s
-        INNER JOIN administracion.Persona p ON s.id_persona = p.id_persona
-        WHERE p.dni = @dni_socio;
-
-		/*Si no existe el socio, no se realiza la transacción*/
-        IF @id_socio IS NULL OR @id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar)
-        BEGIN
-            RAISERROR('No se encontró socio responsable con ese DNI.', 16, 1);
-            ROLLBACK TRANSACTION;
-            RETURN;
-        END
-
-		/*Si el socio no está activo, no se genera la factura*/
-        IF @id_socio IN (SELECT id_socio FROM administracion.Socio WHERE activo = 0)
-        BEGIN
-            RAISERROR('El socio que se está intentando facturar se encuentra inactivo.', 16, 1);
-            ROLLBACK TRANSACTION;
-            RETURN;
-        END
-		-- Si la actividad/membresía ya fue facturada, no se genera un duplicado
-		IF EXISTS (
-		SELECT TOP 1 id_factura
-		FROM facturacion.Factura
-		WHERE id_socio = @id_socio
-		  AND MONTH(fecha_emision) = MONTH(CONVERT(DATE, '2025-02-27')) --PARA TESTING 
-		  AND YEAR(fecha_emision) = YEAR(CONVERT(DATE, '2025-02-27')) --PARA TESTING 
-		  AND anulada = 0
-		)
+		IF @fecha IS NULL
 		BEGIN
-			RAISERROR('Ya fue facturada la actividad de este grupo familiar en este mes.', 16, 1);
+			RAISERROR('La fecha ingresada es inválida.', 16, 1);
 			ROLLBACK TRANSACTION;
 			RETURN;
 		END
 
-        /*Se obtiene el id_emisor asociado a su correspondiente CUIL*/
-        SELECT @id_emisor = id_emisor
-        FROM facturacion.EmisorFactura
-        WHERE cuil = @cuil_emisor;
-		
-		/*Si no existe el emisor, no se realiza la transacción*/
-        IF @id_emisor IS NULL
-        BEGIN
-            RAISERROR('No se encontró emisor con ese CUIL.', 16, 1);
-            ROLLBACK TRANSACTION;
-            RETURN;
-        END;
+		DECLARE @ultimo_dia_mes DATE = EOMONTH(@fecha);
+		DECLARE @primer_dia_mes DATE = DATEFROMPARTS(YEAR(@fecha), MONTH(@fecha), 1);
 
-		/*Obtener monto total a facturar*/
-		WITH subtotalMembresias AS (
-			SELECT CS.costo_membresia * COUNT(*) AS subtotal
-			FROM administracion.Socio S
-			INNER JOIN administracion.CategoriaSocio CS ON S.id_categoria = CS.id_categoria
-			WHERE S.id_socio = @id_socio
-			   OR S.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio)
-			GROUP BY CS.costo_membresia
+		-- Tabla temporal para guardar los datos de facturación previos
+		CREATE TABLE #FacturasGeneradas (
+			id_cuota_mensual INT,
+			id_socio INT,
+			dni_socio CHAR(8),
+			fecha_nacimiento DATE,
+			monto_membresia DECIMAL(10,2),
+			monto_actividad DECIMAL(10,2),
+			saldo DECIMAL(10,2),
+			dni_facturar VARCHAR(13),
+			descuento_membresia DECIMAL(10,2),
+			descuento_actividad DECIMAL(10,2)
+		);
+
+		INSERT INTO #FacturasGeneradas (
+			id_cuota_mensual, id_socio, dni_socio, fecha_nacimiento,
+			monto_membresia, monto_actividad, saldo,
+			dni_facturar, descuento_membresia, descuento_actividad
 		)
-		SELECT	@descuentoMembresias = ISNULL(SUM(subtotal) * 0.15, 0),
-				@monto_total += ISNULL(SUM(subtotal), 0)
-		FROM subtotalMembresias;
+		SELECT 
+			CM.id_cuota_mensual,
+			ICS.id_socio,
+			S.dni,
+			S.fecha_nacimiento,
+			CM.monto_membresia,
+			CM.monto_actividad,
+			S.saldo,
+			COALESCE(SR.dni, T.dni, S.dni) AS dni_facturar,
+			-- Descuento del 15% si el grupo tiene más de un socio activo
+			CASE 
+				WHEN G.num_integrantes > 1 THEN ROUND(CM.monto_membresia * 0.15, 2)
+				ELSE 0
+			END AS descuento_membresia,
+			-- Descuento del 10% si hace más de una actividad distinta en el mes
+			CASE 
+				WHEN A.cantidad_actividades > 1 THEN ROUND(CM.monto_actividad * 0.10, 2)
+				ELSE 0
+			END AS descuento_actividad
+		FROM facturacion.CuotaMensual CM
+		INNER JOIN actividades.InscriptoCategoriaSocio ICS ON ICS.id_inscripto_categoria = CM.id_inscripto_categoria
+		INNER JOIN socios.Socio S ON S.id_socio = ICS.id_socio
+		LEFT JOIN socios.GrupoFamiliarSocio GFS ON GFS.id_socio = S.id_socio
+		LEFT JOIN socios.GrupoFamiliar GF ON GF.id_grupo = GFS.id_grupo
+		LEFT JOIN socios.Socio SR ON SR.id_socio = GF.id_socio_rp
+		LEFT JOIN socios.Tutor T ON T.id_grupo = GF.id_grupo
+		LEFT JOIN (
+			SELECT id_grupo, COUNT(*) AS num_integrantes
+			FROM socios.GrupoFamiliarSocio GFS
+			INNER JOIN socios.Socio SS ON SS.id_socio = GFS.id_socio
+			WHERE SS.activo = 1 AND SS.eliminado = 0
+			GROUP BY id_grupo
+		) G ON G.id_grupo = GF.id_grupo
+		LEFT JOIN (
+			SELECT IC.id_socio, COUNT(DISTINCT C.id_actividad) AS cantidad_actividades
+			FROM actividades.InscriptoClase IC
+			INNER JOIN facturacion.CargoClases CC ON CC.id_inscripto_clase = IC.id_inscripto_clase
+			INNER JOIN actividades.Clase C ON C.id_clase = IC.id_clase
+			INNER JOIN actividades.Actividad A ON A.id_actividad = C.id_actividad
+			WHERE CC.fecha BETWEEN @primer_dia_mes AND @ultimo_dia_mes
+			GROUP BY IC.id_socio
+		) A ON A.id_socio = S.id_socio
+		WHERE CM.fecha = @ultimo_dia_mes
+		  AND NOT EXISTS (
+			  SELECT 1 FROM facturacion.Factura F WHERE F.id_cuota_mensual = CM.id_cuota_mensual
+		  );
 
-		-- Calcular descuento si corresponde (15%)
-		IF EXISTS (	SELECT 1
-					FROM administracion.GrupoFamiliar G
-					INNER JOIN administracion.Socio S ON S.id_socio = G.id_socio
-					WHERE G.id_socio_rp = @id_socio AND S.activo = 1)
-		BEGIN
-			SET @monto_total -= @descuentoMembresias;
-		END;
-
-		WITH subtotalActividades AS (
-		SELECT A.costo * COUNT(*) AS subtotal
-		FROM actividades.Actividad A
-		INNER JOIN actividades.Clase C ON A.id_actividad = C.id_actividad
-		INNER JOIN actividades.InscriptoClase I ON I.id_clase = C.id_clase
-		INNER JOIN administracion.Socio S ON I.id_socio = S.id_socio
-		WHERE S.id_socio = @id_socio 
-		   OR S.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio)
-		GROUP BY A.id_actividad, A.costo
+		-- Insertar las facturas
+		INSERT INTO facturacion.Factura (
+			id_emisor,
+			id_cuota_mensual,
+			nro_comprobante,
+			tipo_factura,
+			dni_receptor,
+			condicion_iva_receptor,
+			cae,
+			monto_total,
+			fecha_emision,
+			fecha_vencimiento1,
+			fecha_vencimiento2,
+			estado,
+			saldo_anterior
 		)
-
-		SELECT  @descuentoActividades = ISNULL(SUM(subtotal) * 0.10, 0),
-				@monto_total += ISNULL(SUM(subtotal), 0)
-		FROM subtotalActividades;
-
-		-- Aplicar descuento 10% si hay más de una actividad
-		IF (SELECT COUNT(DISTINCT A.id_actividad)
-			FROM actividades.Actividad A
-			INNER JOIN actividades.Clase C ON A.id_actividad = C.id_actividad
-			INNER JOIN actividades.InscriptoClase I ON I.id_clase = C.id_clase
-			INNER JOIN administracion.Socio S ON I.id_socio = S.id_socio
-			WHERE S.id_socio = @id_socio 
-			OR S.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio)) > 1
-		BEGIN
-			SET @monto_total -= @descuentoActividades;
-		END
-
-		SELECT @monto_total += ISNULL(SUM(monto), 0)
-		FROM cobranzas.Mora
-		WHERE id_socio = @id_socio
-
-		/*Generar factura per sé*/
-        INSERT INTO facturacion.Factura
-        (id_emisor, id_socio, leyenda, monto_total, saldo_anterior, fecha_emision, fecha_vencimiento1, fecha_vencimiento2, estado, anulada)
-		VALUES
-        (
-			@id_emisor, 
-			@id_socio, 
-			'Consumidor final', 
-			@monto_total, 
-			(SELECT ISNULL(SUM(saldo), 0)FROM administracion.Socio WHERE id_socio = @id_socio),
-			GETDATE() - 6, 
-			DATEADD(DAY, -1, GETDATE()), 
-			DATEADD(DAY, 4, GETDATE()), 
-			'No pagada', 
-			0);
-
-		SET @id_factura = SCOPE_IDENTITY();
-
-		/*Obtener todas las actividades pendientes de pago asociadas al socio*/
-
-        /*Generar detalles de factura*/
-
-		-- MEMBRESÍA DEL SOCIO Y FAMILIARES
-        INSERT INTO facturacion.DetalleFactura
-			(id_factura, id_categoria, tipo_item, descripcion, monto, cantidad)
 		SELECT
-			@id_factura,
-			CS.id_categoria,
-			'Membresia',
-			CS.nombre,
-			CS.costo_membresia,
-			COUNT(S.id_categoria) AS cantidad
-		FROM administracion.Socio S
-		INNER JOIN administracion.CategoriaSocio CS ON S.id_categoria = CS.id_categoria
-		WHERE S.id_socio = @id_socio OR S.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio)
-		GROUP BY CS.id_categoria, CS.nombre, CS.costo_membresia;
+			(SELECT TOP 1 id_emisor FROM facturacion.EmisorFactura ORDER BY id_emisor DESC),
+			F.id_cuota_mensual,
+			RIGHT('00000000' + CAST(ABS(CHECKSUM(NEWID())) AS VARCHAR), 8),
+			'C',
+			F.dni_facturar,
+			'Consumidor Final',
+			RIGHT('00000000000000' + CAST(ABS(CHECKSUM(NEWID())) AS VARCHAR), 14),
+			F.monto_membresia + F.monto_actividad - F.descuento_actividad - F.descuento_membresia,
+			@ultimo_dia_mes,
+			DATEADD(DAY, 5, @ultimo_dia_mes),
+			DATEADD(DAY, 10, @ultimo_dia_mes),
+			'Emitida',
+			F.saldo
+		FROM #FacturasGeneradas F;
 
-		-- ACTIVIDADES DEL SOCIO Y FAMILIARES
-		INSERT INTO facturacion.DetalleFactura
-			(id_factura, id_actividad, tipo_item, descripcion, monto, cantidad)
-		SELECT
-			@id_factura,
-			C.id_actividad,
-			'Actividad',
+		-- Insertar detalles de membresía
+		INSERT INTO facturacion.DetalleFactura (id_factura, descripcion, monto, tipo_item, cantidad)
+		SELECT 
+			FA.id_factura,
+			'Membresía mensual',
+			FG.monto_membresia,
+			'Membresía',
+			1
+		FROM facturacion.Factura FA
+		INNER JOIN #FacturasGeneradas FG ON FG.id_cuota_mensual = FA.id_cuota_mensual
+		WHERE FG.monto_membresia > 0;
+
+		-- Insertar detalles de actividades
+		INSERT INTO facturacion.DetalleFactura (id_factura, descripcion, monto, tipo_item, cantidad)
+		SELECT 
+			FA.id_factura,
 			A.nombre,
-			A.costo,
-			COUNT(A.id_actividad) AS cantidad
-		FROM administracion.Socio S
-		INNER JOIN actividades.InscriptoClase I ON I.id_socio = S.id_socio
-		INNER JOIN actividades.Clase C ON I.id_clase = C.id_clase
-		INNER JOIN actividades.Actividad A ON C.id_actividad = A.id_actividad
-		WHERE S.id_socio = @id_socio OR S.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio)
-		GROUP BY C.id_actividad, A.nombre, A.costo;
-
-		-- DESCUENTO POR GRUPO FAMILIAR (15%) > 1 MIEMBRO ACTIVO
-		IF EXISTS (
-			SELECT S.id_socio
-			FROM administracion.GrupoFamiliar G
-			INNER JOIN administracion.Socio S ON S.id_socio = G.id_socio
-			WHERE id_socio_rp = @id_socio AND S.activo = 1
-		)
-		BEGIN
-			INSERT INTO facturacion.DetalleFactura (id_factura, tipo_item, descripcion, monto, cantidad)
-			SELECT DISTINCT
-				@id_factura,
-				'Descuento',
-				'Descuento por grupo familiar (15%)',
-				@descuentoMembresias,
-				1
-			FROM administracion.GrupoFamiliar G
-			INNER JOIN administracion.Socio S ON S.id_socio = G.id_socio
-			WHERE id_socio_rp = @id_socio AND S.activo = 1
-		END
-
-		-- DESCUENTO POR MÚLTIPLES ACTIVIDADES DEPORTIVAS (10%)
-		IF (
-			SELECT COUNT(*)
-			FROM facturacion.DetalleFactura D
-			INNER JOIN facturacion.Factura F ON F.id_factura = D.id_factura
-			INNER JOIN administracion.Socio S ON S.id_socio = F.id_socio
-			WHERE F.id_factura = @id_factura
-			AND D.tipo_item = 'Actividad'
-			AND (S.id_socio = @id_socio OR S.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio)
-		)) > 1
-		BEGIN
-			INSERT INTO facturacion.DetalleFactura (id_factura, tipo_item, descripcion, monto, cantidad)
-			SELECT DISTINCT 
-				@id_factura,
-				'Descuento',
-				'Descuento por múltiples actividades deportivas (10%)',
-				@descuentoActividades,
-				1
-				FROM facturacion.DetalleFactura D
-				INNER JOIN facturacion.Factura F ON F.id_factura = D.id_factura
-				INNER JOIN administracion.Socio S ON S.id_socio = F.id_socio
-				WHERE F.id_factura = @id_factura
-				AND D.tipo_item = 'Actividad'
-				AND (S.id_socio = @id_socio OR S.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio))
-		END;
-
-		-- MORA (asumiendo que el id_socio es el del responsable)
-		INSERT INTO facturacion.DetalleFactura
-				(id_factura, id_extra, tipo_item, descripcion, monto, cantidad)
-		SELECT
-			@id_factura,
-			NULL,
-			'Interés por Mora',
-			'Mora a fecha actual.',
-			monto,
+			FG.monto_actividad,
+			'Actividad',
 			1
-		FROM cobranzas.Mora
-		WHERE id_socio = @id_socio AND facturada = 0;
+		FROM facturacion.Factura FA
+		INNER JOIN #FacturasGeneradas FG ON FG.id_cuota_mensual = FA.id_cuota_mensual
+		INNER JOIN actividades.InscriptoClase IC ON IC.id_socio = FG.id_socio
+		INNER JOIN actividades.Clase C ON C.id_clase = IC.id_clase
+		INNER JOIN actividades.Actividad A ON A.id_actividad = C.id_actividad
+		WHERE FG.monto_actividad > 0;
 
-		/*Se actualiza la mora a facturada*/
-		UPDATE cobranzas.Mora
-		SET facturada = 1
-		WHERE id_socio = @id_socio
+		-- Detalle: descuento por grupo familiar
+		INSERT INTO facturacion.DetalleFactura (id_factura, descripcion, monto, tipo_item, cantidad)
+		SELECT 
+			FA.id_factura,
+			'Descuento por grupo familiar (-15%)',
+			FG.descuento_membresia,
+			'Descuento',
+			1
+		FROM facturacion.Factura FA
+		JOIN #FacturasGeneradas FG ON FG.id_cuota_mensual = FA.id_cuota_mensual
+		WHERE FG.descuento_membresia > 0;
 
-		/*Confirmar transacción*/
-        COMMIT TRANSACTION;
+		-- Detalle: descuento por múltiples actividades
+		INSERT INTO facturacion.DetalleFactura (id_factura, descripcion, monto, tipo_item, cantidad)
+		SELECT 
+			FA.id_factura,
+			'Descuento por múltiples actividades (-10%)',
+			FG.descuento_actividad,
+			'Descuento',
+			1
+		FROM facturacion.Factura FA
+		JOIN #FacturasGeneradas FG ON FG.id_cuota_mensual = FA.id_cuota_mensual
+		WHERE FG.descuento_actividad > 0;
 
+		INSERT INTO facturacion.DetalleFactura (id_factura, descripcion, monto, tipo_item, cantidad)
+		SELECT 
+			FA.id_factura,
+			'Recargo por mora',
+			M.monto,
+			'Mora',
+			1
+		FROM cobranzas.Mora M
+		LEFT JOIN facturacion.Factura FA ON M.id_factura = FA.id_factura
+		LEFT JOIN #FacturasGeneradas FG ON FG.id_cuota_mensual = FA.id_cuota_mensual
+		WHERE M.facturada = 0;
+
+		-- Marcar moras como facturadas
+		UPDATE M
+		SET M.facturada = 1
+		FROM cobranzas.Mora M
+		WHERE M.facturada = 0;
+
+		DROP TABLE #FacturasGeneradas;
+		COMMIT;
     END TRY
     BEGIN CATCH
-        ROLLBACK TRANSACTION;
-        THROW;
+        ROLLBACK;
+        DECLARE @msg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR(@msg, 16, 1);
     END CATCH
 END;
 GO
 
 /*____________________________________________________________________
-  ____________________ GenerarFacturaSocioActExtra ___________________
-  ____________________________________________________________________*/
-IF OBJECT_ID('facturacion.GenerarFacturaSocioActExtra', 'P') IS NOT NULL
-    DROP PROCEDURE facturacion.GenerarFacturaSocioActExtra;
-GO
-
-CREATE PROCEDURE facturacion.GenerarFacturaSocioActExtra
-(
-    @dni_socio CHAR(10),
-	@cuil_emisor VARCHAR(20),
-    @descripcion VARCHAR(255),
-	@fecha_referencia DATE
-)
-AS
-BEGIN
-	SET NOCOUNT ON;
-	/*Se realiza mediante una transacción a fin de garantizar ACID*/
-    BEGIN TRY
-        BEGIN TRANSACTION;
-		/*Creación de variables auxiliares para id_socio e id_emisor*/
-		DECLARE @id_socio INT;
-		DECLARE @id_socio_origen INT;
-		DECLARE @id_emisor INT;
-		DECLARE @monto_total DECIMAL(10, 2) = 0;
-		DECLARE @id_factura INT;
-		DECLARE @saldo DECIMAL(10, 2);
-		DECLARE @periodo VARCHAR(20);
-		DECLARE @fecha_vencimiento1 DATE = @fecha_referencia;
-		DECLARE @fecha_vencimiento2 DATE = @fecha_referencia;
-		
-		/*Se obtiene el id_socio asociado a su correspondiente DNI*/
-		SELECT @id_socio_origen = S.id_socio
-		FROM administracion.Socio S
-		INNER JOIN administracion.Persona P ON S.id_persona = P.id_persona
-		WHERE P.dni = @dni_socio;
-		
-		SELECT @id_socio = G.id_socio_rp 
-		FROM administracion.GrupoFamiliar G
-		INNER JOIN administracion.Socio S ON S.id_socio = G.id_socio
-		INNER JOIN administracion.Persona P ON S.id_persona = P.id_persona
-		WHERE P.dni = @dni_socio;
-
-		/*Si no existe el socio, no se realiza la transacción*/
-		IF @id_socio IS NULL
-		BEGIN
-			SET @id_socio = @id_socio_origen
-
-			IF @id_socio IS NULL
-			BEGIN
-				RAISERROR('No se encontró socio responsable con ese DNI.', 16, 1);
-				ROLLBACK TRANSACTION;
-				RETURN;
-			END
-		END;
-		-- Si la actividad/membresía ya fue facturada, no se genera un duplicado
-		IF EXISTS (
-		SELECT TOP 1 F.id_factura
-		FROM facturacion.Factura F
-		INNER JOIN facturacion.DetalleFactura D ON D.id_factura = F.id_factura
-		WHERE F.id_socio = @id_socio
-			AND MONTH(fecha_emision) = MONTH(@fecha_referencia)
-			AND YEAR(fecha_emision) = YEAR(@fecha_referencia)
-			AND anulada = 0
-			AND D.descripcion = @descripcion
-		)
-		BEGIN
-			RAISERROR('Ya fue facturada la actividad.', 16, 1);
-			ROLLBACK TRANSACTION;
-			RETURN;
-		END
-		-- Si el socio no asisitó a la actividad, no se genera la factura
-		ELSE IF NOT EXISTS (SELECT TOP 1 PAE.id_socio
-							FROM actividades.presentismoActividadExtra PAE
-							INNER JOIN actividades.ActividadExtra AE ON AE.id_extra = PAE.id_extra
-							WHERE (PAE.id_socio = @id_socio_origen OR PAE.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio))
-							AND AE.nombre = @descripcion
-							AND MONTH(PAE.fecha) = MONTH(@fecha_referencia) 
-							AND YEAR(PAE.fecha) = YEAR(@fecha_referencia)
-							AND AE.categoria = (SELECT TOP 1 categoria FROM administracion.Socio WHERE id_socio = @id_socio_origen)
-							AND AE.nombre = @descripcion
-							AND AE.es_invitado = 'N')
-		BEGIN
-			RAISERROR('El socio no ha asistido a la actividad descripta.', 16, 1);
-			ROLLBACK TRANSACTION;
-			RETURN;
-		END;
-
-		/*Se obtiene el id_emisor asociado a su correspondiente CUIL*/
-		SELECT @id_emisor = id_emisor
-		FROM facturacion.EmisorFactura
-		WHERE cuil = @cuil_emisor;
-		
-		/*Si no existe el emisor, no se realiza la transacción*/
-		IF @id_emisor IS NULL
-		BEGIN
-			RAISERROR('No se encontró emisor con ese CUIL.', 16, 1);
-			ROLLBACK TRANSACTION;
-			RETURN;
-		END
-
-		/*Se calcula el vencimiento de las facturas en base al periodo escogido*/
-		SET @periodo = (SELECT TOP 1 AE.periodo 
-						FROM actividades.ActividadExtra AE
-						INNER JOIN actividades.presentismoActividadExtra PAE ON AE.id_extra = PAE.id_extra
-						WHERE (PAE.id_socio = @id_socio_origen OR PAE.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio))
-						AND MONTH(PAE.fecha) = MONTH(@fecha_referencia)
-						AND YEAR(PAE.fecha) = YEAR(@fecha_referencia)
-						AND AE.categoria = (SELECT TOP 1 categoria FROM administracion.Socio WHERE id_socio = @id_socio_origen)
-						AND AE.nombre = @descripcion
-						AND AE.es_invitado = 'N');
-		
-		-- En caso de ser diaria, se propone el vencimiento al mismo dia
-		IF @periodo NOT LIKE 'Dia'
-		BEGIN
-			SET @fecha_vencimiento1 = DATEADD(DAY, 5, @fecha_vencimiento1);
-			SET @fecha_vencimiento2 = DATEADD(DAY, 5, @fecha_vencimiento1);
-		END
-
-		/*Obtener monto total a facturar*/
-		SELECT TOP 1 @monto_total = AE.costo
-		FROM actividades.PresentismoActividadExtra PAE
-		INNER JOIN actividades.ActividadExtra AE ON PAE.id_extra = AE.id_extra
-		WHERE (PAE.id_socio = @id_socio_origen OR PAE.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio))
-		AND MONTH(PAE.fecha) = MONTH(@fecha_referencia)
-		AND YEAR(PAE.fecha) = YEAR(@fecha_referencia)
-		AND AE.nombre = @descripcion
-		AND AE.categoria = (SELECT TOP 1 categoria FROM administracion.Socio WHERE id_socio = @id_socio_origen)
-		AND AE.es_invitado = 'N'
-		AND AE.periodo = @periodo
-		ORDER BY AE.vigencia DESC;
-
-		/*Generar factura per sé*/
-		INSERT INTO facturacion.Factura
-		(id_emisor, id_socio, leyenda, monto_total, saldo_anterior, fecha_emision, fecha_vencimiento1, fecha_vencimiento2, estado, anulada)
-		VALUES
-		(
-			@id_emisor, 
-			@id_socio, 
-			'Consumidor final', 
-			@monto_total, 
-			(SELECT ISNULL(SUM(saldo), 0)FROM administracion.Socio WHERE id_socio = @id_socio),
-			@fecha_referencia,
-			@fecha_vencimiento1, 
-			@fecha_vencimiento2,
-			'No pagada', 
-			0);
-
-		SET @id_factura = SCOPE_IDENTITY();
-
-		-- ACTIVIDADES EXTRA
-		INSERT INTO facturacion.DetalleFactura
-		(id_factura, id_extra, tipo_item, descripcion, monto, cantidad)
-		SELECT TOP 1
-			@id_factura,
-			AE.id_extra,
-			LEFT('Actividad extra - Periodo ' + AE.periodo, 50),
-			AE.nombre,
-			AE.costo,
-			1
-		FROM actividades.PresentismoActividadExtra PAE
-		INNER JOIN actividades.ActividadExtra AE ON PAE.id_extra = AE.id_extra
-		WHERE (PAE.id_socio = @id_socio_origen OR PAE.id_socio IN (SELECT id_socio FROM administracion.GrupoFamiliar WHERE id_socio_rp = @id_socio))
-		AND MONTH(PAE.fecha) = MONTH(@fecha_referencia) 
-		AND YEAR(PAE.fecha) = YEAR(@fecha_referencia) 
-		AND AE.nombre = @descripcion
-		AND AE.categoria = (SELECT TOP 1 categoria FROM administracion.Socio WHERE id_socio = @id_socio_origen)
-		AND AE.es_invitado = 'N'
-		AND AE.periodo = @periodo
-		ORDER BY AE.vigencia DESC;
-
-		/*Confirmar transacción*/
-        COMMIT TRANSACTION;
-
-	END TRY
-    BEGIN CATCH
-        ROLLBACK TRANSACTION;
-        THROW;
-    END CATCH
-END;
-GO
-
-/*____________________________________________________________________
-  ______________________ GenerarFacturaInvitado ______________________
+  __________ GenerarFacturasMensualesPorFechaGrupoFamiliar ___________
   ____________________________________________________________________*/
 
-IF OBJECT_ID('facturacion.GenerarFacturaInvitado', 'P') IS NOT NULL
-    DROP PROCEDURE facturacion.GenerarFacturaInvitado;
+IF OBJECT_ID('facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar', 'P') IS NOT NULL
+    DROP PROCEDURE facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar;
 GO
-
-CREATE PROCEDURE facturacion.GenerarFacturaInvitado
-(
-    @dni_invitado CHAR(10),
-    @cuil_emisor VARCHAR(20),
-    @descripcion VARCHAR(255),
-	@fecha_referencia DATE
-)
+ 
+CREATE PROCEDURE facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar
+    @fecha DATE
 AS
 BEGIN
     SET NOCOUNT ON;
-	/*Se realiza mediante una transacción a fin de garantizar ACID*/
+    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+ 
+    BEGIN TRAN;
     BEGIN TRY
-        BEGIN TRANSACTION;
-		/*Creación de variables auxiliares para id_invitado e id_emisor*/
-        DECLARE @id_invitado INT;
-        DECLARE @id_emisor INT;
-		DECLARE @id_factura INT;
-		DECLARE @categoria VARCHAR(50);
-
-        /*Se obtiene el id_invitado asociado a su correspondiente DNI*/
-        SELECT @id_invitado = id_invitado
-        FROM administracion.Invitado
-        WHERE dni = @dni_invitado;
-
-		/*Si no existe el invitado, no se realiza la transacción.*/
-        IF @id_invitado IS NULL
+ 
+        IF @fecha IS NULL
         BEGIN
-            RAISERROR('No se encontró invitado con ese DNI.', 16, 1);
-            ROLLBACK TRANSACTION;
+            RAISERROR('La fecha ingresada es inválida.', 16, 1);
+            ROLLBACK TRAN;
             RETURN;
         END
+ 
+        DECLARE @ultimo_dia_mes DATE = EOMONTH(@fecha);
+        DECLARE @primer_dia_mes DATE = DATEFROMPARTS(YEAR(@fecha), MONTH(@fecha), 1);
+ 
+        CREATE TABLE #DatosGrupoFamiliar (
+            id_grupo INT,
+            dni_facturar VARCHAR(13),
+			id_cuota_mensual_rp INT,
+            monto_membresia_total DECIMAL(10,2),
+            monto_actividad_total DECIMAL(10,2),
+            descuento_membresia_total DECIMAL(10,2),
+            descuento_actividad_total DECIMAL(10,2),
+            saldo_grupo DECIMAL(10,2)
+        );
+ 
+        -- Subconsulta para calcular la cantidad de actividades distintas por socio
+		;WITH ActividadesPorSocio AS (
+			SELECT IC.id_socio, COUNT(DISTINCT C.id_actividad) AS cantidad_actividades
+			FROM actividades.InscriptoClase IC
+			INNER JOIN actividades.Clase C ON C.id_clase = IC.id_clase
+			INNER JOIN actividades.Actividad A ON A.id_actividad = C.id_actividad
+			INNER JOIN facturacion.CargoClases CC ON CC.id_inscripto_clase = IC.id_inscripto_clase
+			WHERE CC.fecha BETWEEN @primer_dia_mes AND @ultimo_dia_mes
+			GROUP BY IC.id_socio
+		)
 
-		IF NOT EXISTS (SELECT PAE.id_extra
-					   FROM actividades.PresentismoActividadExtra PAE
-					   INNER JOIN actividades.ActividadExtra AE ON PAE.id_extra = AE.id_extra
-					   WHERE PAE.id_invitado = @id_invitado 
-					   AND AE.periodo LIKE 'Dia' 
-					   AND AE.es_invitado = 'S' 
-					   AND AE.nombre = @descripcion
-					   AND MONTH(PAE.fecha) = MONTH(@fecha_referencia)
-					   AND YEAR(PAE.fecha) = YEAR(@fecha_referencia)) 
-		BEGIN
-            RAISERROR('El invitado ingresado no asistió a la actividad descripta.', 16, 1);
-            ROLLBACK TRANSACTION;
-            RETURN;
-        END
-
-		/*Verificar si ya existe una factura emitida hoy para este invitado con esa actividad*/
-		IF EXISTS (SELECT TOP 1  id_factura = @id_factura
-					FROM facturacion.Factura F
-					INNER JOIN facturacion.DetalleFactura D ON F.id_factura = D.id_factura
-					WHERE F.id_socio IS NULL
-					AND F.fecha_emision = GETDATE()
-					AND D.descripcion = @descripcion
-					AND F.anulada = 0
-					AND MONTH(F.fecha_emision) = MONTH(@fecha_referencia)
-					AND YEAR(F.fecha_emision) = YEAR(@fecha_referencia)) 
-		BEGIN
-			RAISERROR('Ya se generó una factura hoy para este invitado con esa actividad.', 16, 1);
-			ROLLBACK TRANSACTION;
-			RETURN;
-		END
-
-        /*Se obtiene el id_emisor asociado a su correspondiente CUIL*/
-        SELECT @id_emisor = id_emisor
-        FROM facturacion.EmisorFactura
-        WHERE cuil = @cuil_emisor;
-
-		/*Si no existe el emisor, no se realiza la transacción*/
-        IF @id_emisor IS NULL
-        BEGIN
-            RAISERROR('No se encontró emisor con ese CUIL.', 16, 1);
-            ROLLBACK TRANSACTION;
-            RETURN;
-        END
-
-		INSERT INTO facturacion.Factura
-			(id_emisor, id_invitado, leyenda, monto_total, saldo_anterior, fecha_emision, fecha_vencimiento1, fecha_vencimiento2, estado, anulada)
-			VALUES(
-				@id_emisor, 
-				@id_invitado, 
-				'Consumidor final', 
-				(SELECT TOP 1 costo 
-				 FROM actividades.ActividadExtra 
-				 WHERE nombre = @descripcion 
-				 AND es_invitado = 'S' 
-				 AND categoria = (SELECT TOP 1 categoria FROM administracion.Invitado WHERE id_invitado = @id_invitado)
-				 AND vigencia > GETDATE() 
-				 ORDER BY vigencia DESC),
-				0,
-				@fecha_referencia, 
-				@fecha_referencia, 
-				@fecha_referencia, 
-				'No pagada', 
-				0
-			);
-
-        SET @id_factura = SCOPE_IDENTITY();
-
-         -- ACTIVIDADES EXTRA
-		INSERT INTO facturacion.DetalleFactura
-			(id_factura, id_extra, tipo_item, descripcion, monto, cantidad)
-		SELECT
-			@id_factura,
-			AE.id_extra,
-			'Actividad extra - Periodo ' + AE.periodo,
-			AE.nombre,
-			AE.costo,
-			1
-		FROM actividades.PresentismoActividadExtra PAE
-		INNER JOIN actividades.ActividadExtra AE ON PAE.id_extra = AE.id_extra
-		WHERE PAE.id_invitado = @id_invitado 
-		AND AE.periodo LIKE 'Dia' 
-		AND AE.es_invitado = 'S'
-		AND AE.categoria = (SELECT TOP 1 categoria FROM administracion.Invitado WHERE id_invitado = @id_invitado)
-		AND AE.nombre = @descripcion
-		AND MONTH(PAE.fecha) = MONTH(@fecha_referencia)
-		AND YEAR(PAE.fecha) = YEAR(@fecha_referencia)
-
-        COMMIT TRANSACTION;
-
+		INSERT INTO #DatosGrupoFamiliar (
+			id_grupo, dni_facturar, id_cuota_mensual_rp, monto_membresia_total, monto_actividad_total,
+			descuento_membresia_total, descuento_actividad_total, saldo_grupo
+		)
+		SELECT 
+			GF.id_grupo,
+			COALESCE(SR.dni, T.dni, MIN(S.dni)) AS dni_facturar,
+			MAX(CASE 
+				WHEN S.id_socio = GF.id_socio_rp THEN CM.id_cuota_mensual
+				ELSE NULL
+			END) AS id_cuota_mensual_rp,
+			SUM(CM.monto_membresia) AS monto_membresia_total,
+			SUM(CM.monto_actividad) AS monto_actividad_total,
+			CASE 
+				WHEN COUNT(S.id_socio) > 1 THEN ROUND(SUM(CM.monto_membresia) * 0.15, 2)
+				ELSE 0
+			END AS descuento_membresia_total,
+			SUM(CASE 
+				WHEN APS.cantidad_actividades > 1 THEN ROUND(CM.monto_actividad * 0.10, 2)
+				ELSE 0
+			END) AS descuento_actividad_total,
+			SUM(S.saldo) AS saldo_grupo
+		FROM socios.GrupoFamiliar GF
+		JOIN socios.GrupoFamiliarSocio GFS 
+			ON GFS.id_grupo = GF.id_grupo
+		JOIN socios.Socio S 
+			ON S.id_socio = GFS.id_socio AND S.activo = 1 AND S.eliminado = 0
+		JOIN actividades.InscriptoCategoriaSocio ICS 
+			ON ICS.id_socio = S.id_socio
+		JOIN facturacion.CuotaMensual CM 
+			ON CM.id_inscripto_categoria = ICS.id_inscripto_categoria
+			AND CM.fecha = @ultimo_dia_mes
+		LEFT JOIN socios.Socio SR 
+			ON SR.id_socio = GF.id_socio_rp
+		LEFT JOIN socios.Tutor T 
+			ON T.id_grupo = GF.id_grupo
+		LEFT JOIN ActividadesPorSocio APS 
+			ON APS.id_socio = S.id_socio
+		GROUP BY GF.id_grupo, SR.dni, T.dni;
+ 
+        INSERT INTO facturacion.Factura (
+            id_emisor, id_cuota_mensual, nro_comprobante, tipo_factura,
+            dni_receptor, condicion_iva_receptor, cae,
+            monto_total, fecha_emision, fecha_vencimiento1, fecha_vencimiento2,
+            estado, saldo_anterior
+        )
+        SELECT
+            (SELECT TOP 1 id_emisor FROM facturacion.EmisorFactura ORDER BY id_emisor DESC),
+            G.id_cuota_mensual_rp,
+            RIGHT('00000000' + CAST(ABS(CHECKSUM(NEWID())) AS VARCHAR), 8),
+            'C',
+            G.dni_facturar,
+            'Consumidor Final',
+            RIGHT('00000000000000' + CAST(ABS(CHECKSUM(NEWID())) AS VARCHAR), 14),
+            G.monto_membresia_total + G.monto_actividad_total - G.descuento_membresia_total - G.descuento_actividad_total,
+            @ultimo_dia_mes,
+            DATEADD(DAY, 5, @ultimo_dia_mes),
+            DATEADD(DAY, 10, @ultimo_dia_mes),
+            'Emitida',
+            G.saldo_grupo
+        FROM #DatosGrupoFamiliar G;
+ 
+        -- Detalles
+        INSERT INTO facturacion.DetalleFactura (id_factura, descripcion, monto, tipo_item, cantidad)
+        SELECT F.id_factura, 'Membresía mensual (grupo)', G.monto_membresia_total, 'Membresía', 1
+        FROM facturacion.Factura F
+        JOIN #DatosGrupoFamiliar G ON F.dni_receptor = G.dni_facturar
+        WHERE G.monto_membresia_total > 0;
+ 
+        INSERT INTO facturacion.DetalleFactura (id_factura, descripcion, monto, tipo_item, cantidad)
+        SELECT F.id_factura, 'Actividades mensuales (grupo)', G.monto_actividad_total, 'Actividad', 1
+        FROM facturacion.Factura F
+        JOIN #DatosGrupoFamiliar G ON F.dni_receptor = G.dni_facturar
+        WHERE G.monto_actividad_total > 0;
+ 
+        INSERT INTO facturacion.DetalleFactura (id_factura, descripcion, monto, tipo_item, cantidad)
+        SELECT F.id_factura, 'Descuento por grupo familiar (-15%)', G.descuento_membresia_total, 'Descuento', 1
+        FROM facturacion.Factura F
+        JOIN #DatosGrupoFamiliar G ON F.dni_receptor = G.dni_facturar
+        WHERE G.descuento_membresia_total > 0;
+ 
+        INSERT INTO facturacion.DetalleFactura (id_factura, descripcion, monto, tipo_item, cantidad)
+        SELECT F.id_factura, 'Descuento por múltiples actividades (-10%)', G.descuento_actividad_total, 'Descuento', 1
+        FROM facturacion.Factura F
+        JOIN #DatosGrupoFamiliar G ON F.dni_receptor = G.dni_facturar
+        WHERE G.descuento_actividad_total > 0;
+ 
+        INSERT INTO facturacion.DetalleFactura (id_factura, descripcion, monto, tipo_item, cantidad)
+        SELECT 
+            F.id_factura,
+            'Recargo por mora',
+            SUM(M.monto),
+            'Mora',
+            1
+        FROM facturacion.Factura F
+        JOIN #DatosGrupoFamiliar G ON F.dni_receptor = G.dni_facturar
+        JOIN socios.GrupoFamiliar GF ON GF.id_grupo = G.id_grupo
+        JOIN socios.GrupoFamiliarSocio GFS ON GFS.id_grupo = GF.id_grupo
+        JOIN cobranzas.Mora M ON M.id_socio = GFS.id_socio AND M.facturada = 0
+        WHERE M.fecha_registro BETWEEN @primer_dia_mes AND @ultimo_dia_mes
+        GROUP BY F.id_factura;
+ 
+        UPDATE M
+        SET M.facturada = 1
+        FROM cobranzas.Mora M
+        WHERE M.facturada = 0
+        AND M.fecha_registro BETWEEN @primer_dia_mes AND @ultimo_dia_mes;
+ 
+        DROP TABLE #DatosGrupoFamiliar;
+        COMMIT;
+ 
     END TRY
     BEGIN CATCH
-        ROLLBACK TRANSACTION;
-        THROW;
+        ROLLBACK;
+        DECLARE @msg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR(@msg, 16, 1);
+    END CATCH
+END;
+GO
+
+/*____________________________________________________________________
+  ________________ GenerarCargosActividadExtraPorFecha _______________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('facturacion.GenerarCargosActividadExtraPorFecha', 'P') IS NOT NULL
+    DROP PROCEDURE facturacion.GenerarCargosActividadExtraPorFecha;
+GO
+
+CREATE PROCEDURE facturacion.GenerarCargosActividadExtraPorFecha
+    @fecha DATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF @fecha IS NULL
+    BEGIN
+        RAISERROR('La fecha ingresada es inválida.', 16, 1);
+        RETURN;
+    END
+
+    DECLARE @primer_dia_mes DATE = DATEFROMPARTS(YEAR(@fecha), MONTH(@fecha), 1);
+    DECLARE @ultimo_dia_mes DATE = EOMONTH(@fecha);
+
+    -- Insertar cargos para Colonias (por inscripción)
+    INSERT INTO facturacion.CargoActividadExtra (id_inscripto_colonia)
+    SELECT IC.id_inscripto_colonia
+    FROM actividades.InscriptoColoniaVerano IC
+    WHERE IC.fecha BETWEEN @primer_dia_mes AND @ultimo_dia_mes
+      AND NOT EXISTS (
+          SELECT 1 FROM facturacion.CargoActividadExtra CAE
+          WHERE CAE.id_inscripto_colonia = IC.id_inscripto_colonia
+      );
+
+    -- Insertar cargos para Pileta (por inscripción)
+    INSERT INTO facturacion.CargoActividadExtra (id_inscripto_pileta)
+    SELECT IP.id_inscripto_pileta
+    FROM actividades.InscriptoPiletaVerano IP
+    WHERE IP.fecha BETWEEN @primer_dia_mes AND @ultimo_dia_mes
+      AND NOT EXISTS (
+          SELECT 1 FROM facturacion.CargoActividadExtra CAE
+          WHERE CAE.id_inscripto_pileta = IP.id_inscripto_pileta
+      );
+
+    -- Insertar cargos para Reserva SUM (por inscripción)
+    INSERT INTO facturacion.CargoActividadExtra (id_reserva_sum)
+    SELECT R.id_reserva_sum
+    FROM reservas.ReservaSum R
+    WHERE R.fecha BETWEEN @primer_dia_mes AND @ultimo_dia_mes
+      AND NOT EXISTS (
+          SELECT 1 FROM facturacion.CargoActividadExtra CAE
+          WHERE CAE.id_reserva_sum = R.id_reserva_sum
+      );
+
+END;
+GO
+
+/*____________________________________________________________________
+  ______________ GenerarFacturasActividadesExtraPorFecha _____________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('facturacion.GenerarFacturasActividadesExtraPorFecha', 'P') IS NOT NULL
+    DROP PROCEDURE facturacion.GenerarFacturasActividadesExtraPorFecha;
+GO
+
+CREATE PROCEDURE facturacion.GenerarFacturasActividadesExtraPorFecha
+    @fecha DATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+	-- Generar cargos por actividades extra
+	EXEC facturacion.GenerarCargosActividadExtraPorFecha @fecha;
+
+    IF @fecha IS NULL
+    BEGIN
+        RAISERROR('La fecha ingresada es inválida.', 16, 1);
+		ROLLBACK TRANSACTION;
+        RETURN;
+    END
+
+    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+    BEGIN TRAN;
+
+    BEGIN TRY
+        DECLARE @ultimo_dia_mes DATE = EOMONTH(@fecha);
+
+        -- Tabla temporal unificada con todos los cargos no facturados
+        CREATE TABLE #CargosAFacturar (
+            id_cargo INT,
+            id_socio INT,
+            tipo VARCHAR(30),
+            descripcion VARCHAR(100),
+            monto DECIMAL(10,2),
+            fecha DATE,
+            dni_facturar VARCHAR(13),
+            saldo DECIMAL(10,2)
+        );
+
+        -- Colonia
+        INSERT INTO #CargosAFacturar
+        SELECT 
+            CAE.id_cargo_extra,
+            IC.id_socio,
+            'Colonia',
+            'Colonia de verano',
+            ISNULL(IC.monto, 0),
+            IC.fecha,
+            COALESCE(SR.dni, T.dni, S.dni),
+            S.saldo
+        FROM facturacion.CargoActividadExtra CAE
+        JOIN actividades.InscriptoColoniaVerano IC ON CAE.id_inscripto_colonia = IC.id_inscripto_colonia
+        JOIN socios.Socio S ON S.id_socio = IC.id_socio
+        LEFT JOIN socios.GrupoFamiliarSocio GFS ON GFS.id_socio = S.id_socio
+        LEFT JOIN socios.GrupoFamiliar GF ON GF.id_grupo = GFS.id_grupo
+        LEFT JOIN socios.Socio SR ON SR.id_socio = GF.id_socio_rp
+        LEFT JOIN socios.Tutor T ON T.id_grupo = GF.id_grupo
+        WHERE IC.fecha BETWEEN DATEFROMPARTS(YEAR(@fecha), MONTH(@fecha), 1) AND @ultimo_dia_mes
+          AND NOT EXISTS (
+              SELECT 1 FROM facturacion.Factura F WHERE F.id_cargo_actividad_extra = CAE.id_cargo_extra
+          );
+
+        -- Pileta
+        INSERT INTO #CargosAFacturar
+		SELECT 
+			CAE.id_cargo_extra,
+			IP.id_socio,
+			'Pileta',
+			'Pileta de verano',
+			ISNULL(IP.monto, 0),
+			IP.fecha,
+			CASE 
+				WHEN IP.id_invitado IS NOT NULL THEN I.dni     -- DNI invitado cuando corresponda
+				ELSE COALESCE(SR.dni, T.dni, S.dni)            -- Sino socio responsable o tutor
+			END AS dni_receptor,
+			CASE
+				WHEN IP.id_invitado IS NOT NULL THEN 0
+				ELSE S.saldo
+			END AS saldo
+		FROM facturacion.CargoActividadExtra CAE
+		JOIN actividades.InscriptoPiletaVerano IP ON CAE.id_inscripto_pileta = IP.id_inscripto_pileta
+		JOIN socios.Socio S ON S.id_socio = IP.id_socio
+		LEFT JOIN socios.Invitado I ON I.id_invitado = IP.id_invitado 
+		LEFT JOIN socios.GrupoFamiliarSocio GFS ON GFS.id_socio = S.id_socio
+		LEFT JOIN socios.GrupoFamiliar GF ON GF.id_grupo = GFS.id_grupo
+		LEFT JOIN socios.Socio SR ON SR.id_socio = GF.id_socio_rp
+		LEFT JOIN socios.Tutor T ON T.id_grupo = GF.id_grupo
+		WHERE IP.fecha BETWEEN DATEFROMPARTS(YEAR(@fecha), MONTH(@fecha), 1) AND @ultimo_dia_mes
+		  AND NOT EXISTS (
+			  SELECT 1 FROM facturacion.Factura F WHERE F.id_cargo_actividad_extra = CAE.id_cargo_extra
+		  );
+
+        -- SUM
+        INSERT INTO #CargosAFacturar
+        SELECT 
+            CAE.id_cargo_extra,
+            R.id_socio,
+            'Reserva SUM',
+            'Reserva de SUM',
+            ISNULL(R.monto, 0),
+            R.fecha,
+            COALESCE(SR.dni, T.dni, S.dni),
+            S.saldo
+        FROM facturacion.CargoActividadExtra CAE
+        JOIN reservas.ReservaSum R ON CAE.id_reserva_sum = R.id_reserva_sum
+        JOIN socios.Socio S ON S.id_socio = R.id_socio
+        LEFT JOIN socios.GrupoFamiliarSocio GFS ON GFS.id_socio = S.id_socio
+        LEFT JOIN socios.GrupoFamiliar GF ON GF.id_grupo = GFS.id_grupo
+        LEFT JOIN socios.Socio SR ON SR.id_socio = GF.id_socio_rp
+        LEFT JOIN socios.Tutor T ON T.id_grupo = GF.id_grupo
+        WHERE R.fecha BETWEEN DATEFROMPARTS(YEAR(@fecha), MONTH(@fecha), 1) AND @ultimo_dia_mes
+          AND NOT EXISTS (
+              SELECT 1 FROM facturacion.Factura F WHERE F.id_cargo_actividad_extra = CAE.id_cargo_extra
+          );
+
+        -- Insertar Facturas por cada cargo extra
+        INSERT INTO facturacion.Factura (
+            id_emisor, id_cargo_actividad_extra, nro_comprobante, tipo_factura,
+            dni_receptor, condicion_iva_receptor, cae, monto_total, fecha_emision,
+            fecha_vencimiento1, fecha_vencimiento2, estado, saldo_anterior
+        )
+        SELECT 
+            (SELECT TOP 1 id_emisor FROM facturacion.EmisorFactura ORDER BY id_emisor DESC),
+            C.id_cargo,
+            RIGHT('00000000' + CAST(ABS(CHECKSUM(NEWID())) AS VARCHAR), 8),
+            'C',
+            C.dni_facturar,
+            'Consumidor Final',
+            RIGHT('00000000000000' + CAST(ABS(CHECKSUM(NEWID())) AS VARCHAR), 14),
+            C.monto,
+            C.fecha,
+            CASE
+				WHEN C.dni_facturar IN (SELECT dni FROM socios.Socio) THEN DATEADD(DAY, 5, C.fecha)
+				ELSE C.fecha
+			END,
+            CASE
+				WHEN C.dni_facturar IN (SELECT dni FROM socios.Socio) THEN DATEADD(DAY, 10, C.fecha)
+				ELSE C.fecha
+			END,
+            'Emitida',
+            C.saldo
+        FROM #CargosAFacturar C;
+
+        -- Insertar detalles
+        INSERT INTO facturacion.DetalleFactura (id_factura, descripcion, monto, tipo_item, cantidad)
+        SELECT 
+            F.id_factura,
+            C.descripcion,
+            C.monto,
+            C.tipo,
+            1
+        FROM facturacion.Factura F
+        JOIN #CargosAFacturar C ON C.id_cargo = F.id_cargo_actividad_extra;
+
+        DROP TABLE #CargosAFacturar;
+
+        COMMIT;
+    END TRY
+    BEGIN CATCH
+        ROLLBACK;
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR(@ErrMsg, 16, 1);
     END CATCH
 END;
 GO
 
 
-CREATE OR ALTER VIEW facturacion.vwResponsablesDeFactura AS
-SELECT
-    f.id_factura,
-    f.id_socio                           AS socio_facturado,
-    COALESCE(gf.id_socio_rp, f.id_socio) AS id_socio_responsable,
-    p_res.dni                            AS dni_responsable,
-    p_res.nombre                         AS nombre_responsable,
-    p_res.apellido                       AS apellido_responsable,
-    f.monto_total,
-    f.estado,
-    f.fecha_emision,
-    f.fecha_vencimiento1,
-    f.fecha_vencimiento2
-FROM facturacion.Factura f
-JOIN administracion.Socio s_f ON s_f.id_socio = f.id_socio
-LEFT JOIN administracion.GrupoFamiliar gf ON gf.id_socio = f.id_socio
-LEFT JOIN administracion.Socio s_res ON s_res.id_socio = COALESCE(gf.id_socio_rp, f.id_socio)
-LEFT JOIN administracion.Persona p_res ON p_res.id_persona = s_res.id_persona;
+/*____________________________________________________________________
+  ________________ vw_FacturasDetalladasConResponsables ______________
+  ____________________________________________________________________*/
+
+CREATE OR ALTER VIEW facturacion.vw_FacturasDetalladasConResponsables AS
+SELECT 
+    F.id_factura,
+    F.nro_comprobante,
+    F.fecha_emision,
+    
+    -- Socio facturado
+    S.dni AS dni_socio,
+    S.nombre + ' ' + S.apellido AS socio_facturado,
+
+    -- Responsable de pago (responsable o tutor)
+    COALESCE(RS.nombre + ' ' + RS.apellido, T.nombre + ' ' + T.apellido, S.nombre + ' ' + S.apellido) AS responsable_pago,
+    COALESCE(RS.dni, T.dni, S.dni) AS dni_responsable_pago,
+
+    -- Detalles
+    DF.descripcion,
+    DF.tipo_item,
+    DF.monto
+
+FROM facturacion.Factura F
+INNER JOIN facturacion.CuotaMensual CM ON CM.id_cuota_mensual = F.id_cuota_mensual
+INNER JOIN actividades.InscriptoCategoriaSocio ICS ON ICS.id_inscripto_categoria = CM.id_inscripto_categoria
+INNER JOIN socios.Socio S ON S.id_socio = ICS.id_socio
+LEFT JOIN socios.GrupoFamiliarSocio GFS ON GFS.id_socio = S.id_socio
+LEFT JOIN socios.GrupoFamiliar GF ON GF.id_grupo = GFS.id_grupo
+LEFT JOIN socios.Socio RS ON RS.id_socio = GF.id_socio_rp
+LEFT JOIN socios.Tutor T ON T.id_grupo = GF.id_grupo
+INNER JOIN facturacion.DetalleFactura DF ON DF.id_factura = F.id_factura;
 GO
+
+CREATE OR ALTER VIEW facturacion.vwFacturaTotalGrupoFamiliar
+AS
+SELECT 
+    RP.dni AS dni_responsable,
+    RP.apellido + ', ' + RP.nombre AS responsable,
+    F.fecha_emision,
+    SUM(F.monto_total) AS total_facturado_grupo,
+    COUNT(DISTINCT F.id_factura) AS cantidad_facturas,
+    MAX(F.fecha_vencimiento1) AS vencimiento_1,
+    MAX(F.fecha_vencimiento2) AS vencimiento_2
+FROM socios.GrupoFamiliar GF
+INNER JOIN socios.Socio RP ON RP.id_socio = GF.id_socio_rp
+INNER JOIN socios.GrupoFamiliarSocio GFS ON GFS.id_grupo = GF.id_grupo
+INNER JOIN socios.Socio S ON S.id_socio = GFS.id_socio
+INNER JOIN actividades.InscriptoCategoriaSocio ICS ON ICS.id_socio = S.id_socio
+INNER JOIN facturacion.CuotaMensual CM ON CM.id_inscripto_categoria = ICS.id_inscripto_categoria
+INNER JOIN facturacion.Factura F ON F.id_cuota_mensual = CM.id_cuota_mensual
+WHERE S.activo = 1 AND S.eliminado = 0
+GROUP BY RP.dni, RP.apellido, RP.nombre, F.fecha_emision;

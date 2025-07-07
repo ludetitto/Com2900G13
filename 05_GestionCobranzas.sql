@@ -6,8 +6,6 @@
    Materia: Bases de Datos Aplicadas
    Alumnos: Vignardel Francisco				45778667
             De Titto Lucia					46501934
-			Borja Tomas						42353302
-			Rodriguez Sebastián Ezequiel	41691928
 
    Consigna: Genere store procedures para manejar la inserción, modificado, borrado (si corresponde,
 también debe decidir si determinadas entidades solo admitirán borrado lógico) de cada tabla.
@@ -17,80 +15,66 @@ USE COM2900G13
 GO
 
 /*____________________________________________________________________
-  _________________________ RegistrarMedioDePago ________________________
+  _________________________ GestionarMedioDePago ________________________
   ____________________________________________________________________*/
-
 IF OBJECT_ID('cobranzas.GestionarMedioDePago', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.GestionarMedioDePago;
 GO
 
 CREATE PROCEDURE cobranzas.GestionarMedioDePago
-    @nombre             VARCHAR(100),
-    @debito_automatico  BIT = 0,
-    @operacion          CHAR(10)
+    @nombre VARCHAR(50),
+    @operacion VARCHAR(10) -- 'Insertar' o 'Eliminar'
 AS
 BEGIN
     SET NOCOUNT ON;
+    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 
-    -- Validar operación
-    IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
-    BEGIN
-        RAISERROR('Operación no válida. Debe ser Insertar, Modificar o Eliminar.', 16, 1);
-        RETURN;
-    END
-
-    -- Validación de nombre
-    IF @nombre IS NULL OR LTRIM(RTRIM(@nombre)) = ''
-    BEGIN
-        RAISERROR('El nombre del medio de pago no puede ser nulo ni vacío.', 16, 1);
-        RETURN;
-    END
-
-    -- INSERTAR
-    IF @operacion = 'Insertar'
-    BEGIN
-        IF EXISTS (SELECT 1 FROM cobranzas.MedioDePago WHERE nombre = @nombre)
+    BEGIN TRY
+        BEGIN TRAN;
+		
+		-- Para evitar duplicidad se verifican los parámetros recibidos
+        IF @operacion = 'Insertar'
         BEGIN
-            RAISERROR('Ya existe un medio de pago con ese nombre.', 16, 1);
+            IF EXISTS (SELECT id_medio_pago FROM cobranzas.MedioDePago WHERE nombre = @nombre)
+            BEGIN
+                RAISERROR('Ya existe un medio de pago con ese nombre.', 16, 1);
+                ROLLBACK;
+                RETURN;
+            END
+
+            INSERT INTO cobranzas.MedioDePago (nombre, borrado)
+            VALUES (@nombre, 0);
+        END
+
+        ELSE IF @operacion = 'Eliminar'
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM cobranzas.MedioDePago WHERE nombre = @nombre)
+            BEGIN
+                RAISERROR('No se encontró el medio de pago para eliminar.', 16, 1);
+                ROLLBACK;
+                RETURN;
+            END
+
+			-- Borrado lógico para mantener integridad de los datos
+            UPDATE cobranzas.MedioDePago
+			SET borrado = 1
+            WHERE nombre = @nombre;
+
+        END
+
+        ELSE
+        BEGIN
+            RAISERROR('Operación no válida. Usar Insertar, Modificar o Eliminar.', 16, 1);
+            ROLLBACK;
             RETURN;
         END
 
-        INSERT INTO cobranzas.MedioDePago (nombre, debito_automatico)
-        VALUES (@nombre, @debito_automatico);
-    END
-
-    -- MODIFICAR
-    IF @operacion = 'Modificar'
-    BEGIN
-        IF NOT EXISTS (SELECT 1 FROM cobranzas.MedioDePago WHERE nombre = @nombre)
-        BEGIN
-            RAISERROR('El medio de pago que intenta modificar no existe.', 16, 1);
-            RETURN;
-        END
-
-        UPDATE cobranzas.MedioDePago
-        SET debito_automatico = @debito_automatico
-        WHERE nombre = @nombre;
-
-        PRINT 'Medio de pago modificado correctamente.';
-        RETURN;
-    END
-
-    -- ELIMINAR
-    IF @operacion = 'Eliminar'
-    BEGIN
-        IF NOT EXISTS (SELECT 1 FROM cobranzas.MedioDePago WHERE nombre = @nombre)
-        BEGIN
-            RAISERROR('El medio de pago que intenta eliminar no existe.', 16, 1);
-            RETURN;
-        END
-
-        DELETE FROM cobranzas.MedioDePago
-        WHERE nombre = @nombre;
-
-        PRINT 'Medio de pago eliminado correctamente.';
-        RETURN;
-    END
+        COMMIT;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK;
+        THROW;
+    END CATCH
 END;
 GO
 
@@ -101,363 +85,130 @@ GO
 IF OBJECT_ID('cobranzas.RegistrarCobranza', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.RegistrarCobranza;
 GO
-
+ 
 CREATE PROCEDURE cobranzas.RegistrarCobranza
-    @dni_socio VARCHAR(10),
-    @monto DECIMAL(10, 2),
-    @fecha DATE,
-    @medio_pago VARCHAR(100),
-    @nombre_actividad_extra INT = NULL,
-    @id_factura INT
+    @id_factura INT,
+    @fecha_pago DATE,
+    @monto DECIMAL(10,2),
+    @medio_de_pago VARCHAR(50)
 AS
 BEGIN
     SET NOCOUNT ON;
-    SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
-
+    SET XACT_ABORT ON;
+    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+ 
     BEGIN TRY
-        BEGIN TRANSACTION;
-
-        DECLARE @id_medio INT;
-        DECLARE @id_socio INT;
-        DECLARE @id_extra INT;
-        DECLARE @sobrante DECIMAL(10,2);
-        DECLARE @nro_transaccion INT;
-
-        -- Generar nro_transaccion incremental (último valor + 1)
-        SELECT @nro_transaccion = ISNULL(MAX(nro_transaccion), 0) + 1 FROM cobranzas.Pago;
-
-        -- Validar monto
-        IF @monto IS NULL OR @monto <= 0
+        BEGIN TRAN;
+ 
+        DECLARE @id_medio_pago INT;
+        DECLARE @id_pago INT;
+        DECLARE @monto_factura DECIMAL(10,2);
+        DECLARE @id_socio_pago INT;
+ 
+        -- Validar existencia de factura
+        IF NOT EXISTS (SELECT 1 FROM facturacion.Factura WHERE id_factura = @id_factura)
         BEGIN
-            RAISERROR('Monto ingresado no válido.', 16, 1);
-            ROLLBACK TRANSACTION;
+            RAISERROR('No se encontró la factura especificada.', 16, 1);
+            ROLLBACK TRAN;
             RETURN;
-        END;
-
-        -- No se permite efectivo ni cheque
-        IF @medio_pago IN ('Efectivo', 'Cheque')
+        END
+ 
+        -- Validar medio de pago
+        SET @id_medio_pago = (SELECT id_medio_pago FROM cobranzas.MedioDePago WHERE nombre = @medio_de_pago);
+        IF @id_medio_pago IS NULL
         BEGIN
-            RAISERROR('No se aceptan pagos en Efectivo ni Cheque.', 16, 1);
-            ROLLBACK TRANSACTION;
+            RAISERROR('Medio de pago no existente.', 16, 1);
+            ROLLBACK TRAN;
             RETURN;
-        END;
-
-        -- Verificar medio de pago
-        SELECT @id_medio = id_medio
-        FROM cobranzas.MedioDePago
-        WHERE nombre = @medio_pago
-          AND nombre IN (
-              'Visa', 'MasterCard', 'Tarjeta Naranja', 
-              'Pago Fácil', 'Rapipago', 'Transferencia Mercado Pago'
-          );
-
-        IF @id_medio IS NULL
-        BEGIN
-            RAISERROR('Medio de pago inválido.', 16, 1);
-            ROLLBACK TRANSACTION;
-            RETURN;
-        END;
-
-        -- Buscar socio
-        SELECT @id_socio = S.id_socio
-        FROM administracion.Socio S
-        JOIN administracion.Persona P ON S.id_persona = P.id_persona
-        WHERE P.dni = @dni_socio AND S.activo = 1;
-
-        IF @id_socio IS NULL
-        BEGIN
-            RAISERROR('El socio no existe o está inactivo.', 16, 1);
-            ROLLBACK TRANSACTION;
-            RETURN;
-        END;
-
-        -- Validar actividad extra (opcional)
-        IF @nombre_actividad_extra IS NOT NULL
-        BEGIN
-            SELECT @id_extra = id_extra
-            FROM actividades.ActividadExtra 
-            WHERE id_extra = @nombre_actividad_extra;
-
-            IF @id_extra IS NULL
-            BEGIN
-                RAISERROR('La actividad extra no existe.', 16, 1);
-                ROLLBACK TRANSACTION;
-                RETURN;
-            END;
-        END;
-
-        -- Validar factura
-        SELECT @sobrante = @monto - monto_total
-        FROM facturacion.Factura 
-        WHERE id_factura = @id_factura 
-          AND id_socio = @id_socio 
-          AND anulada = 0;
-
-        IF @sobrante IS NULL
-        BEGIN
-            RAISERROR('Factura inválida para el socio.', 16, 1);
-            ROLLBACK TRANSACTION;
-            RETURN;
-        END;
-
-        IF @sobrante < 0
-        BEGIN
-            SELECT @sobrante += saldo
-            FROM administracion.Socio
-            WHERE id_socio = @id_socio;
-
-            IF @sobrante < 0
-            BEGIN
-                RAISERROR('Saldo insuficiente.', 16, 1);
-                ROLLBACK TRANSACTION;
-                RETURN;
-            END;
-        END;
-
-        -- Insertar el pago
-        INSERT INTO cobranzas.Pago (
-            id_factura,
-            id_medio,
-            nro_transaccion,
-            monto,
-            fecha_emision,
-            fecha_vencimiento,
-            estado
+        END
+ 
+        IF NOT EXISTS (
+            SELECT 1 FROM cobranzas.MedioDePago
+            WHERE id_medio_pago = @id_medio_pago AND borrado = 0
+              AND nombre IN ('Visa', 'MasterCard', 'Tarjeta Naranja', 'Pago Fácil', 'Rapipago', 'Transferencia Mercado Pago')
         )
+        BEGIN
+            RAISERROR('El medio de pago no está permitido.', 16, 1);
+            ROLLBACK TRAN;
+            RETURN;
+        END
+ 
+        -- Validar si ya fue pagada
+        IF EXISTS (SELECT 1 FROM cobranzas.Pago WHERE id_factura = @id_factura)
+        BEGIN
+            RAISERROR('La factura ya fue pagada.', 16, 1);
+            ROLLBACK TRAN;
+            RETURN;
+        END
+
+		-- Obtener monto y socio responsable
+        SELECT 
+            @monto_factura = F.monto_total,
+            @id_socio_pago = COALESCE(SR.id_socio, S1.id_socio, S2.id_socio, S3.id_socio)
+        FROM facturacion.Factura F
+        LEFT JOIN facturacion.CuotaMensual CM ON CM.id_cuota_mensual = F.id_cuota_mensual
+        LEFT JOIN actividades.InscriptoCategoriaSocio ICS ON ICS.id_inscripto_categoria = CM.id_inscripto_categoria
+        LEFT JOIN socios.Socio S1 ON S1.id_socio = ICS.id_socio
+        LEFT JOIN socios.GrupoFamiliarSocio GFS ON GFS.id_socio = S1.id_socio
+        LEFT JOIN socios.GrupoFamiliar GF ON GF.id_grupo = GFS.id_grupo
+        LEFT JOIN socios.Socio SR ON SR.id_socio = GF.id_socio_rp
+        LEFT JOIN facturacion.CargoActividadExtra CAE ON CAE.id_cargo_extra = F.id_cargo_actividad_extra
+        LEFT JOIN actividades.InscriptoColoniaVerano IC ON IC.id_inscripto_colonia = CAE.id_inscripto_colonia
+        LEFT JOIN socios.Socio S2 ON S2.id_socio = IC.id_socio
+        LEFT JOIN socios.Socio S3 ON S3.dni = F.dni_receptor
+        WHERE F.id_factura = @id_factura;
+
+		-- Validar monto ingresado
+        IF NOT EXISTS (SELECT 1 FROM facturacion.Factura WHERE id_factura = @id_factura AND monto_total <= @monto + COALESCE((SELECT saldo FROM socios.Socio S WHERE S.id_socio = @id_socio_pago),0))
+        BEGIN
+            RAISERROR('Monto de pago insuficiente para la factura.', 16, 1);
+            ROLLBACK TRAN;
+            RETURN;
+        END
+ 
+        -- Insertar el pago
+        INSERT INTO cobranzas.Pago (id_factura, nro_transaccion, fecha_emision, id_medio, monto, estado)
         VALUES (
             @id_factura,
-            @id_medio,
-            @nro_transaccion,
-            @monto,
-            GETDATE(),
-            @fecha,
-            'Pagado'
+            RIGHT('00000000000000000000' + CAST(ABS(CHECKSUM(NEWID())) AS VARCHAR), 20),
+            @fecha_pago,
+            @id_medio_pago,
+            @monto_factura,
+            'Aprobado'
         );
-
-        -- Actualizar saldo del socio
-        UPDATE administracion.Socio
-        SET saldo = @sobrante
-        WHERE id_socio = @id_socio;
-
-        COMMIT TRANSACTION;
+ 
+        SET @id_pago = SCOPE_IDENTITY();
+ 
+        -- Si hay excedente, registrar pago a cuenta y actualizar saldo
+        IF @monto > @monto_factura AND @id_socio_pago IS NOT NULL
+        BEGIN
+            DECLARE @excedente DECIMAL(10,2) = @monto - @monto_factura;
+ 
+            INSERT INTO cobranzas.PagoACuenta (id_pago, id_socio, fecha, monto, motivo)
+            VALUES (@id_pago, @id_socio_pago, @fecha_pago, @excedente, 'Excedente de pago.');
+ 
+            UPDATE socios.Socio
+            SET saldo += @excedente
+            WHERE id_socio = @id_socio_pago;
+        END
+		ELSE IF @monto < @monto_factura AND @id_socio_pago IS NOT NULL
+		BEGIN
+			UPDATE socios.Socio
+            SET saldo = @monto_factura - @monto - saldo
+            WHERE id_socio = @id_socio_pago;
+		END
+ 
+        -- Marcar factura como pagada
+        UPDATE facturacion.Factura
+        SET estado = 'Paga'
+        WHERE id_factura = @id_factura;
+ 
+        COMMIT;
     END TRY
     BEGIN CATCH
-        IF XACT_STATE() <> 0
-            ROLLBACK TRANSACTION;
-
-        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
-        DECLARE @ErrSeverity INT = ERROR_SEVERITY();
-        RAISERROR(@ErrMsg, @ErrSeverity, 1);
+        IF @@TRANCOUNT > 0 ROLLBACK;
+        THROW;
     END CATCH
-END;
-GO
-
-
-/*____________________________________________________________________
-  _____________________ HabilitarDebitoAutomatico ____________________
-  ____________________________________________________________________*/
-IF OBJECT_ID('cobranzas.HabilitarDebitoAutomatico', 'P') IS NOT NULL
-    DROP PROCEDURE cobranzas.HabilitarDebitoAutomatico;
-GO
-
-CREATE PROCEDURE cobranzas.HabilitarDebitoAutomatico
-    @dni_socio     VARCHAR(10),
-    @nombre_medio  VARCHAR(100)
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    DECLARE @id_socio INT, @id_medio INT;
-
-    -- Buscar socio activo
-    SELECT @id_socio = S.id_socio
-    FROM administracion.Socio S
-    JOIN administracion.Persona P ON S.id_persona = P.id_persona
-    WHERE P.dni = @dni_socio AND S.activo = 1;
-
-    IF @id_socio IS NULL
-    BEGIN
-        RAISERROR('El socio especificado no existe o no está activo.', 16, 1);
-        RETURN;
-    END
-
-    -- Buscar medio de pago válido para débito automático
-    SELECT @id_medio = id_medio
-    FROM cobranzas.MedioDePago
-    WHERE nombre = @nombre_medio AND debito_automatico = 1;
-
-    IF @id_medio IS NULL
-    BEGIN
-        RAISERROR('El medio de pago especificado no permite débito automático.', 16, 1);
-        RETURN;
-    END
-
-    -- Insertar o actualizar la preferencia del socio
-    IF EXISTS (
-        SELECT 1 FROM cobranzas.DebitoAutomaticoSocio
-        WHERE id_socio = @id_socio AND id_medio = @id_medio
-    )
-    BEGIN
-        UPDATE cobranzas.DebitoAutomaticoSocio
-        SET habilitado = 1
-        WHERE id_socio = @id_socio AND id_medio = @id_medio;
-    END
-    ELSE
-    BEGIN
-        INSERT INTO cobranzas.DebitoAutomaticoSocio (id_socio, id_medio, habilitado)
-        VALUES (@id_socio, @id_medio, 1);
-    END
-
-    PRINT 'Débito automático habilitado para el socio con ese medio de pago.';
-END;
-GO
-
-
-/*____________________________________________________________________
-  ___________________ DeshabilitarDebitoAutomatico ___________________
-  ____________________________________________________________________*/
-IF OBJECT_ID('cobranzas.DeshabilitarDebitoAutomatico', 'P') IS NOT NULL
-    DROP PROCEDURE cobranzas.DeshabilitarDebitoAutomatico;
-GO
-
-CREATE PROCEDURE cobranzas.DeshabilitarDebitoAutomatico
-    @dni_socio     VARCHAR(10),
-    @nombre_medio  VARCHAR(100)
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    DECLARE @id_socio INT, @id_medio INT;
-
-    -- Buscar socio activo
-    SELECT @id_socio = S.id_socio
-    FROM administracion.Socio S
-    JOIN administracion.Persona P ON S.id_persona = P.id_persona
-    WHERE P.dni = @dni_socio AND S.activo = 1;
-
-    IF @id_socio IS NULL
-    BEGIN
-        RAISERROR('El socio especificado no existe o no está activo.', 16, 1);
-        RETURN;
-    END
-
-    -- Buscar medio de pago
-    SELECT @id_medio = id_medio
-    FROM cobranzas.MedioDePago
-    WHERE nombre = @nombre_medio;
-
-    IF @id_medio IS NULL
-    BEGIN
-        RAISERROR('El medio de pago especificado no existe.', 16, 1);
-        RETURN;
-    END
-
-    -- Deshabilitar si ya estaba configurado
-    IF EXISTS (
-        SELECT 1 FROM cobranzas.DebitoAutomaticoSocio
-        WHERE id_socio = @id_socio AND id_medio = @id_medio AND habilitado = 1
-    )
-    BEGIN
-        UPDATE cobranzas.DebitoAutomaticoSocio
-        SET habilitado = 0
-        WHERE id_socio = @id_socio AND id_medio = @id_medio;
-
-        PRINT 'Débito automático deshabilitado para el socio con ese medio de pago.';
-    END
-    ELSE
-    BEGIN
-        RAISERROR('El socio no tiene habilitado el débito automático con ese medio de pago.', 16, 1);
-    END
-END;
-GO
-
-
-/*____________________________________________________________________
-  _______________________ RegistrarNotaDeCredito _____________________
-  ____________________________________________________________________*/
-
-IF OBJECT_ID('cobranzas.RegistrarNotaDeCredito', 'P') IS NOT NULL
-    DROP PROCEDURE cobranzas.RegistrarNotaDeCredito;
-GO
-
-CREATE PROCEDURE cobranzas.RegistrarNotaDeCredito
-    @monto DECIMAL(10,2),
-    @fecha_emision DATETIME,
-    @estado CHAR(20),
-    @motivo VARCHAR(100),
-    @id_pago INT = NULL -- opcional
-AS
-BEGIN
-    SET NOCOUNT ON;
-    SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
-
-    BEGIN TRY
-        BEGIN TRANSACTION;
-
-        /*Validación del monto ingresado*/
-        IF @monto IS NULL OR @monto <= 0
-        BEGIN
-            RAISERROR('Monto ingresado no válido.', 16, 1);
-            ROLLBACK TRANSACTION;
-            RETURN;
-        END;
-
-		/*Validación de la fecha de emisión*/
-        IF @fecha_emision IS NULL OR @fecha_emision > GETDATE()
-        BEGIN
-            RAISERROR('Fecha ingresada no válida.', 16, 1);
-            ROLLBACK TRANSACTION;
-            RETURN;
-        END;
-
-		/*Validación del motivo ingresado*/
-        IF @motivo IS NULL
-        BEGIN
-            RAISERROR('Motivo ingresado no válido.', 16, 1);
-            ROLLBACK TRANSACTION;
-            RETURN;
-        END;
-
-		/*Generación de la nota de crédito*/
-        INSERT INTO cobranzas.NotaDeCredito (
-            id_factura, monto, fecha_emision, estado, motivo
-        )
-        VALUES (
-           (SELECT TOP 1 id_factura FROM cobranzas.Pago WHERE id_pago = @id_pago), 
-		   @monto, 
-		   @fecha_emision, 
-		   @estado, 
-		   @motivo
-        );
-    END TRY
-    BEGIN CATCH
-        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
-        DECLARE @ErrSeverity INT = ERROR_SEVERITY();
-        RAISERROR(@ErrMsg, @ErrSeverity, 1);
-    END CATCH
-END;
-GO
-
-/*____________________________________________________________________
-  _______________________ ActualizarFacturaAPaga _____________________
-  ____________________________________________________________________*/
-
-IF OBJECT_ID('cobranzas.ActualizarFacturaAPaga', 'TR') IS NOT NULL
-    DROP TRIGGER cobranzas.ActualizarFacturaAPaga;
-GO
-
-CREATE TRIGGER cobranzas.ActualizarFacturaAPaga
-ON cobranzas.Pago
-AFTER INSERT
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    /* Se actualiza la factura cuyo id_factura está en la tabla inserted (puede ser más de uno)*/
-    UPDATE F
-    SET F.estado = 'Pagada'
-    FROM facturacion.Factura f
-    INNER JOIN inserted i ON f.id_factura = i.id_factura;
 END;
 GO
 
@@ -472,24 +223,26 @@ GO
 CREATE PROCEDURE cobranzas.GenerarReintegroPorLluvia
     @mes INT,
     @año INT,
-    @path NVARCHAR(100)
+    @path NVARCHAR(200)
 AS
 BEGIN
     SET NOCOUNT ON;
     SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+    SET XACT_ABORT ON;
 
     BEGIN TRY
-        BEGIN TRANSACTION;
+        BEGIN TRAN;
 
-        /* Tabla temporal para la condición climática */
+        -- 1. Cargar clima desde archivo CSV
         CREATE TABLE #clima (
             fecha VARCHAR(50),
             temperatura DECIMAL(4,2),
-            lluvia_mm  DECIMAL(4,2),
+            lluvia_mm DECIMAL(4,2),
             altura INT,
             velocidad_viento DECIMAL(4,2)
         );
 
+		-- Utilizando SQL dinámico a fin de hacer dinámico el path de importación
         DECLARE @sql NVARCHAR(MAX);
         SET @sql = N'
             BULK INSERT #clima
@@ -502,78 +255,168 @@ BEGIN
             );';
         EXEC sp_executesql @sql;
 
-        /* Tabla variable para las facturas con reintegro */
-        DECLARE @Facturas TABLE (
-            id_factura INT PRIMARY KEY,
-            id_socio INT,
-            monto_reintegro DECIMAL(10,2),
-            estado VARCHAR(50),
-            motivo VARCHAR(50),
-            fecha_emision DATE
+        -- 2. Días con lluvia
+        SELECT DISTINCT CAST(LEFT(fecha, 10) AS DATE) AS fecha_lluvia
+        INTO #DiasLluvia
+        FROM #clima
+        WHERE lluvia_mm > 0;
+
+        -- 3. Inscripciones colonia afectadas
+        SELECT 
+            IC.id_socio,
+            NULL AS id_invitado,
+            IC.fecha,
+            IC.monto,
+            TC.periodo,
+            DL.fecha_lluvia
+        INTO #ColoniaAfectada
+        FROM actividades.InscriptoColoniaVerano IC
+        INNER JOIN tarifas.TarifaColoniaVerano TC ON IC.id_tarifa_colonia = TC.id_tarifa_colonia
+        INNER JOIN #DiasLluvia DL ON IC.fecha = DL.fecha_lluvia
+        WHERE MONTH(IC.fecha) = @mes AND YEAR(IC.fecha) = @año;
+
+        -- 4.1 Inscripciones pileta afectadas - SOCIOS
+        SELECT 
+            IP.id_socio,
+            NULL AS id_invitado,
+            IP.fecha,
+            IP.monto,
+            NULL AS periodo,
+            DL.fecha_lluvia
+        INTO #PiletaAfectada
+        FROM actividades.InscriptoPiletaVerano IP
+        INNER JOIN tarifas.TarifaPiletaVerano TP ON IP.id_tarifa_pileta = TP.id_tarifa_pileta
+        INNER JOIN #DiasLluvia DL ON IP.fecha = DL.fecha_lluvia
+        WHERE IP.id_invitado IS NULL  
+          AND MONTH(IP.fecha) = @mes AND YEAR(IP.fecha) = @año;
+
+        -- 4.2 Agregar pileta afectadas - INVITADOS
+        INSERT INTO #PiletaAfectada (id_socio, id_invitado, fecha, monto, periodo, fecha_lluvia)
+        SELECT 
+            NULL,                  
+            IP.id_invitado,
+            IP.fecha,
+            IP.monto,
+            NULL AS periodo,
+            DL.fecha_lluvia
+        FROM actividades.InscriptoPiletaVerano IP
+        INNER JOIN tarifas.TarifaPiletaVerano TP ON IP.id_tarifa_pileta = TP.id_tarifa_pileta
+        INNER JOIN #DiasLluvia DL ON IP.fecha = DL.fecha_lluvia
+        WHERE IP.id_invitado IS NOT NULL  
+          AND MONTH(IP.fecha) = @mes AND YEAR(IP.fecha) = @año;
+
+        -- Antes de insertar datos, crear tabla temporal con columnas que aceptan nulos
+        IF OBJECT_ID('tempdb..#ReintegrosUnificados') IS NOT NULL
+            DROP TABLE #ReintegrosUnificados;
+
+        CREATE TABLE #ReintegrosUnificados (
+            id_socio INT NULL,
+            id_invitado INT NULL,
+            fecha_lluvia DATE NOT NULL,
+            monto DECIMAL(10,2) NOT NULL,
+            periodo VARCHAR(20) NULL,
+            monto_reintegro DECIMAL(10,2) NOT NULL
         );
 
-        /* Insertamos datos a la tabla variable */
-        INSERT INTO @Facturas (id_factura, id_socio, monto_reintegro, estado, motivo, fecha_emision)
+        -- 5. Insertar inscripciones colonia con cálculo reintegro
+        INSERT INTO #ReintegrosUnificados (id_socio, id_invitado, fecha_lluvia, monto, periodo, monto_reintegro)
         SELECT 
-            F.id_factura,
-            F.id_socio,
+            id_socio,
+            id_invitado,
+            fecha_lluvia,
+            monto,
+            periodo,
             CASE 
-                WHEN DF.tipo_item COLLATE Latin1_General_CI_AI LIKE '%Dia%' THEN F.monto_total * 0.6
-                WHEN DF.tipo_item COLLATE Latin1_General_CI_AI LIKE '%Mes%' THEN F.monto_total / 30 * 0.6
-                WHEN DF.tipo_item COLLATE Latin1_General_CI_AI LIKE '%Temporada%' THEN F.monto_total / 120 * 0.6
+                WHEN periodo IS NULL THEN monto * 0.6
+                WHEN LOWER(LTRIM(RTRIM(periodo))) LIKE '%dia%' THEN monto * 0.6
+                WHEN LOWER(LTRIM(RTRIM(periodo))) LIKE '%mes%' THEN (monto / 30.0) * 0.6
+                WHEN LOWER(LTRIM(RTRIM(periodo))) LIKE '%temporada%' THEN (monto / 120.0) * 0.6
                 ELSE 0
-            END AS monto_reintegro,
-            F.estado,
-            'Reintegro del 60% por lluvia',
-            F.fecha_emision
-        FROM facturacion.Factura F
-        INNER JOIN (
-            SELECT DISTINCT CAST(LEFT(fecha, 10) AS DATE) AS fecha
-            FROM #clima
-            WHERE lluvia_mm > 0
-        ) DiasLluviosos ON F.fecha_emision = DiasLluviosos.fecha
-        INNER JOIN facturacion.DetalleFactura DF ON F.id_factura = DF.id_factura
-        INNER JOIN cobranzas.Pago P ON P.id_factura = F.id_factura
-        WHERE F.anulada = 0
-        AND DF.tipo_item COLLATE Latin1_General_CI_AI LIKE '%actividad extra%'
-        AND F.fecha_emision BETWEEN CAST(CONCAT(@año, '-', @mes, '-01') AS DATE)
-                                AND EOMONTH(CAST(CONCAT(@año, '-', @mes, '-01') AS DATE));
+            END
+        FROM #ColoniaAfectada;
 
-        -- Insertar NotaDeCredito para invitados
-        INSERT INTO cobranzas.NotaDeCredito (id_factura, monto, fecha_emision, estado, motivo)
+        -- 6. Insertar inscripciones pileta (sin periodo) con reintegro fijo 60%
+        INSERT INTO #ReintegrosUnificados (id_socio, id_invitado, fecha_lluvia, monto, periodo, monto_reintegro)
+        SELECT
+            id_socio,
+            id_invitado,
+            fecha_lluvia,
+            monto,
+            NULL AS periodo,
+            monto * 0.6
+        FROM #PiletaAfectada;
+
+        -- 7. Pagos representativos por socio
         SELECT 
-            FT.id_factura,
-            FT.monto_reintegro, 
-            FT.fecha_emision, 
-            FT.estado, 
-            FT.motivo
-        FROM @Facturas FT
-        WHERE FT.id_socio IS NULL;
+            S.id_socio,
+            MIN(P.id_pago) AS id_pago
+        INTO #PagosSocios
+        FROM socios.Socio S
+        INNER JOIN facturacion.Factura F ON S.dni = F.dni_receptor
+        INNER JOIN cobranzas.Pago P ON F.id_factura = P.id_factura
+        WHERE MONTH(F.fecha_emision) = @mes AND YEAR(F.fecha_emision) = @año
+        GROUP BY S.id_socio;
 
-        -- Insertar PagoACuenta para socios
-        INSERT INTO cobranzas.PagoACuenta (id_pago, id_socio, monto, fecha, motivo)
+        -- 8. Pagos representativos por invitado
         SELECT 
-            P.id_pago,
-            FT.id_socio,
-            FT.monto_reintegro,
-            FT.fecha_emision,
-            FT.motivo
-        FROM @Facturas FT
-        INNER JOIN cobranzas.Pago P ON P.id_factura = FT.id_factura
-        WHERE FT.id_socio IS NOT NULL;
+            I.id_invitado,
+            MIN(P.id_pago) AS id_pago
+        INTO #PagosInvitados
+        FROM socios.Invitado I
+        INNER JOIN facturacion.Factura F ON I.dni = F.dni_receptor
+        INNER JOIN cobranzas.Pago P ON F.id_factura = P.id_factura
+        WHERE MONTH(F.fecha_emision) = @mes AND YEAR(F.fecha_emision) = @año
+        GROUP BY I.id_invitado;
 
-        -- Acreditar saldo a los socios
+        -- 9. Reintegro para socios (no invitados)
+        INSERT INTO cobranzas.PagoACuenta (id_pago, id_socio, fecha, monto, motivo)
+        SELECT 
+            PS.id_pago,
+            R.id_socio,
+            GETDATE(),
+            SUM(R.monto_reintegro),
+            'Reintegro del 60% por lluvia'
+        FROM #ReintegrosUnificados R
+        INNER JOIN #PagosSocios PS ON R.id_socio = PS.id_socio
+        WHERE R.id_invitado IS NULL
+        GROUP BY PS.id_pago, R.id_socio;
+
+        -- 10. Actualizar saldo socios
         UPDATE S
-        SET S.saldo += FT.monto_reintegro
-        FROM administracion.Socio S
-        INNER JOIN @Facturas FT ON S.id_socio = FT.id_socio;
+        SET S.saldo += R.total
+        FROM socios.Socio S
+        INNER JOIN (
+            SELECT id_socio, SUM(monto_reintegro) AS total
+            FROM #ReintegrosUnificados
+            WHERE id_socio IS NOT NULL AND id_invitado IS NULL
+            GROUP BY id_socio
+        ) R ON S.id_socio = R.id_socio;
 
+        -- 11. Reintegro para invitados (reembolso)
+        INSERT INTO cobranzas.Reembolso (id_pago, fecha_emision, motivo, monto)
+        SELECT 
+            PI.id_pago,
+            GETDATE(),
+            'Reintegro del 60% por lluvia',
+            SUM(R.monto_reintegro)
+        FROM #ReintegrosUnificados R
+        INNER JOIN #PagosInvitados PI ON R.id_invitado = PI.id_invitado
+        WHERE R.id_socio IS NULL
+        GROUP BY PI.id_pago;
+
+        -- 12. Limpiar tablas temporales
         DROP TABLE #clima;
+        DROP TABLE #DiasLluvia;
+        DROP TABLE #ColoniaAfectada;
+        DROP TABLE #PiletaAfectada;
+        DROP TABLE #ReintegrosUnificados;
+        DROP TABLE #PagosSocios;
+        DROP TABLE #PagosInvitados;
 
-        COMMIT TRANSACTION;
+        COMMIT;
     END TRY
     BEGIN CATCH
-        IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+        IF @@TRANCOUNT > 0 ROLLBACK;
         THROW;
     END CATCH
 END;
@@ -589,257 +432,515 @@ IF OBJECT_ID('cobranzas.GenerarReembolso', 'P') IS NOT NULL
 GO
 
 CREATE PROCEDURE cobranzas.GenerarReembolso
-    @id_pago INT,
-    @monto DECIMAL(10,2),
-    @motivo NVARCHAR(255)
+    @nro_comprobante CHAR(8),
+    @motivo VARCHAR(100),
+    @monto DECIMAL(10,2)
 AS
 BEGIN
     SET NOCOUNT ON;
+    SET XACT_ABORT ON;
     SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 
     BEGIN TRY
-        BEGIN TRANSACTION;
-		
-		DECLARE @monto_pago DECIMAL(10,2);
-		DECLARE @fecha_actual DATE = GETDATE();
-		DECLARE @id_socio INT;
+        BEGIN TRAN;
 
-        -- Validar existencia del pago
-        IF NOT EXISTS (
-            SELECT monto = @monto_pago FROM cobranzas.Pago WHERE id_pago = @id_pago
-        )
+		DECLARE @id_pago INT = (SELECT id_pago 
+								FROM cobranzas.Pago 
+								WHERE id_factura = (SELECT TOP 1 id_factura
+													FROM facturacion.Factura
+													WHERE nro_comprobante = @nro_comprobante));
+
+        -- Validar que el pago exista
+        IF NOT EXISTS (SELECT 1 FROM cobranzas.Pago WHERE id_pago = @id_pago)
         BEGIN
-            RAISERROR('No existe un pago con el ID especificado.', 16, 1);
-            ROLLBACK TRANSACTION;
+            RAISERROR('El pago especificado no existe.', 16, 1);
+            ROLLBACK;
             RETURN;
-        END;
+        END
 
-		-- Validar monto no excedido del pagado
-		IF @monto > @monto_pago
-		BEGIN
-			RAISERROR('El monto del reembolso no puede superar el monto del pago original.', 16, 1);
-			RETURN;
-		END;
-		-- Hallar el id_socio correspondiente al pago de dicha factura
-        SET @id_socio = (
-            SELECT f.id_socio
-            FROM cobranzas.Pago p
-            JOIN facturacion.Factura f ON f.id_factura = p.id_factura
-            WHERE p.id_pago = @id_pago
-        );
+        DECLARE @monto_pagado DECIMAL(10,2);
+        SELECT @monto_pagado = monto FROM cobranzas.Pago WHERE id_pago = @id_pago;
 
-		-- Insertar nota de crédito (reembolso)
-		EXEC cobranzas.RegistrarNotaDeCredito
-			@monto = @monto,
-			@fecha_emision = @fecha_actual,
-			@estado = NULL,
-			@motivo = @motivo,
-			@id_pago = @id_pago
+        IF @monto > @monto_pagado
+        BEGIN
+            RAISERROR('El monto del reembolso no puede ser mayor al pago original.', 16, 1);
+            ROLLBACK;
+            RETURN;
+        END
 
-        -- Actualiza el saldo del socio
-        UPDATE administracion.Socio
-        SET saldo = saldo + @monto
-        WHERE id_socio = @id_socio;
+        -- Insertar reembolso
+        INSERT INTO cobranzas.Reembolso (id_pago, fecha_emision, motivo, monto)
+        VALUES (@id_pago, GETDATE(), @motivo, @monto);
 
-        COMMIT TRANSACTION;
+        COMMIT;
     END TRY
     BEGIN CATCH
-		IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
-		DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
-		DECLARE @ErrSeverity INT = ERROR_SEVERITY();
-		RAISERROR(@ErrMsg, @ErrSeverity, 1);
-	END CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK;
+        THROW;
+    END CATCH
+END;
+GO
+
+/*____________________________________________________________________
+  ________________________ GenerarPagoACuenta ________________________
+  ____________________________________________________________________*/
+
+IF OBJECT_ID('cobranzas.GenerarPagoACuenta', 'P') IS NOT NULL
+    DROP PROCEDURE cobranzas.GenerarPagoACuenta;
+GO
+
+CREATE PROCEDURE cobranzas.GenerarPagoACuenta
+    @nro_comprobante CHAR(8),
+    @dni_pagador CHAR(13),
+    @dni_destinatario CHAR(13),
+    @monto DECIMAL(10,2),
+    @motivo VARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+		DECLARE @id_pago INT = (SELECT id_pago 
+								FROM cobranzas.Pago 
+								WHERE id_factura = (SELECT TOP 1 id_factura
+													FROM facturacion.Factura
+													WHERE nro_comprobante = @nro_comprobante));
+
+        -- 1. Validar monto positivo
+        IF @monto <= 0
+        BEGIN
+            RAISERROR('El monto debe ser mayor a cero.', 16, 1);
+            ROLLBACK;
+            RETURN;
+        END
+
+        -- 2. Validar que el pago exista y NO esté asociado a factura
+        IF NOT EXISTS (SELECT 1 FROM cobranzas.Pago WHERE id_pago = @id_pago)
+        BEGIN
+            RAISERROR('El ID de pago proporcionado no existe.', 16, 1);
+            ROLLBACK;
+            RETURN;
+        END
+
+        IF EXISTS (SELECT 1 FROM cobranzas.Pago WHERE id_pago = @id_pago AND id_factura IS NOT NULL)
+        BEGIN
+            RAISERROR('El pago ya está asociado a una factura. No puede utilizarse como pago a cuenta.', 16, 1);
+            ROLLBACK;
+            RETURN;
+        END
+
+        -- 3. Buscar socio destinatario
+        DECLARE @id_socio_dest INT;
+        SELECT @id_socio_dest = id_socio FROM socios.Socio WHERE dni = @dni_destinatario;
+
+        IF @id_socio_dest IS NULL
+        BEGIN
+            RAISERROR('El DNI destinatario no corresponde a un socio registrado.', 16, 1);
+            ROLLBACK;
+            RETURN;
+        END
+
+        -- 4. Buscar grupo del destinatario (si tiene)
+        DECLARE @id_grupo_dest INT;
+        SELECT @id_grupo_dest = id_grupo FROM socios.GrupoFamiliarSocio WHERE id_socio = @id_socio_dest;
+
+        -- 5. Verificar si el pagador es socio
+        IF EXISTS (SELECT 1 FROM socios.Socio WHERE dni = @dni_pagador)
+        BEGIN
+            -- Si el destinatario no tiene grupo, solo puede pagarse a sí mismo
+            IF @id_grupo_dest IS NULL AND @dni_pagador <> @dni_destinatario
+            BEGIN
+                RAISERROR('Un socio solo puede pagar por sí mismo si el destinatario no tiene grupo.', 16, 1);
+                ROLLBACK;
+                RETURN;
+            END
+
+            -- Si tiene grupo, verificar si el pagador es el responsable
+            IF @id_grupo_dest IS NOT NULL
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1
+                    FROM socios.GrupoFamiliar gf
+                    JOIN socios.Socio s ON gf.id_socio_rp = s.id_socio
+                    WHERE gf.id_grupo = @id_grupo_dest AND s.dni = @dni_pagador
+                )
+                BEGIN
+                    RAISERROR('El socio no es responsable del grupo del destinatario.', 16, 1);
+                    ROLLBACK;
+                    RETURN;
+                END
+            END
+        END
+
+        -- 6. O verificar si el pagador es tutor del grupo del destinatario
+        ELSE IF EXISTS (SELECT 1 FROM socios.Tutor WHERE dni = @dni_pagador)
+        BEGIN
+            DECLARE @id_grupo_tutor INT;
+            SELECT @id_grupo_tutor = id_grupo FROM socios.Tutor WHERE dni = @dni_pagador;
+
+            IF @id_grupo_tutor IS NULL OR @id_grupo_tutor <> @id_grupo_dest
+            BEGIN
+                RAISERROR('El tutor no tiene a cargo al socio destinatario.', 16, 1);
+                ROLLBACK;
+                RETURN;
+            END
+        END
+        ELSE
+        BEGIN
+            RAISERROR('El DNI pagador no corresponde a un socio ni tutor registrado.', 16, 1);
+            ROLLBACK;
+            RETURN;
+        END
+
+        -- 7. Registrar pago a cuenta
+        INSERT INTO cobranzas.PagoACuenta (id_pago, id_socio, fecha, monto, motivo)
+        SELECT @id_pago, @id_socio_dest, GETDATE(), @monto, @motivo;
+
+        -- 8. Actualizar saldo del socio
+        UPDATE socios.Socio
+        SET saldo = saldo + @monto
+        WHERE id_socio = @id_socio_dest;
+
+        COMMIT;
+        PRINT 'Pago a cuenta registrado correctamente.';
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK;
+        THROW;
+    END CATCH
 END;
 GO
 
 /*____________________________________________________________________
   ____________________________ AnularFactura __________________________
   ____________________________________________________________________*/
+
 IF OBJECT_ID('facturacion.AnularFactura', 'P') IS NOT NULL
     DROP PROCEDURE facturacion.AnularFactura;
 GO
 
 CREATE PROCEDURE facturacion.AnularFactura(
-	@id_factura INT,
+    @id_factura INT,
     @motivo NVARCHAR(255)
 )
 AS
 BEGIN
     SET NOCOUNT ON;
 
-	DECLARE @id_pago INT;
-	DECLARE @monto DECIMAL(10, 2) = (SELECT TOP 1 monto_total FROM facturacion.Factura WHERE id_factura = @id_factura);
-	
-	-- Validar motivo
-	if @monto IS NULL
-	BEGIN
-        RAISERROR('Motivo ingresado no válido.', 16, 1);
-        ROLLBACK TRANSACTION;
-        RETURN;
-    END;
+	BEGIN TRAN
+	BEGIN TRY
+		-- Verificar existencia
+		IF NOT EXISTS (
+			SELECT 1 FROM facturacion.Factura WHERE id_factura = @id_factura
+		)
+		BEGIN
+			RAISERROR('La factura con el ID %d no existe.', 16, 1, @id_factura);
+			ROLLBACK TRAN
+			RETURN;
+		END
 
-	-- Hallar factura a anular, que en caso de tener pago se realice el reembolso
-	IF @id_factura IN (SELECT id_factura FROM facturacion.Factura WHERE estado = 'Pagada')
-	BEGIN
-		SET @id_pago = (SELECT TOP 1 id_pago FROM cobranzas.Pago WHERE id_factura = @id_factura);
+		-- Verificar si ya está anulada
+		IF EXISTS (
+			SELECT 1 FROM facturacion.Factura 
+			WHERE id_factura = @id_factura AND anulada = 1
+		)
+		BEGIN
+			RAISERROR('La factura con el ID %d ya se encuentra anulada.', 16, 1, @id_factura);
+			ROLLBACK TRAN
+			RETURN;
+		END
 
-		EXEC cobranzas.GenerarReembolso
-			@id_pago = @id_pago,
-			@monto = @monto,
-			@motivo = @motivo;
-	END
-	ELSE IF @id_factura IN (SELECT id_factura FROM facturacion.Factura)
-	BEGIN
+		-------------------------
+		-- 1. Reversión de mora
+		-------------------------
+		IF EXISTS (
+			SELECT 1 FROM cobranzas.Mora WHERE id_factura = @id_factura
+		)
+		BEGIN
+			-- Revertir saldo de mora
+			UPDATE s
+			SET s.saldo = s.saldo - m.monto
+			FROM socios.Socio s
+			INNER JOIN cobranzas.Mora m ON m.id_socio = s.id_socio
+			WHERE m.id_factura = @id_factura;
+
+			-- Eliminar mora
+			DELETE FROM cobranzas.Mora
+			WHERE id_factura = @id_factura;
+		END
+
+		-------------------------
+		-- 2. Reversión de pago
+		-------------------------
+		-- Suponemos que si la factura está pagada, el saldo del socio bajó
+		-- Entonces lo devolvemos al socio sumando el monto_total
+		DECLARE @dni CHAR(13);
+		DECLARE @monto_total DECIMAL(10,2);
+
+		SELECT 
+			@dni = dni_receptor,
+			@monto_total = monto_total
+		FROM facturacion.Factura
+		WHERE id_factura = @id_factura;
+
+		IF EXISTS (
+			SELECT 1
+			FROM socios.Socio
+			WHERE dni = @dni
+		)
+		BEGIN
+			UPDATE s
+			SET s.saldo = s.saldo + @monto_total
+			FROM socios.Socio s
+			WHERE s.dni = @dni;
+		END
+
+		-------------------------
+		-- 3. Marcar como anulada
+		-------------------------
 		UPDATE facturacion.Factura
 		SET anulada = 1
-		WHERE id_factura = @id_factura
-	END
-	ELSE
-	-- Validar factura ingresada
-	BEGIN
-        RAISERROR('Factura ingresada no existente', 16, 1);
-        ROLLBACK TRANSACTION;
-        RETURN;
-    END;
-END;
-GO
+		WHERE id_factura = @id_factura;
 
-/*____________________________________________________________________
-  _____________________ GenerarReembolsoPorPago ______________________
-  ____________________________________________________________________*/
+		PRINT 'Factura anulada y movimientos revertidos correctamente.';
 
-IF OBJECT_ID('cobranzas.GenerarReembolsoPorPago', 'P') IS NOT NULL
-    DROP PROCEDURE cobranzas.GenerarReembolsoPorPago;
-GO
+		COMMIT;
 
-CREATE PROCEDURE cobranzas.GenerarReembolsoPorPago
-    @id_pago INT,
-    @motivo VARCHAR(100)
-AS
-BEGIN
-    SET NOCOUNT ON;
-    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
-
-    BEGIN TRY
-        BEGIN TRANSACTION;
-
-        DECLARE @id_factura INT, @monto DECIMAL(10,2), @medio VARCHAR(100);
-
-        -- Validar pago existente y obtener datos
-        SELECT 
-            @id_factura = p.id_factura,
-            @monto = p.monto
-        FROM cobranzas.Pago p
-        WHERE p.id_pago = @id_pago;
-
-        IF @id_factura IS NULL OR @monto IS NULL
-        BEGIN
-            RAISERROR('El pago no existe o está incompleto.', 16, 1);
-            ROLLBACK TRANSACTION;
-            RETURN;
-        END
-
-        -- Insertar Nota de Crédito
-        INSERT INTO cobranzas.NotaDeCredito (
-            id_factura, monto, fecha_emision, estado, motivo
-        ) VALUES (
-            @id_factura, @monto, GETDATE(), 'Emitida', @motivo
-        );
-
-        COMMIT TRANSACTION;
-    END TRY
+	END TRY
     BEGIN CATCH
-        IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
-        DECLARE @Err NVARCHAR(4000) = ERROR_MESSAGE();
-        RAISERROR(@Err, 16, 1);
+        IF @@TRANCOUNT > 0
+			ROLLBACK;
+        THROW;
     END CATCH
 END;
 GO
 
 /*____________________________________________________________________
-  __________________ GenerarPagoACuentaPorReembolso __________________
+  ____________________________ GestionarTarjeta __________________________
   ____________________________________________________________________*/
-
-IF OBJECT_ID('cobranzas.GenerarPagoACuentaPorReembolso', 'P') IS NOT NULL
-    DROP PROCEDURE cobranzas.GenerarPagoACuentaPorReembolso;
+IF OBJECT_ID('cobranzas.GestionarTarjeta', 'P') IS NOT NULL
+    DROP PROCEDURE cobranzas.GestionarTarjeta;
 GO
 
-CREATE PROCEDURE cobranzas.GenerarPagoACuentaPorReembolso
-    @id_pago INT,
-    @motivo VARCHAR(100)
+CREATE PROCEDURE cobranzas.GestionarTarjeta
+    @id_tarjeta INT = NULL,
+    @nro_socio VARCHAR(20) = NULL,
+    @nro_tarjeta CHAR(16) = NULL,
+    @titular VARCHAR(50) = NULL,
+    @fecha_desde DATE = NULL,
+    @fecha_hasta DATE = NULL,
+    @cod_seguridad CHAR(3) = NULL,
+    @debito_automatico BIT = 0,
+    @operacion VARCHAR(20)
 AS
 BEGIN
     SET NOCOUNT ON;
-    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 
-    BEGIN TRY
-        BEGIN TRANSACTION;
+    DECLARE @id_socio INT;
 
-        DECLARE @id_factura INT, @id_socio INT, @monto DECIMAL(10,2);
-
-        -- Obtener factura y monto del pago
-        SELECT 
-            @id_factura = p.id_factura,
-            @monto = p.monto
-        FROM cobranzas.Pago p
-        WHERE p.id_pago = @id_pago;
-
-        IF @id_factura IS NULL OR @monto IS NULL
+	-- Se valida el socio
+    IF @nro_socio IS NOT NULL
+        SELECT @id_socio = id_socio FROM socios.Socio WHERE nro_socio = @nro_socio;
+	
+	-- Se validan datos ingresados de tarjeta
+    IF @operacion = 'Insertar'
+    BEGIN
+        IF @id_socio IS NULL OR @nro_tarjeta IS NULL OR @titular IS NULL OR 
+           @fecha_desde IS NULL OR @fecha_hasta IS NULL OR @cod_seguridad IS NULL
         BEGIN
-            RAISERROR('El pago no existe o no tiene factura asociada.', 16, 1);
-            ROLLBACK TRANSACTION;
+            RAISERROR('Faltan datos obligatorios para insertar tarjeta.', 16, 1);
             RETURN;
         END
 
-        -- Obtener socio asociado a la factura
-        SELECT @id_socio = f.id_socio
-        FROM facturacion.Factura f
-        WHERE f.id_factura = @id_factura AND f.id_socio IS NOT NULL;
-
-        IF @id_socio IS NULL
+        -- Validar si el socio es responsable o tutor
+        IF NOT EXISTS (
+            SELECT 1 FROM socios.GrupoFamiliar WHERE id_socio_rp = @id_socio
+            UNION
+            SELECT 1 FROM socios.Tutor t 
+            JOIN socios.Socio s ON t.dni = s.dni
+            WHERE s.id_socio = @id_socio
+        )
         BEGIN
-            RAISERROR('La factura no está asociada a un socio.', 16, 1);
-            ROLLBACK TRANSACTION;
+            RAISERROR('Solo un socio responsable o tutor puede registrar una tarjeta.', 16, 1);
             RETURN;
         END
 
-        -- Insertar registro en PagoACuenta
-        INSERT INTO cobranzas.PagoACuenta (
-            id_pago, id_socio, monto, fecha, motivo
-        ) VALUES (
-            @id_pago, @id_socio, @monto, GETDATE(), @motivo
-        );
+		-- Evita duplicidad de tarjetas
+        IF EXISTS (SELECT 1 FROM cobranzas.TarjetaDeCredito WHERE id_socio = @id_socio)
+        BEGIN
+            RAISERROR('El socio ya tiene una tarjeta registrada. Debe modificarla o eliminarla.', 16, 1);
+            RETURN;
+        END
 
-        -- Actualizar saldo del socio
-        UPDATE administracion.Socio
-        SET saldo = saldo + @monto
-        WHERE id_socio = @id_socio;
+        INSERT INTO cobranzas.TarjetaDeCredito
+        (id_socio, nro_tarjeta, titular, fecha_desde, fecha_hasta, cod_seguridad, debito_automatico)
+        VALUES
+        (@id_socio, @nro_tarjeta, @titular, @fecha_desde, @fecha_hasta, @cod_seguridad, @debito_automatico);
+    END
 
-        COMMIT TRANSACTION;
-    END TRY
-    BEGIN CATCH
-        IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
-        DECLARE @Err NVARCHAR(4000) = ERROR_MESSAGE();
-        RAISERROR(@Err, 16, 1);
-    END CATCH
+	-- En caso de modificación/actualización
+    ELSE IF @operacion = 'Modificar'
+    BEGIN
+        IF @id_tarjeta IS NULL
+        BEGIN
+            RAISERROR('Debe proporcionar el ID de la tarjeta para modificar.', 16, 1);
+            RETURN;
+        END
+
+        UPDATE cobranzas.TarjetaDeCredito
+        SET nro_tarjeta = ISNULL(@nro_tarjeta, nro_tarjeta),
+            titular = ISNULL(@titular, titular),
+            fecha_desde = ISNULL(@fecha_desde, fecha_desde),
+            fecha_hasta = ISNULL(@fecha_hasta, fecha_hasta),
+            cod_seguridad = ISNULL(@cod_seguridad, cod_seguridad),
+            debito_automatico = ISNULL(@debito_automatico, debito_automatico)
+        WHERE id_tarjeta = @id_tarjeta;
+    END
+
+	-- En caso de eliminar, se elimina físicamente manteniendo integridad de datos (medio de pago)
+    ELSE IF @operacion = 'Eliminar'
+    BEGIN
+        IF @id_tarjeta IS NULL
+        BEGIN
+            RAISERROR('Debe proporcionar el ID de la tarjeta para eliminar.', 16, 1);
+            RETURN;
+        END
+
+        DELETE FROM cobranzas.TarjetaDeCredito
+        WHERE id_tarjeta = @id_tarjeta;
+    END
+
+    ELSE
+    BEGIN
+        RAISERROR('Operación no válida. Use: Insertar, Modificar o Eliminar.', 16, 1);
+    END
 END;
 GO
 
 /*____________________________________________________________________
-  ______________________ vwNotasConMedioDePago _______________________
+  ____________________ EjecutarDebitoAutomatico _____________________
   ____________________________________________________________________*/
 
-CREATE OR ALTER VIEW cobranzas.vwNotasConMedioDePago AS
--- Vista meramente visual, a fines prácticos de testing
-SELECT 
-    nc.id_nota,
-    nc.id_factura,
-    nc.monto,
-    nc.fecha_emision,
-    nc.estado,
-    nc.motivo,
-    mp.nombre AS medio_pago
-FROM cobranzas.NotaDeCredito nc
-JOIN cobranzas.Pago p ON p.id_factura = nc.id_factura
-JOIN cobranzas.MedioDePago mp ON mp.id_medio = p.id_medio;
+IF OBJECT_ID('cobranzas.EjecutarDebitoAutomatico', 'P') IS NOT NULL
+    DROP PROCEDURE cobranzas.EjecutarDebitoAutomatico;
+GO
+
+CREATE PROCEDURE cobranzas.EjecutarDebitoAutomatico
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+
+    BEGIN TRY
+        DECLARE @fecha_actual DATE = CAST(GETDATE() AS DATE);
+        DECLARE @anio INT = YEAR(@fecha_actual),
+				@mes INT = MONTH(@fecha_actual),
+				@max_rn INT,
+				@i INT;
+
+		-- Variables de cada fila
+        DECLARE @id_factura INT,
+                @monto DECIMAL(10,2),
+                @medio_pago VARCHAR(50),
+                @nro_tarjeta CHAR(16),
+                @nro_socio VARCHAR(20),
+                @token NVARCHAR(20),
+                @resultado INT,
+                @id_medio_pago INT;
+
+        -- Tabla temporal con índice para iterar
+        IF OBJECT_ID('tempdb..#FacturasADebitar') IS NOT NULL
+            DROP TABLE #FacturasADebitar;
+
+        SELECT
+            ROW_NUMBER() OVER (ORDER BY f.id_factura) AS rn,
+            f.id_factura,
+            f.monto_total,
+            mp.nombre AS medio_pago,
+            t.nro_tarjeta,
+            s.nro_socio
+        INTO #FacturasADebitar
+        FROM cobranzas.TarjetaDeCredito t
+        JOIN socios.Socio s ON s.id_socio = t.id_socio
+        JOIN cobranzas.MedioDePago mp ON 
+            (t.nro_tarjeta LIKE '4%' AND mp.nombre = 'Visa') OR
+            (t.nro_tarjeta LIKE '5%' AND mp.nombre = 'MasterCard')
+        JOIN facturacion.Factura f ON f.dni_receptor = s.dni
+        WHERE 
+            t.debito_automatico = 1
+            AND MONTH(f.fecha_emision) = @mes
+            AND YEAR(f.fecha_emision) = @anio
+            AND f.anulada = 0
+            AND f.estado <> 'Paga';
+
+		-- Se calcula el mayor rownumber de las facturas a debitar para establecer la cantidad
+        SET @max_rn = (SELECT MAX(rn) FROM #FacturasADebitar);
+        SET @i = 1;
+
+		-- Comienzan los ciclos de debitación
+        WHILE @i <= @max_rn
+        BEGIN
+            SELECT 
+                @id_factura = id_factura,
+                @monto = monto_total,
+                @medio_pago = medio_pago,
+                @nro_tarjeta = nro_tarjeta,
+                @nro_socio = nro_socio
+            FROM #FacturasADebitar
+            WHERE rn = @i;
+
+			-- Se define el porcejante de facturas debitadas automáticamente con éxito.
+			-- Este reuslta ser ALEATORIO ya que se simula la comunicación con la entidad bancaria correspondiente.
+            SET @resultado = ABS(CHECKSUM(NEWID())) % 100;
+			-- Se asigna un token de operación
+            SET @token = 'TK-' + RIGHT(@nro_tarjeta, 4);
+
+            PRINT 'Procesando débito para socio: ' + @nro_socio + ', tarjeta: ' + @medio_pago + ', monto: $' + CAST(@monto AS VARCHAR);
+
+			-- En base al porcentaje de facturas debitadas correctamente, se define el ÉXITO de la operación
+            IF @resultado < 85
+            BEGIN
+                -- Pago aprobado
+                EXEC cobranzas.RegistrarCobranza
+                    @id_factura = @id_factura,
+                    @fecha_pago = @fecha_actual,
+                    @monto = @monto,
+                    @medio_de_pago = @medio_pago;
+
+                PRINT 'Débito exitoso registrado para factura ID: ' + CAST(@id_factura AS VARCHAR);
+            END
+            ELSE
+            BEGIN
+                -- Pago rechazado
+                SELECT @id_medio_pago = id_medio_pago FROM cobranzas.MedioDePago WHERE nombre = @medio_pago;
+
+                IF @id_medio_pago IS NOT NULL
+                BEGIN
+                    INSERT INTO cobranzas.Pago (id_factura, nro_transaccion, fecha_emision, id_medio, monto, estado)
+                    VALUES (@id_factura, @token, @fecha_actual, @id_medio_pago, @monto, 'Rechazado');
+
+                    PRINT 'Débito rechazado por el banco para factura ID: ' + CAST(@id_factura AS VARCHAR);
+                END
+                ELSE
+                BEGIN
+                    PRINT 'Medio de pago no válido para factura ID: ' + CAST(@id_factura AS VARCHAR);
+                END
+            END
+
+			-- Se procede al siguiente socio
+            SET @i += 1;
+        END
+
+        DROP TABLE #FacturasADebitar;
+
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK;
+        PRINT 'Error en débito automático: ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END;
 GO

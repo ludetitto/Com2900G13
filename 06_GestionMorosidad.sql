@@ -1,158 +1,85 @@
-/* =========================================================================
-   Trabajo Pr·ctico Integrador - Bases de Datos Aplicadas
-   Grupo N∞: 13
-   ComisiÛn: 2900
+Ôªø/* =========================================================================
+   Trabajo Pr√°ctico Integrador - Bases de Datos Aplicadas
+   Grupo N¬∞: 13
+   Comisi√≥n: 2900
    Fecha de Entrega: 17/06/2025
    Materia: Bases de Datos Aplicadas
    Alumnos: Vignardel Francisco				45778667
             De Titto Lucia					46501934
 			Borja Tomas						42353302
-			Rodriguez Sebasti·n Ezequiel	41691928
+			Rodriguez Sebasti√°n Ezequiel	41691928
 
-     Consigna: Genere store procedures para manejar la inserciÛn, modificado, borrado (si corresponde,
-tambiÈn debe decidir si determinadas entidades solo admitir·n borrado lÛgico) de cada tabla.
-Los nombres de los store procedures NO deben comenzar con ìSPî
+     Consigna: Genere store procedures para manejar la inserci√≥n, modificado, borrado (si corresponde,
+tambi√©n debe decidir si determinadas entidades solo admitir√°n borrado l√≥gico) de cada tabla.
+Los nombres de los store procedures NO deben comenzar con ‚ÄúSP‚Äù
 ========================================================================= */
 USE COM2900G13
 GO
-
-/*____________________________________________________________________
-  ________________________ GestionarRecargo __________________________
-  ____________________________________________________________________*/
-
-IF OBJECT_ID('cobranzas.GestionarRecargo', 'P') IS NOT NULL
-    DROP PROCEDURE cobranzas.GestionarRecargo;
-GO
-
-CREATE PROCEDURE cobranzas.GestionarRecargo
-    @porcentaje		DECIMAL(5,2),
-	@descripcion	VARCHAR(50),
-	@vigencia				DATE,
-    @operacion			 CHAR(10)
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    -- Validar operaciÛn
-    IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
-    BEGIN
-        RAISERROR('OperaciÛn no v·lida. Debe ser Insertar, Modificar o Eliminar.', 16, 1);
-        RETURN;
-    END
-
-    -- ValidaciÛn de la descripciÛn
-    IF @descripcion IS NULL OR LTRIM(RTRIM(@descripcion)) = ''
-    BEGIN
-        RAISERROR('La descripciÛn del recargo no puede ser nulo ni vacÌo.', 16, 1);
-        RETURN;
-    END
-
-	 -- ValidaciÛn de la vigencia
-    IF @vigencia IS NULL OR @vigencia < GETDATE()
-    BEGIN
-        RAISERROR('La vigencia del recargo ingresada es inv·lida.', 16, 1);
-        RETURN;
-    END
-
-    -- INSERTAR
-    IF @operacion = 'Insertar'
-    BEGIN
-        IF EXISTS (SELECT 1 FROM facturacion.Recargo WHERE descripcion = @descripcion AND vigencia = @vigencia)
-        BEGIN
-            RAISERROR('Ya existe un recargo con esa descripciÛn.', 16, 1);
-            RETURN;
-        END
-
-        INSERT INTO facturacion.Recargo(porcentaje, descripcion, vigencia)
-        VALUES (@porcentaje, @descripcion, @vigencia);
-    END
-
-    -- MODIFICAR
-    IF @operacion = 'Modificar'
-    BEGIN
-        IF NOT EXISTS (SELECT 1 FROM facturacion.Recargo  WHERE descripcion = @descripcion AND vigencia = @vigencia)
-        BEGIN
-            RAISERROR('El medio de pago que intenta modificar no existe.', 16, 1);
-            RETURN;
-        END
-
-        UPDATE facturacion.Recargo
-        SET porcentaje = @porcentaje
-        WHERE descripcion = @descripcion;
-
-        PRINT 'Recargo modificado correctamente.';
-        RETURN;
-    END
-
-    -- ELIMINAR
-    IF @operacion = 'Eliminar'
-    BEGIN
-        IF NOT EXISTS (SELECT 1 FROM facturacion.Recargo  WHERE descripcion = @descripcion AND vigencia = @vigencia)
-        BEGIN
-            RAISERROR('El recargo que intenta eliminar no existe.', 16, 1);
-            RETURN;
-        END
-
-        DELETE FROM facturacion.Recargo
-        WHERE descripcion = @descripcion;
-
-        PRINT 'Recargo eliminado correctamente.';
-        RETURN;
-    END
-END;
-GO
-
-/*____________________________________________________________________
-  ____________________ AplicarRecargoVencimiento _____________________
-  ____________________________________________________________________*/
 
 IF OBJECT_ID('cobranzas.AplicarRecargoVencimiento', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.AplicarRecargoVencimiento;
 GO
 
 CREATE PROCEDURE cobranzas.AplicarRecargoVencimiento
-	@descripcion_recargo VARCHAR(50)
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    DECLARE @porcentaje_recargo DECIMAL(5, 2);
-	DECLARE @id_mora INT;
+    DECLARE @recargo DECIMAL(5,2) = 0.10;
 
-    -- Obtener el porcentaje del recargo
-    SELECT @porcentaje_recargo = porcentaje
-    FROM facturacion.Recargo
-    WHERE descripcion = @descripcion_recargo
-      AND vigencia > GETDATE();
+    -- Crear tabla temporal para capturar moras generadas
+    IF OBJECT_ID('tempdb..#MorasGeneradas') IS NOT NULL DROP TABLE #MorasGeneradas;
 
-    -- Verificar si se encontrÛ el recargo
-    IF @porcentaje_recargo IS NULL
-    BEGIN
-        RAISERROR('No se encontrÛ un recargo v·lido con la descripciÛn proporcionada.', 16, 1);
-		RETURN;
-    END
+    CREATE TABLE #MorasGeneradas (
+        id_mora INT PRIMARY KEY
+    );
 
-	/*Genera la mora a cobrar al mes siguiente*/
-	INSERT INTO cobranzas.Mora (id_socio, id_factura, facturada, monto)
-	SELECT
-		id_socio,
-		id_factura,
-		0,
-		monto_total * @porcentaje_recargo
-	FROM facturacion.Factura
-	WHERE fecha_vencimiento1 < CAST(GETDATE() AS DATE)
-	AND id_socio IS NOT NULL
+    -- Insertar moras y guardar los IDs insertados
+    INSERT INTO cobranzas.Mora (id_socio, id_factura, fecha_registro, motivo, facturada, monto)
+    OUTPUT INSERTED.id_mora INTO #MorasGeneradas(id_mora)
+    SELECT 
+        COALESCE(S.id_socio, ICV.id_socio, IPV.id_socio, RS.id_socio),
+        F.id_factura,
+        DATEADD(DAY, 1, F.fecha_vencimiento1),
+        'Recargo por vencimiento de cuota mensual o actividad extra',
+        0,
+        F.monto_total * @recargo
+    FROM facturacion.Factura F
+    LEFT JOIN facturacion.CuotaMensual CM ON CM.id_cuota_mensual = F.id_cuota_mensual
+    LEFT JOIN actividades.InscriptoCategoriaSocio ICS ON ICS.id_inscripto_categoria = CM.id_inscripto_categoria
+    LEFT JOIN socios.Socio S ON ICS.id_socio = S.id_socio
 
-	SET @id_mora = SCOPE_IDENTITY();
+    LEFT JOIN facturacion.CargoActividadExtra CAE ON CAE.id_cargo_extra = F.id_cargo_actividad_extra
+    LEFT JOIN actividades.InscriptoColoniaVerano ICV ON ICV.id_inscripto_colonia = CAE.id_inscripto_colonia
+    LEFT JOIN actividades.InscriptoPiletaVerano IPV ON IPV.id_inscripto_pileta = CAE.id_inscripto_pileta
+    LEFT JOIN reservas.ReservaSum RS ON RS.id_reserva_sum = CAE.id_reserva_sum
 
-	/*Se actualiza saldo del socio a partir de la mora*/
-	UPDATE administracion.Socio
-	SET saldo = - (SELECT F.monto_total * @porcentaje_recargo 
-				   FROM cobranzas.Mora M
-				   INNER JOIN facturacion.Factura F ON F.id_factura = M.id_factura
-				   WHERE M.id_mora = @id_mora)
-	WHERE id_socio IN (SELECT id_socio FROM cobranzas.Mora WHERE id_mora = @id_mora)
+    WHERE 
+        F.anulada = 0
+        AND GETDATE() > F.fecha_vencimiento1
+        AND COALESCE(S.id_socio, ICV.id_socio, IPV.id_socio, RS.id_socio) IS NOT NULL
+        AND NOT EXISTS (
+            SELECT 1 
+            FROM cobranzas.Mora M
+            WHERE M.id_factura = F.id_factura
+              AND M.id_socio = COALESCE(S.id_socio, ICV.id_socio, IPV.id_socio, RS.id_socio)
+        );
 
+	-- Actualizar estado de la factura
+	UPDATE facturacion.Factura
+	SET estado = 'Vencida'
+	WHERE anulada = 0 AND GETDATE() > fecha_vencimiento1
+
+    -- Actualizar saldo solo para las moras reci√©n generadas
+    UPDATE s
+    SET s.saldo = s.saldo - t.total_mora
+    FROM socios.Socio s
+    INNER JOIN (
+        SELECT M.id_socio, SUM(M.monto) AS total_mora
+        FROM cobranzas.Mora M
+        INNER JOIN #MorasGeneradas MG ON MG.id_mora = M.id_mora
+        GROUP BY M.id_socio
+    ) t ON t.id_socio = s.id_socio;
 END;
 GO
 
@@ -168,62 +95,53 @@ CREATE PROCEDURE cobranzas.AplicarBloqueoVencimiento
 AS
 BEGIN
     SET NOCOUNT ON;
-	
-	/*Tabla temporal para guardar los socios a bloquear*/
-    DECLARE @socios_a_bloquear TABLE (id_socio INT);
 
-    /*Insertamos los socios con facturas vencidas y sin pago*/
-    INSERT INTO @socios_a_bloquear (id_socio)
-    SELECT DISTINCT S.id_socio
-    FROM facturacion.Factura F
-    INNER JOIN administracion.Socio S ON S.id_socio = F.id_socio
-    WHERE F.fecha_vencimiento2 < GETDATE() -- vencidas, no futuras
-      AND F.id_factura NOT IN (
-            SELECT id_factura
-            FROM cobranzas.Pago
-        );
+    DECLARE @hoy DATE = CAST(GETDATE() AS DATE);
 
-    /*Cambiamos estado de socio a inactivo*/
-    UPDATE S
-    SET activo = 0
-    FROM administracion.Socio S
-    INNER JOIN @socios_a_bloquear B ON S.id_socio = B.id_socio;
+    -- 1. Caso: dni pertenece a un socio responsable
+    UPDATE s
+    SET s.activo = 0
+    FROM socios.Socio s
+    INNER JOIN socios.GrupoFamiliarSocio gfs ON gfs.id_socio = s.id_socio
+    WHERE gfs.id_grupo IN (
+        SELECT gf.id_grupo
+        FROM facturacion.Factura f
+        JOIN socios.Socio sr ON sr.dni = f.dni_receptor
+        JOIN socios.GrupoFamiliar gf ON gf.id_socio_rp = sr.id_socio
+        WHERE f.anulada = 0 AND f.fecha_vencimiento2 < @hoy
+    )
+    AND s.activo = 1;
 
-    /*Insertamos notificaciones*/
-    INSERT INTO cobranzas.Notificacion (id_mora, mensaje, fecha, destinatario)
-    SELECT 
-        M.id_mora,
-        'Usted ha sido suspendido de sus actividades y acceso al club por falta de pago.',
-        GETDATE(),
-        P.email
-    FROM cobranzas.Mora M
-    INNER JOIN @socios_a_bloquear B ON M.id_socio = B.id_socio
-    INNER JOIN administracion.Socio S ON S.id_socio = M.id_socio
-	INNER JOIN administracion.Persona P ON P.id_persona = S.id_persona
-	WHERE M.facturada = 0;
+    -- 2. Caso: dni pertenece a un tutor
+    UPDATE s
+    SET s.activo = 0
+    FROM socios.Socio s
+    INNER JOIN socios.GrupoFamiliarSocio gfs ON gfs.id_socio = s.id_socio
+    WHERE gfs.id_grupo IN (
+        SELECT t.id_grupo
+        FROM facturacion.Factura f
+        JOIN socios.Tutor t ON t.dni = f.dni_receptor
+        WHERE f.anulada = 0 AND f.fecha_vencimiento2 < @hoy
+    )
+    AND s.activo = 1;
+
+    -- 3. Caso: dni pertenece a un socio individual (no tutor ni responsable)
+    UPDATE s
+    SET s.activo = 0
+    FROM socios.Socio s
+    WHERE s.dni IN (
+        SELECT f.dni_receptor
+        FROM facturacion.Factura f
+        WHERE 
+            f.anulada = 0 AND f.fecha_vencimiento2 < @hoy
+            AND f.dni_receptor NOT IN (
+                SELECT sr.dni
+                FROM socios.Socio sr
+                JOIN socios.GrupoFamiliar gf ON gf.id_socio_rp = sr.id_socio
+            )
+            AND f.dni_receptor NOT IN (
+                SELECT t.dni FROM socios.Tutor t
+            )
+    )
+    AND s.activo = 1;
 END;
-GO
-
-
-/*____________________________________________________________________
-  _______________________ ActualizarSaldoPorMora _____________________
-  ____________________________________________________________________*/
-
-IF OBJECT_ID('cobranzas.ActualizarSaldoPorMora', 'TR') IS NOT NULL
-    DROP TRIGGER cobranzas.ActualizarSaldoPorMora;
-GO
-
-CREATE TRIGGER cobranzas.ActualizarSaldoPorMora
-ON cobranzas.Mora
-AFTER INSERT
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    /* Se actualiza la factura cuyo id_factura est· en la tabla inserted (puede ser m·s de uno)*/
-    UPDATE S
-    SET S.saldo -= I.monto
-    FROM administracion.Socio S
-    INNER JOIN inserted I ON S.id_socio = I.id_socio;
-END;
-GO

@@ -45,15 +45,14 @@ BEGIN
 	WITH CantidadIncumplimientos AS (
 		SELECT
 			S.nro_socio AS [Nro_de_socio],
-			P.nombre + ' ' + P.apellido AS [Nombre_y_apellido],
+			S.nombre + ' ' + S.apellido AS [Nombre_y_apellido],
 			MONTH(F.fecha_vencimiento1) AS [Mes_incumplido],
-			COUNT(F.id_factura) AS [Cantidad_de_incumplimientos]
+			COUNT(M.id_mora) AS [Cantidad_de_incumplimientos]
 		FROM facturacion.Factura F
-		INNER JOIN administracion.Socio S ON F.id_socio = S.id_socio
-		INNER JOIN administracion.Persona P ON S.id_persona = P.id_persona
+		INNER JOIN cobranzas.Mora M ON M.id_factura = F.id_factura
+		INNER JOIN socios.Socio S ON S.id_socio = M.id_socio
 		WHERE F.fecha_vencimiento1 BETWEEN @fecha_inicio AND @fecha_fin
-		AND estado = 'No pagada'
-		GROUP BY S.nro_socio, P.nombre, P.apellido, MONTH(F.fecha_vencimiento1)
+		GROUP BY S.nro_socio, S.nombre, S.apellido, MONTH(F.fecha_vencimiento1)
 	)
 	SELECT
         @fecha_inicio AS [Periodo/@Desde],
@@ -94,14 +93,13 @@ BEGIN
 	
 	WITH IngresoMensualDesdeEnero AS (
 		SELECT
-			A.nombre AS [Actividad],
+			D.descripcion AS [Actividad],
 			DATENAME(MONTH, P.fecha_emision) AS [Mes],
 			D.monto AS [Ingreso]
 		FROM cobranzas.Pago P
 		INNER JOIN facturacion.Factura F ON F.id_factura = P.id_factura
 		INNER JOIN facturacion.DetalleFactura D ON F.id_factura = D.id_factura
-		INNER JOIN actividades.Actividad A ON A.id_actividad = D.id_actividad
-		WHERE P.fecha_emision <= EOMONTH(GETDATE()))
+		WHERE P.fecha_emision <= EOMONTH(GETDATE()) AND LOWER(D.tipo_item) LIKE '%actividad%')
 		
 	SELECT
 		Actividad,
@@ -132,107 +130,114 @@ Reporte de la cantidad de socios que han realizado alguna actividad de forma alt
 (inasistencias) por categoría de socios y actividad, ordenado según cantidad de inasistencias
 ordenadas de mayor a menor
   */
-
 IF OBJECT_ID('cobranzas.Reporte3', 'P') IS NOT NULL
     DROP PROCEDURE cobranzas.Reporte3;
 GO
-CREATE or ALTER PROCEDURE  cobranzas.Reporte3 AS
-begin
-WITH AsistenciasConRanking AS (
+
+CREATE PROCEDURE cobranzas.Reporte3
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    WITH PresenciasOrdenadas AS (
+        SELECT 
+            pc.id_socio,
+            c.id_actividad,
+            pc.estado,
+            pc.fecha,
+            ROW_NUMBER() OVER (PARTITION BY pc.id_socio, c.id_actividad ORDER BY pc.fecha) AS orden
+        FROM actividades.PresentismoClase pc
+        INNER JOIN actividades.Clase c ON pc.id_clase = c.id_clase
+    ),
+    SecuenciasAlternadas AS (
+        SELECT 
+            p1.id_socio,
+            p1.id_actividad,
+            COUNT(*) AS inasistencias_alternadas
+        FROM PresenciasOrdenadas p1
+        JOIN PresenciasOrdenadas p2 ON 
+            p1.id_socio = p2.id_socio AND 
+            p1.id_actividad = p2.id_actividad AND 
+            p1.orden = p2.orden - 1
+        JOIN PresenciasOrdenadas p3 ON 
+            p1.id_socio = p3.id_socio AND 
+            p1.id_actividad = p3.id_actividad AND 
+            p1.orden = p3.orden - 2
+        WHERE 
+            p1.estado = 'P' AND 
+            p2.estado IN ('A', 'J') AND 
+            p3.estado = 'P'
+        GROUP BY p1.id_socio, p1.id_actividad
+    )
     SELECT 
-        pc.id_socio,
-        c.id_actividad,
-        s.id_categoria,
-        pc.fecha,
-        pc.condicion,
-        ROW_NUMBER() OVER (PARTITION BY pc.id_socio, c.id_actividad ORDER BY pc.fecha) AS orden
-    FROM actividades.presentismoClase pc
-    INNER JOIN actividades.Clase c ON c.id_clase = pc.id_clase
-    INNER JOIN administracion.Socio s ON s.id_socio = pc.id_socio
-),
-PatronesAlternados AS (
-    SELECT 
-        a1.id_socio,
-        a1.id_actividad,
-        a1.id_categoria,
-        COUNT(*) AS inasistencias_alternadas
-    FROM AsistenciasConRanking a1
-    JOIN AsistenciasConRanking a2 
-      ON a1.id_socio = a2.id_socio 
-     AND a1.id_actividad = a2.id_actividad 
-     AND a1.orden = a2.orden - 1
-    WHERE a1.condicion IN ('A', 'J') AND a2.condicion = 'P'
-    GROUP BY a1.id_socio, a1.id_actividad, a1.id_categoria
-)
-SELECT 
-    CONCAT(p.nombre, ' ', p.apellido) AS nombre_socio,
-    a.nombre AS nombre_actividad,
-    c.nombre AS nombre_categoria,
-    pa.inasistencias_alternadas
-FROM PatronesAlternados pa
-INNER JOIN administracion.Socio s ON s.id_socio = pa.id_socio
-INNER JOIN administracion.Persona p ON p.id_persona = s.id_persona
-INNER JOIN actividades.Actividad a ON a.id_actividad = pa.id_actividad
-INNER JOIN administracion.CategoriaSocio c ON c.id_categoria = pa.id_categoria
-ORDER BY pa.inasistencias_alternadas DESC
-FOR XML PATH('Socio'), ROOT('Socios'), ELEMENTS;
-END
+        CONCAT(s.nombre, ' ', s.apellido) AS nombre_socio,
+        a.nombre AS nombre_actividad,
+        cs.nombre AS nombre_categoria,
+        sa.inasistencias_alternadas
+    FROM SecuenciasAlternadas sa
+    INNER JOIN socios.Socio s ON s.id_socio = sa.id_socio
+    INNER JOIN actividades.Actividad a ON a.id_actividad = sa.id_actividad
+    INNER JOIN actividades.InscriptoCategoriaSocio ics ON ics.id_socio = s.id_socio
+    INNER JOIN socios.CategoriaSocio cs ON cs.id_categoria = ics.id_categoria
+    ORDER BY sa.inasistencias_alternadas DESC
+    FOR XML PATH('Socio'), ROOT('Socios'), ELEMENTS;
+END;
+GO
 
-EXEC cobranzas.Reporte3
-
-select * from administracion.Socio
-select * from administracion.Persona
-SELECT * FROM actividades.presentismoClase ORDER BY id_socio, fecha;
-
+EXEC cobranzas.Reporte3;
 
 /*____________________________________________________________________
   _____________________________ Reporte 4 ____________________________
   ____________________________________________________________________*/
 /*
-Reporte 4
 Reporte que contenga a los socios que no han asistido a alguna clase de la actividad que
 realizan. El reporte debe contener: Nombre, Apellido, edad, categoría y la actividad
 */
-IF OBJECT_ID('actividades.SociosQueFaltaron', 'P') IS NOT NULL
-    DROP PROCEDURE actividades.SociosQueFaltaron;
+
+IF OBJECT_ID('actividades.SociosConInasistencias', 'P') IS NOT NULL
+    DROP PROCEDURE actividades.SociosConInasistencias;
 GO
 
-CREATE PROCEDURE actividades.SociosQueFaltaron
+CREATE PROCEDURE actividades.SociosConInasistencias
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    WITH FaltasPorSocio AS (
-        SELECT
-            p.nombre,
-            p.apellido,
-            DATEDIFF(YEAR, p.fecha_nacimiento, GETDATE()) AS edad,
-            cs.nombre AS categoria,
-            a.nombre AS actividad
-        FROM actividades.presentismoClase pc
-        INNER JOIN administracion.Socio s ON pc.id_socio = s.id_socio
-        INNER JOIN administracion.Persona p ON s.id_persona = p.id_persona
-        INNER JOIN administracion.CategoriaSocio cs ON s.id_categoria = cs.id_categoria
-        INNER JOIN actividades.Clase c ON pc.id_clase = c.id_clase
-        INNER JOIN actividades.Actividad a ON c.id_actividad = a.id_actividad
-        WHERE pc.condicion IN ('A', 'J')
-        GROUP BY p.nombre, p.apellido, p.fecha_nacimiento, cs.nombre, a.nombre
+    ;WITH Inasistencias AS (
+        SELECT 
+            S.id_socio,
+            S.nombre,
+            S.apellido,
+            DATEDIFF(YEAR, S.fecha_nacimiento, GETDATE()) AS edad,
+            CS.nombre AS categoria,
+            A.nombre AS actividad
+        FROM actividades.InscriptoClase IC
+        INNER JOIN socios.Socio S ON S.id_socio = IC.id_socio
+        INNER JOIN actividades.Clase C ON C.id_clase = IC.id_clase
+        INNER JOIN actividades.Actividad A ON A.id_actividad = C.id_actividad
+        INNER JOIN socios.CategoriaSocio CS ON CS.id_categoria = C.id_categoria
+        WHERE EXISTS (
+            SELECT 1
+            FROM actividades.PresentismoClase PC
+            WHERE PC.id_socio = S.id_socio
+              AND PC.id_clase = C.id_clase
+              AND PC.estado IN ('A', 'J')
+        )
     )
-
-    SELECT
+    SELECT 
         (
-            SELECT
+            SELECT 
                 nombre AS [Nombre],
                 apellido AS [Apellido],
                 edad AS [Edad],
                 categoria AS [Categoria],
                 actividad AS [Actividad]
-            FROM FaltasPorSocio
+            FROM Inasistencias
             FOR XML PATH('Socio'), TYPE
         ) AS [Socios]
-    FOR XML PATH('SociosQueFaltaron'), ROOT('Reporte'), ELEMENTS;
+    FOR XML PATH('SociosConInasistencias'), ROOT('Reporte'), ELEMENTS;
 END;
 GO
 
-
-EXEC actividades.SociosQueFaltaron;
+-- Ejecución de ejemplo:
+EXEC actividades.SociosConInasistencias;
