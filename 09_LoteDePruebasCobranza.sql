@@ -55,10 +55,9 @@ SELECT
     nombre
 FROM cobranzas.MedioDePago;
 GO
-
-EXEC cobranzas.RegistrarCobranza 11, '2025-01-30', 200000, 'Visa';
-EXEC cobranzas.RegistrarCobranza 12, '2025-01-30', 200000, 'Visa';
-EXEC cobranzas.RegistrarCobranza 14, '2025-01-28', 2000, 'Mastercard';
+EXEC cobranzas.RegistrarCobranza 7, 200000, 'Visa';
+EXEC cobranzas.RegistrarCobranza 6, 200000, 'Visa';
+EXEC cobranzas.RegistrarCobranza 5, 2000, 'Mastercard';
 
 SELECT *
 FROM cobranzas.Pago
@@ -66,7 +65,6 @@ FROM cobranzas.Pago
 SELECT *
 FROM socios.Socio
 
-EXEC cobranzas.GenerarReintegroPorLluvia 1, 2025, 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\open-meteo-buenosaires_2025.csv'
 
 SELECT *
 FROM cobranzas.Reembolso
