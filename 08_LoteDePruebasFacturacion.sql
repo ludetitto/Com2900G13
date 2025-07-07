@@ -138,17 +138,9 @@ GO
    INSCRIPCIÓN DE SOCIOS A CLASES
 ========================================================== */
 -- FRANCISCO (45778667) - Mayor
-EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',    'Lunes 19:00', 'Mayor', '2025-06-17', 'P', 'Insertar';
-EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',    'Lunes 19:00', 'Mayor', '2025-06-24', 'A', 'Insertar';
-EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-01', 'P', 'Insertar';
-EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-08', 'P', 'Insertar';
-EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-15', 'J', 'Insertar';
-EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-22', 'P', 'Insertar';
-EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-29', 'P', 'Insertar';
-EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-08-05', 'A', 'Insertar';
-EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-08-12', 'P', 'Insertar';
-EXEC actividades.GestionarPresentismoClase '45778667', 'Taekwondo', 'Miércoles 19:00', 'Mayor', '2025-06-19', 'J', 'Insertar';
-EXEC actividades.GestionarPresentismoClase '45778667', 'Ajedrez',   'Sábado 19:00', 'Mayor', '2025-06-22', 'P', 'Insertar';
+EXEC actividades.GestionarInscriptoClase '45778667', 'Futsal',  'Lunes 19:00', 'Mayor', '2025-06-17', 'Insertar';
+EXEC actividades.GestionarInscriptoClase '45778667', 'Taekwondo', 'Miércoles 19:00', 'Mayor', '2025-06-19', 'Insertar';
+EXEC actividades.GestionarInscriptoClase '45778667', 'Ajedrez',   'Sábado 19:00', 'Mayor', '2025-06-22', 'Insertar';
 GO
 -- JUAN (33444555) - Cadete
 EXEC actividades.GestionarInscriptoClase '33444555', 'Taekwondo',  'Miércoles 14:00',  'Cadete', '2025-06-13', 'Insertar';
@@ -204,30 +196,27 @@ EXEC facturacion.GestionarEmisorFactura 'Sol del Norte S.A.', '20-12345678-4', '
 GO
 -- FRANCISCO (45778667) - Mayor
 EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',    'Lunes 19:00', 'Mayor', '2025-06-17', 'P', 'Insertar';
-EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',    'Lunes 19:00', 'Mayor', '2025-06-24', 'A', 'Insertar';
-EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-01', 'P', 'Insertar';
-EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-08', 'P', 'Insertar';
-EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-15', 'J', 'Insertar';
-EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-22', 'P', 'Insertar';
-EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-29', 'P', 'Insertar';
-EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-08-05', 'A', 'Insertar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-01', 'J', 'Modificar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',    'Lunes 19:00', 'Mayor', '2025-06-24', 'P', 'Modificar';
 EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-08-12', 'P', 'Insertar';
 EXEC actividades.GestionarPresentismoClase '45778667', 'Taekwondo', 'Miércoles 19:00', 'Mayor', '2025-06-19', 'J', 'Insertar';
 EXEC actividades.GestionarPresentismoClase '45778667', 'Ajedrez',   'Sábado 19:00', 'Mayor', '2025-06-22', 'P', 'Insertar';
 GO
 
+SELECT * from actividades.Clase
 -- JUAN (33444555) - Cadete
 EXEC actividades.GestionarPresentismoClase '33444555', 'Taekwondo', 'Miércoles 14:00', 'Cadete', '2025-06-19', 'A', 'Insertar';
 EXEC actividades.GestionarPresentismoClase '33444555', 'Ajedrez',   'Sábado 14:00', 'Cadete', '2025-06-22', 'P', 'Insertar';
-EXEC actividades.GestionarPresentismoClase '33444555', 'Ajedrez',   'Sábado 14:00', 'Cadete', '2025-06-29', 'J', 'Insertar';
+-- EJEMPLO DE INTENTO DE GUARDAR PRESENTIMOS CUANDO EL SOCIO NO ESTA INSCRIPTO A ESA CLASE
+EXEC actividades.GestionarPresentismoClase '33444555', 'Natación',   'Viernes 14:00', 'Cadete', '2025-06-29', 'J', 'Insertar'; 
 GO
 
 -- CAMILA (40606060) - Cadete
 EXEC actividades.GestionarPresentismoClase '40606060', 'Natación', 'Viernes 14:00', 'Cadete', '2025-06-21', 'P', 'Insertar';
 EXEC actividades.GestionarPresentismoClase '40606060', 'Natación', 'Viernes 14:00', 'Cadete', '2025-06-28', 'A', 'Insertar';
 EXEC actividades.GestionarPresentismoClase '40606060', 'Natación', 'Viernes 14:00', 'Cadete', '2025-06-14', 'P', 'Insertar';
-
 GO
+
 
 -- PEDRO (41111111) - Mayor
 EXEC actividades.GestionarPresentismoClase '41111111', 'Vóley', 'Martes 19:00', 'Mayor', '2025-06-18', 'P', 'Insertar';
@@ -246,9 +235,11 @@ EXEC actividades.GestionarPresentismoClase '42222222', 'Baile artístico', 'Juev
 EXEC actividades.GestionarPresentismoClase '42222222', 'Baile artístico', 'Jueves 19:00', 'Mayor', '2025-06-27', 'J', 'Insertar';
 GO
 
+
 -- SOFÍA (42222223) - Menor
 EXEC actividades.GestionarPresentismoClase '42222223', 'Baile artístico', 'Jueves 08:00', 'Menor', '2025-06-20', 'A', 'Insertar';
 EXEC actividades.GestionarPresentismoClase '42222223', 'Baile artístico', 'Jueves 08:00', 'Menor', '2025-06-27', 'P', 'Insertar';
+
 GO
 
 -- VALENTÍN (43333334) - Menor
@@ -264,40 +255,40 @@ GO
 -- =================== CARGA DE CARGO DE CLASES ===================
 
 -- FRANCISCO (45778667)
-EXEC facturacion.GenerarCargoClase '45778667', '2025-06-17'; -- Futsal - P
-EXEC facturacion.GenerarCargoClase '45778667', '2025-06-22'; -- Ajedrez - P
+EXEC facturacion.GenerarCargoClase  '2025-06-17'; -- Futsal - P
+EXEC facturacion.GenerarCargoClase '2025-06-22'; -- Ajedrez - P
 GO
 
 -- JUAN (33444555)
-EXEC facturacion.GenerarCargoClase '33444555', '2025-06-22'; -- Ajedrez - P
+EXEC facturacion.GenerarCargoClase  '2025-06-22'; -- Ajedrez - P
 GO
 
 -- CAMILA (40606060)
-EXEC facturacion.GenerarCargoClase '40606060', '2025-06-21'; -- Natación - P
+EXEC facturacion.GenerarCargoClase  '2025-06-21'; -- Natación - P
 GO
 
 -- PEDRO (41111111)
-EXEC facturacion.GenerarCargoClase '41111111', '2025-06-18'; -- Vóley - P
+EXEC facturacion.GenerarCargoClase  '2025-06-18'; -- Vóley - P
 GO
 
 -- JULIÁN (41111112)
-EXEC facturacion.GenerarCargoClase '41111112', '2025-06-24'; -- Futsal - P
+EXEC facturacion.GenerarCargoClase '2025-06-24'; -- Futsal - P
 GO
 
 -- ANDREA (42222222)
-EXEC facturacion.GenerarCargoClase '42222222', '2025-06-20'; -- Baile artístico - P
+EXEC facturacion.GenerarCargoClase  '2025-06-20'; -- Baile artístico - P
 GO
 
 -- SOFÍA (42222223)
-EXEC facturacion.GenerarCargoClase '42222223', '2025-06-27'; -- Baile artístico - P
+EXEC facturacion.GenerarCargoClase '2025-06-27'; -- Baile artístico - P
 GO
 
 -- VALENTÍN (43333334)
-EXEC facturacion.GenerarCargoClase '43333334', '2025-06-19'; -- Taekwondo - P
+EXEC facturacion.GenerarCargoClase '2025-06-19'; -- Taekwondo - P
 GO
 
 -- EMILIA (44444444)
-EXEC facturacion.GenerarCargoClase '44444444', '2025-06-28'; -- Natación - P
+EXEC facturacion.GenerarCargoClase  '2025-06-28'; -- Natación - P
 GO
 
 EXEC facturacion.GenerarCargosActividadExtraPorFecha '2025-01-30';
