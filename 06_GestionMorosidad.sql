@@ -27,8 +27,16 @@ BEGIN
 
     DECLARE @recargo DECIMAL(5,2) = 0.10;
 
-    -- Aplicar mora al socio correspondiente a la cuota mensual o al cargo extra no pagado
+    -- Crear tabla temporal para capturar moras generadas
+    IF OBJECT_ID('tempdb..#MorasGeneradas') IS NOT NULL DROP TABLE #MorasGeneradas;
+
+    CREATE TABLE #MorasGeneradas (
+        id_mora INT PRIMARY KEY
+    );
+
+    -- Insertar moras y guardar los IDs insertados
     INSERT INTO cobranzas.Mora (id_socio, id_factura, fecha_registro, motivo, facturada, monto)
+    OUTPUT INSERTED.id_mora INTO #MorasGeneradas(id_mora)
     SELECT 
         COALESCE(S.id_socio, ICV.id_socio, IPV.id_socio, RS.id_socio),
         F.id_factura,
@@ -49,7 +57,7 @@ BEGIN
     WHERE 
         F.anulada = 0
         AND GETDATE() > F.fecha_vencimiento1
-        AND S.activo = 1
+        AND COALESCE(S.id_socio, ICV.id_socio, IPV.id_socio, RS.id_socio) IS NOT NULL
         AND NOT EXISTS (
             SELECT 1 
             FROM cobranzas.Mora M
@@ -57,20 +65,23 @@ BEGIN
               AND M.id_socio = COALESCE(S.id_socio, ICV.id_socio, IPV.id_socio, RS.id_socio)
         );
 
-    -- Actualizar saldos de los socios a quienes se les generó mora hoy
+	-- Actualizar estado de la factura
+	UPDATE facturacion.Factura
+	SET estado = 'Vencida'
+	WHERE anulada = 0 AND GETDATE() > fecha_vencimiento1
+
+    -- Actualizar saldo solo para las moras recién generadas
     UPDATE s
     SET s.saldo = s.saldo - t.total_mora
     FROM socios.Socio s
     INNER JOIN (
-        SELECT id_socio, SUM(monto) AS total_mora
+        SELECT M.id_socio, SUM(M.monto) AS total_mora
         FROM cobranzas.Mora M
-		INNER JOIN facturacion.Factura F ON F.id_factura = M.id_factura
-        WHERE CAST(fecha_registro AS DATE) = CAST(GETDATE() AS DATE)
-        GROUP BY id_socio
+        INNER JOIN #MorasGeneradas MG ON MG.id_mora = M.id_mora
+        GROUP BY M.id_socio
     ) t ON t.id_socio = s.id_socio;
 END;
 GO
-
 
 /*____________________________________________________________________
   ____________________ AplicarBloqueoVencimiento _____________________
