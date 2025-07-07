@@ -361,7 +361,7 @@ GO
 
 CREATE PROCEDURE actividades.GestionarPresentismoClase
     @dni_socio VARCHAR(10),
-	@nombre_actividad VARCHAR(100),
+    @nombre_actividad VARCHAR(100),
     @horario VARCHAR(20),
     @nombre_categoria VARCHAR(50),
     @fecha DATE,
@@ -369,21 +369,28 @@ CREATE PROCEDURE actividades.GestionarPresentismoClase
     @operacion CHAR(10)
 AS
 BEGIN
-    SET NOCOUNT ON;
+    SET NOCOUNT ON; -- Evita que se devuelvan recuentos de filas afectados
 
-	DECLARE @id_clase INT;
-	DECLARE @id_socio INT;
-	DECLARE @id_presentismo INT;
-	DECLARE @id_inscripcion INT;
+    -- Declaración de variables
+    DECLARE @id_clase INT;
+    DECLARE @id_socio INT;
+    DECLARE @id_presentismo INT;
+    DECLARE @id_inscripcion INT;
 
-    -- Validación de operación
+    -- ====================================================================
+    -- 1. Validación inicial de la operación
+    -- ====================================================================
     IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
     BEGIN
         RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
         RETURN;
     END
 
-    -- Obtener ID de clase considerando también la categoría
+    -- ====================================================================
+    -- 2. Obtener IDs necesarios
+    -- ====================================================================
+
+    -- Obtener ID de clase (considerando actividad, horario y categoría)
     SET @id_clase = (
         SELECT C.id_clase
         FROM actividades.Clase C
@@ -394,6 +401,13 @@ BEGIN
           AND Ca.nombre = @nombre_categoria
     );
 
+    -- Validar si la clase existe
+    IF @id_clase IS NULL
+    BEGIN
+        RAISERROR('La clase especificada (Actividad, Horario, Categoría) no existe.', 16, 1);
+        RETURN;
+    END
+
     -- Obtener ID del socio
     SET @id_socio = (
         SELECT id_socio
@@ -401,22 +415,52 @@ BEGIN
         WHERE dni = @dni_socio
     );
 
-	-- Buscar inscripción existente
+    -- Validar si el socio existe
+    IF @id_socio IS NULL
+    BEGIN
+        RAISERROR('El socio especificado no existe.', 16, 1);
+        RETURN;
+    END
+
+    -- Validar si el socio está activo y no eliminado
+    IF EXISTS (SELECT 1 FROM socios.Socio WHERE id_socio = @id_socio AND (activo = 0 OR eliminado = 1))
+    BEGIN
+        RAISERROR('El socio especificado se encuentra inactivo o eliminado.', 16, 1);
+        RETURN;
+    END
+
+    -- ====================================================================
+    -- 3. Verificar inscripción del socio a la clase (NUEVA VALIDACIÓN)
+    -- ====================================================================
     SET @id_inscripcion = (
-        SELECT TOP 1 id_inscripto_clase 
-		FROM actividades.InscriptoClase IC
-		INNER JOIN actividades.Clase C ON C.id_clase = IC.id_clase
-		WHERE IC.id_clase = @id_clase AND IC.id_socio = @id_socio
+        SELECT TOP 1 id_inscripto_clase
+        FROM actividades.InscriptoClase
+        WHERE id_clase = @id_clase
+          AND id_socio = @id_socio
+        ORDER BY id_inscripto_clase DESC -- Tomar la inscripción más reciente si hay múltiples
     );
 
-	-- Buscar presentismo existente
+    IF @id_inscripcion IS NULL
+    BEGIN
+        RAISERROR('El socio no está inscripto en esta clase.', 16, 1);
+        RETURN;
+    END
+
+    -- ====================================================================
+    -- 4. Buscar presentismo existente para la fecha, clase y socio
+    --    id_clase, id_socio, fecha es una combinacion única para presentismo)
+    -- ====================================================================
     SET @id_presentismo = (
-        SELECT TOP 1 id_presentismo
-        FROM actividades.presentismoClase PC
-		INNER JOIN actividades.Clase C ON C.id_clase = PC.id_clase
-		INNER JOIN actividades.InscriptoClase IC ON IC.id_clase = C.id_clase
-        WHERE C.id_clase = @id_clase AND IC.id_inscripto_clase = @id_inscripcion AND PC.fecha = @fecha
+        SELECT id_presentismo
+        FROM actividades.presentismoClase
+        WHERE id_clase = @id_clase
+          AND id_socio = @id_socio
+          AND fecha = @fecha
     );
+
+    -- ====================================================================
+    -- 5. Lógica de Operación (Eliminar, Modificar, Insertar)
+    -- ====================================================================
 
     -- === Eliminar ===
     IF @operacion = 'Eliminar'
@@ -428,6 +472,7 @@ BEGIN
         END
 
         DELETE FROM actividades.presentismoClase WHERE id_presentismo = @id_presentismo;
+        -- Considerar agregar un mensaje de éxito si es necesario
         RETURN;
     END
 
@@ -440,45 +485,26 @@ BEGIN
             RETURN;
         END
 
+        -- Solo se actualiza el estado. id_clase y fecha son parte de la clave de identificación.
         UPDATE actividades.presentismoClase
-        SET id_clase = COALESCE(@id_clase, id_clase),
-            fecha = COALESCE(@fecha, fecha),
-            estado = COALESCE(@estado, estado)
+        SET estado = COALESCE(@estado, estado) -- Si @estado es NULL, mantiene el valor actual
         WHERE id_presentismo = @id_presentismo;
+        -- Considerar agregar un mensaje de éxito si es necesario
         RETURN;
     END
 
     -- === Insertar ===
     IF @operacion = 'Insertar'
     BEGIN
-        IF @id_clase IS NULL
-        BEGIN
-            RAISERROR('La clase especificada no existe.', 16, 1);
-            RETURN;
-        END
-
-        IF @id_socio IS NULL
-        BEGIN
-            RAISERROR('El socio especificado no existe.', 16, 1);
-            RETURN;
-        END
-
-		IF @id_socio IN (SELECT id_socio 
-						 FROM socios.Socio 
-						 WHERE activo = 0
-						 AND eliminado = 0)
-        BEGIN
-            RAISERROR('El socio especificado se encuentra inactivo.', 16, 1);
-            RETURN;
-        END
-
+        -- Si @fecha es NULL, usa la fecha actual
         IF @fecha IS NULL
             SET @fecha = GETDATE();
 
+        -- Si @estado es NULL, usa 'P' (Presente) como valor por defecto
         IF @estado IS NULL
             SET @estado = 'P';
 
-        -- Validación: evitar duplicados exactos
+        -- Validación: evitar duplicados exactos (presentismo ya cargado para la misma clase, socio y fecha)
         IF @id_presentismo IS NOT NULL
         BEGIN
             RAISERROR('Ya existe un presentismo registrado para esa clase, socio y fecha.', 16, 1);
@@ -487,15 +513,16 @@ BEGIN
 
         INSERT INTO actividades.presentismoClase (id_clase, id_socio, fecha, estado)
         VALUES (
-			@id_clase, 
-			@id_socio,
-			@fecha, 
-			@estado);
+            @id_clase,
+            @id_socio,
+            @fecha,
+            @estado
+        );
+        -- Considerar agregar un mensaje de éxito si es necesario
         RETURN;
     END
 END;
 GO
-
 /*____________________________________________________________________
   __________________ GestionarTarifaColoniaVerano ___________________
   ____________________________________________________________________*/
@@ -1610,7 +1637,6 @@ AS
 BEGIN
     SET NOCOUNT ON;
     SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
-    SET ANSI_WARNINGS OFF; -- Considera activar esto en producción.
 
     BEGIN TRAN;
     BEGIN TRY
@@ -1625,23 +1651,24 @@ BEGIN
         DECLARE @primer_dia_mes DATE = DATEFROMPARTS(YEAR(@fecha), MONTH(@fecha), 1);
         DECLARE @ultimo_dia_mes DATE = EOMONTH(@fecha);
 
-        -- CREAR TABLA TEMPORAL PARA FACTURAS GENERADAS PRIMERO
+        -- CREAR TABLA TEMPORAL PARA FACTURAS GENERADAS
         CREATE TABLE #FacturasGeneradas (
             id_factura INT PRIMARY KEY,
-            dni_receptor VARCHAR(13),
-            id_grupo INT -- Añadimos id_grupo aquí para facilitar las uniones posteriores
+            dni_receptor VARCHAR(13)
         );
 
         -- Tabla temporal con grupos que NO tienen factura para el mes
         CREATE TABLE #GruposSinFactura (
             id_grupo INT PRIMARY KEY,
-            dni_facturar VARCHAR(13)
+            dni_facturar VARCHAR(13),
+            id_socio_principal INT NULL -- Para almacenar el ID del socio cuyo DNI se usa para facturar (si es un socio)
         );
 
-        -- **** NUEVA TABLA TEMPORAL PARA MATERIALIZAR DatosFactura ****
+        -- TABLA TEMPORAL PARA MATERIALIZAR DatosFactura
         CREATE TABLE #DatosFacturaCalculados (
-            id_grupo INT PRIMARY KEY,
-            dni_facturar VARCHAR(13),
+            id_grupo INT,
+            dni_facturar VARCHAR(13) PRIMARY KEY,
+            id_socio_principal INT NULL, -- El ID del socio cuyo DNI se usa para facturar (si es un socio)
             monto_membresia_total DECIMAL(18, 2),
             monto_actividad_total DECIMAL(18, 2),
             descuento_membresia_total DECIMAL(18, 2),
@@ -1653,22 +1680,29 @@ BEGIN
         ;WITH DnisPorGrupo AS (
 			SELECT
 				GF.id_grupo,
-				COALESCE(
-					SR.dni,
-					T.dni,
-					(SELECT MIN(S.dni) FROM socios.Socio S
-					 JOIN socios.GrupoFamiliarSocio GFS_sub ON GFS_sub.id_socio = S.id_socio
-					 WHERE GFS_sub.id_grupo = GF.id_grupo
-					 AND S.activo = 1 AND S.eliminado = 0)
-				) AS dni_facturar
+				COALESCE(SR.dni, T.dni, MN.min_dni) AS dni_facturar,
+                -- Capturamos el id_socio que corresponde al DNI elegido para facturar
+                CASE
+                    WHEN SR.dni IS NOT NULL THEN SR.id_socio
+                    WHEN T.dni IS NOT NULL THEN NULL -- Si es un tutor, no hay id_socio directo aquí
+                    ELSE MN.min_id_socio -- Si es el socio con DNI mínimo
+                END AS id_socio_asociado_dni_facturar
 			FROM socios.GrupoFamiliar GF
 			LEFT JOIN socios.Socio SR ON SR.id_socio = GF.id_socio_rp
 			LEFT JOIN socios.Tutor T ON T.id_grupo = GF.id_grupo
+			CROSS APPLY (
+				SELECT MIN(S.dni) AS min_dni, MIN(S.id_socio) AS min_id_socio
+				FROM socios.Socio S
+				JOIN socios.GrupoFamiliarSocio GFS ON GFS.id_socio = S.id_socio
+				WHERE GFS.id_grupo = GF.id_grupo
+				  AND S.activo = 1 AND S.eliminado = 0
+			) MN
 		)
-		INSERT INTO #GruposSinFactura (id_grupo, dni_facturar)
+		INSERT INTO #GruposSinFactura (id_grupo, dni_facturar, id_socio_principal)
 		SELECT DISTINCT
 			DPG.id_grupo,
-			DPG.dni_facturar
+			DPG.dni_facturar,
+            DPG.id_socio_asociado_dni_facturar -- Insertamos el ID del socio principal
 		FROM DnisPorGrupo DPG
 		LEFT JOIN facturacion.Factura F ON F.dni_receptor = DPG.dni_facturar
 			AND F.fecha_emision BETWEEN @primer_dia_mes AND @ultimo_dia_mes
@@ -1682,7 +1716,7 @@ BEGIN
             RETURN;
         END
 
-        -- CTEs para calcular montos
+        -- CTEs para calcular montos en #DatosFacturaCalculados
         ;WITH ActividadesPorSocio AS (
             SELECT IC.id_socio, COUNT(DISTINCT C.id_actividad) AS cantidad_actividades
             FROM actividades.InscriptoClase IC
@@ -1698,14 +1732,15 @@ BEGIN
             WHERE M.facturada = 0 AND M.fecha_registro BETWEEN @primer_dia_mes AND @ultimo_dia_mes
             GROUP BY GFS.id_grupo
         )
-        -- Materializamos DatosFactura en una tabla temporal para usarla múltiples veces
+        -- DatosFactura en una tabla temporal
         INSERT INTO #DatosFacturaCalculados (
-            id_grupo, dni_facturar, monto_membresia_total, monto_actividad_total,
+            id_grupo, dni_facturar, id_socio_principal, monto_membresia_total, monto_actividad_total,
             descuento_membresia_total, descuento_actividad_total, mora_total, saldo_grupo
         )
         SELECT
             G.id_grupo,
             G.dni_facturar,
+            G.id_socio_principal, -- Usamos el id_socio_principal ya calculado en #GruposSinFactura
             SUM(CM.monto_membresia) AS monto_membresia_total,
             SUM(CM.monto_actividad) AS monto_actividad_total,
             CASE WHEN COUNT(DISTINCT S.id_socio) > 1 THEN ROUND(SUM(CM.monto_membresia)*0.15,2) ELSE 0 END AS descuento_membresia_total,
@@ -1720,11 +1755,11 @@ BEGIN
         JOIN facturacion.CuotaMensual CM ON CM.id_inscripto_categoria = ICS.id_inscripto_categoria AND CM.fecha = @ultimo_dia_mes
         LEFT JOIN ActividadesPorSocio APS ON APS.id_socio = S.id_socio
         LEFT JOIN MoraPorGrupo MG ON MG.id_grupo = GF.id_grupo
-        GROUP BY G.id_grupo, G.dni_facturar, ISNULL(MG.mora_total,0);
+        GROUP BY G.id_grupo, G.dni_facturar, G.id_socio_principal, ISNULL(MG.mora_total,0);
 
         -- Insertar facturas
         INSERT INTO facturacion.Factura (
-            id_emisor, nro_comprobante, tipo_factura,
+            id_emisor, id_cuota_mensual, id_cargo_actividad_extra, nro_comprobante, tipo_factura,
             dni_receptor, condicion_iva_receptor, cae,
             monto_total, fecha_emision, fecha_vencimiento1, fecha_vencimiento2,
             estado, saldo_anterior
@@ -1732,6 +1767,16 @@ BEGIN
         OUTPUT inserted.id_factura, inserted.dni_receptor INTO #FacturasGeneradas(id_factura, dni_receptor)
         SELECT
             (SELECT TOP 1 id_emisor FROM facturacion.EmisorFactura ORDER BY id_emisor DESC),
+            -- Lógica para id_cuota_mensual
+            (SELECT TOP 1 CM_main.id_cuota_mensual
+             FROM actividades.InscriptoCategoriaSocio ICS_main
+             JOIN facturacion.CuotaMensual CM_main ON CM_main.id_inscripto_categoria = ICS_main.id_inscripto_categoria
+             WHERE ICS_main.id_socio = D.id_socio_principal -- Usamos el socio principal
+             AND CM_main.fecha = @ultimo_dia_mes
+             ORDER BY CM_main.id_cuota_mensual DESC -- Arbitrario si hay más de uno, pero para TOP 1
+            ) AS id_cuota_mensual,
+            -- id_cargo_actividad_extra: se deja NULL por ahora, si no hay una tabla CargoActividadExtra clara
+            NULL AS id_cargo_actividad_extra, -- O puedes intentar una lógica similar para un CargoClases principal si es lo que se espera
             RIGHT('00000000' + CAST(ABS(CHECKSUM(NEWID())) AS VARCHAR), 8),
             'C',
             D.dni_facturar,
@@ -1743,7 +1788,7 @@ BEGIN
             DATEADD(DAY, 10, @ultimo_dia_mes),
             'Emitida',
             D.saldo_grupo
-        FROM #DatosFacturaCalculados D; -- ¡Ahora unimos a la tabla temporal!
+        FROM #DatosFacturaCalculados D;
 
         -- Detalle membresía (una línea por categoría)
 		INSERT INTO facturacion.DetalleFactura (id_factura, descripcion, monto, tipo_item, cantidad)
@@ -1756,7 +1801,7 @@ BEGIN
         FROM #FacturasGeneradas F
         -- Unimos #FacturasGeneradas por dni_receptor a #DatosFacturaCalculados para obtener id_grupo
         JOIN #DatosFacturaCalculados DFC ON DFC.dni_facturar = F.dni_receptor
-        JOIN socios.GrupoFamiliarSocio GFS ON GFS.id_grupo = DFC.id_grupo -- Usamos el id_grupo de DFC
+        JOIN socios.GrupoFamiliarSocio GFS ON GFS.id_grupo = DFC.id_grupo
         JOIN socios.Socio S ON S.id_socio = GFS.id_socio AND S.activo = 1 AND S.eliminado = 0
         JOIN actividades.InscriptoCategoriaSocio ICS ON ICS.id_socio = S.id_socio
         JOIN socios.CategoriaSocio CS ON CS.id_categoria = ICS.id_categoria
