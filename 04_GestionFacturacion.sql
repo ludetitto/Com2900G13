@@ -1637,7 +1637,6 @@ AS
 BEGIN
     SET NOCOUNT ON;
     SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
-    SET ANSI_WARNINGS OFF; -- Considera activar esto en producción.
 
     BEGIN TRAN;
     BEGIN TRY
@@ -1652,23 +1651,24 @@ BEGIN
         DECLARE @primer_dia_mes DATE = DATEFROMPARTS(YEAR(@fecha), MONTH(@fecha), 1);
         DECLARE @ultimo_dia_mes DATE = EOMONTH(@fecha);
 
-        -- CREAR TABLA TEMPORAL PARA FACTURAS GENERADAS PRIMERO
+        -- CREAR TABLA TEMPORAL PARA FACTURAS GENERADAS
         CREATE TABLE #FacturasGeneradas (
             id_factura INT PRIMARY KEY,
-            dni_receptor VARCHAR(13),
-            id_grupo INT -- Añadimos id_grupo aquí para facilitar las uniones posteriores
+            dni_receptor VARCHAR(13)
         );
 
         -- Tabla temporal con grupos que NO tienen factura para el mes
         CREATE TABLE #GruposSinFactura (
             id_grupo INT PRIMARY KEY,
-            dni_facturar VARCHAR(13)
+            dni_facturar VARCHAR(13),
+            id_socio_principal INT NULL -- Para almacenar el ID del socio cuyo DNI se usa para facturar (si es un socio)
         );
 
-        -- **** NUEVA TABLA TEMPORAL PARA MATERIALIZAR DatosFactura ****
+        -- TABLA TEMPORAL PARA MATERIALIZAR DatosFactura
         CREATE TABLE #DatosFacturaCalculados (
-            id_grupo INT PRIMARY KEY,
-            dni_facturar VARCHAR(13),
+            id_grupo INT,
+            dni_facturar VARCHAR(13) PRIMARY KEY,
+            id_socio_principal INT NULL, -- El ID del socio cuyo DNI se usa para facturar (si es un socio)
             monto_membresia_total DECIMAL(18, 2),
             monto_actividad_total DECIMAL(18, 2),
             descuento_membresia_total DECIMAL(18, 2),
@@ -1680,22 +1680,29 @@ BEGIN
         ;WITH DnisPorGrupo AS (
 			SELECT
 				GF.id_grupo,
-				COALESCE(
-					SR.dni,
-					T.dni,
-					(SELECT MIN(S.dni) FROM socios.Socio S
-					 JOIN socios.GrupoFamiliarSocio GFS_sub ON GFS_sub.id_socio = S.id_socio
-					 WHERE GFS_sub.id_grupo = GF.id_grupo
-					 AND S.activo = 1 AND S.eliminado = 0)
-				) AS dni_facturar
+				COALESCE(SR.dni, T.dni, MN.min_dni) AS dni_facturar,
+                -- Capturamos el id_socio que corresponde al DNI elegido para facturar
+                CASE
+                    WHEN SR.dni IS NOT NULL THEN SR.id_socio
+                    WHEN T.dni IS NOT NULL THEN NULL -- Si es un tutor, no hay id_socio directo aquí
+                    ELSE MN.min_id_socio -- Si es el socio con DNI mínimo
+                END AS id_socio_asociado_dni_facturar
 			FROM socios.GrupoFamiliar GF
 			LEFT JOIN socios.Socio SR ON SR.id_socio = GF.id_socio_rp
 			LEFT JOIN socios.Tutor T ON T.id_grupo = GF.id_grupo
+			CROSS APPLY (
+				SELECT MIN(S.dni) AS min_dni, MIN(S.id_socio) AS min_id_socio
+				FROM socios.Socio S
+				JOIN socios.GrupoFamiliarSocio GFS ON GFS.id_socio = S.id_socio
+				WHERE GFS.id_grupo = GF.id_grupo
+				  AND S.activo = 1 AND S.eliminado = 0
+			) MN
 		)
-		INSERT INTO #GruposSinFactura (id_grupo, dni_facturar)
+		INSERT INTO #GruposSinFactura (id_grupo, dni_facturar, id_socio_principal)
 		SELECT DISTINCT
 			DPG.id_grupo,
-			DPG.dni_facturar
+			DPG.dni_facturar,
+            DPG.id_socio_asociado_dni_facturar -- Insertamos el ID del socio principal
 		FROM DnisPorGrupo DPG
 		LEFT JOIN facturacion.Factura F ON F.dni_receptor = DPG.dni_facturar
 			AND F.fecha_emision BETWEEN @primer_dia_mes AND @ultimo_dia_mes
@@ -1709,7 +1716,7 @@ BEGIN
             RETURN;
         END
 
-        -- CTEs para calcular montos
+        -- CTEs para calcular montos en #DatosFacturaCalculados
         ;WITH ActividadesPorSocio AS (
             SELECT IC.id_socio, COUNT(DISTINCT C.id_actividad) AS cantidad_actividades
             FROM actividades.InscriptoClase IC
@@ -1725,14 +1732,15 @@ BEGIN
             WHERE M.facturada = 0 AND M.fecha_registro BETWEEN @primer_dia_mes AND @ultimo_dia_mes
             GROUP BY GFS.id_grupo
         )
-        -- Materializamos DatosFactura en una tabla temporal para usarla múltiples veces
+        -- DatosFactura en una tabla temporal
         INSERT INTO #DatosFacturaCalculados (
-            id_grupo, dni_facturar, monto_membresia_total, monto_actividad_total,
+            id_grupo, dni_facturar, id_socio_principal, monto_membresia_total, monto_actividad_total,
             descuento_membresia_total, descuento_actividad_total, mora_total, saldo_grupo
         )
         SELECT
             G.id_grupo,
             G.dni_facturar,
+            G.id_socio_principal, -- Usamos el id_socio_principal ya calculado en #GruposSinFactura
             SUM(CM.monto_membresia) AS monto_membresia_total,
             SUM(CM.monto_actividad) AS monto_actividad_total,
             CASE WHEN COUNT(DISTINCT S.id_socio) > 1 THEN ROUND(SUM(CM.monto_membresia)*0.15,2) ELSE 0 END AS descuento_membresia_total,
@@ -1747,11 +1755,11 @@ BEGIN
         JOIN facturacion.CuotaMensual CM ON CM.id_inscripto_categoria = ICS.id_inscripto_categoria AND CM.fecha = @ultimo_dia_mes
         LEFT JOIN ActividadesPorSocio APS ON APS.id_socio = S.id_socio
         LEFT JOIN MoraPorGrupo MG ON MG.id_grupo = GF.id_grupo
-        GROUP BY G.id_grupo, G.dni_facturar, ISNULL(MG.mora_total,0);
+        GROUP BY G.id_grupo, G.dni_facturar, G.id_socio_principal, ISNULL(MG.mora_total,0);
 
         -- Insertar facturas
         INSERT INTO facturacion.Factura (
-            id_emisor, nro_comprobante, tipo_factura,
+            id_emisor, id_cuota_mensual, id_cargo_actividad_extra, nro_comprobante, tipo_factura,
             dni_receptor, condicion_iva_receptor, cae,
             monto_total, fecha_emision, fecha_vencimiento1, fecha_vencimiento2,
             estado, saldo_anterior
@@ -1759,6 +1767,16 @@ BEGIN
         OUTPUT inserted.id_factura, inserted.dni_receptor INTO #FacturasGeneradas(id_factura, dni_receptor)
         SELECT
             (SELECT TOP 1 id_emisor FROM facturacion.EmisorFactura ORDER BY id_emisor DESC),
+            -- Lógica para id_cuota_mensual
+            (SELECT TOP 1 CM_main.id_cuota_mensual
+             FROM actividades.InscriptoCategoriaSocio ICS_main
+             JOIN facturacion.CuotaMensual CM_main ON CM_main.id_inscripto_categoria = ICS_main.id_inscripto_categoria
+             WHERE ICS_main.id_socio = D.id_socio_principal -- Usamos el socio principal
+             AND CM_main.fecha = @ultimo_dia_mes
+             ORDER BY CM_main.id_cuota_mensual DESC -- Arbitrario si hay más de uno, pero para TOP 1
+            ) AS id_cuota_mensual,
+            -- id_cargo_actividad_extra: se deja NULL por ahora, si no hay una tabla CargoActividadExtra clara
+            NULL AS id_cargo_actividad_extra, -- O puedes intentar una lógica similar para un CargoClases principal si es lo que se espera
             RIGHT('00000000' + CAST(ABS(CHECKSUM(NEWID())) AS VARCHAR), 8),
             'C',
             D.dni_facturar,
@@ -1770,7 +1788,7 @@ BEGIN
             DATEADD(DAY, 10, @ultimo_dia_mes),
             'Emitida',
             D.saldo_grupo
-        FROM #DatosFacturaCalculados D; -- ¡Ahora unimos a la tabla temporal!
+        FROM #DatosFacturaCalculados D;
 
         -- Detalle membresía (una línea por categoría)
 		INSERT INTO facturacion.DetalleFactura (id_factura, descripcion, monto, tipo_item, cantidad)
@@ -1783,7 +1801,7 @@ BEGIN
         FROM #FacturasGeneradas F
         -- Unimos #FacturasGeneradas por dni_receptor a #DatosFacturaCalculados para obtener id_grupo
         JOIN #DatosFacturaCalculados DFC ON DFC.dni_facturar = F.dni_receptor
-        JOIN socios.GrupoFamiliarSocio GFS ON GFS.id_grupo = DFC.id_grupo -- Usamos el id_grupo de DFC
+        JOIN socios.GrupoFamiliarSocio GFS ON GFS.id_grupo = DFC.id_grupo
         JOIN socios.Socio S ON S.id_socio = GFS.id_socio AND S.activo = 1 AND S.eliminado = 0
         JOIN actividades.InscriptoCategoriaSocio ICS ON ICS.id_socio = S.id_socio
         JOIN socios.CategoriaSocio CS ON CS.id_categoria = ICS.id_categoria

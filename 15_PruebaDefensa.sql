@@ -279,15 +279,6 @@ SELECT * FROM cobranzas.Mora;
 
 SELECT * FROM socios.Socio
 
-EXEC cobranzas.AplicarBloqueoVencimiento
-GO
-
-SELECT * FROM socios.Socio
-
-
- -- Faltaria generar facturas posteriores y ver si la mora se factura bien
-SELECT * FROM cobranzas.Mora
-
 -- Se modifica manualmente la inscripción para probar módulo de morosidad
 UPDATE actividades.InscriptoCategoriaSocio
 SET fecha = '2025-06-01'
@@ -309,7 +300,6 @@ SELECT * FROM facturacion.CuotaMensual;
 EXEC facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar '2025-06-21';
 GO
 
-
 SELECT * FROM facturacion.Factura F
 WHERE MONTH(fecha_emision) = 6
 SELECT * FROM facturacion.DetalleFactura DF
@@ -319,3 +309,7 @@ WHERE MONTH(F.fecha_emision) = 6
 --MEJOR OPCION SERIA USAR EL SALDO_ANTERIOR DEL SOCIO PORQUE --> 1- SI EL SALDO ES NEGATIVO, ES PORQUE DEBE Y FacturasMensualesPorFecha LE SUMA ESE MONTO A LA FACTURA;
 															 --  2- SI EL SALDO ES POSITIVO? EL SP FacturasMensualesPorFecha SE FIJA SI HAY SALDO Y LE SACA AL MONTO TOTAL DE LA FACTURA
 
+EXEC cobranzas.AplicarBloqueoVencimiento
+GO
+
+SELECT * FROM socios.Socio
