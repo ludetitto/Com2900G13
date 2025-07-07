@@ -229,6 +229,10 @@ EXEC cobranzas.RegistrarCobranza 4, '2025-07-31', 33000, 'Visa';
 SELECT * FROM facturacion.Factura where id_factura = 4
 SELECT nombre, apellido, saldo FROM socios.Socio where dni = 10000000     
 
+--BIEN HASTA ACA
+
+
+
 
 -- Se modifica manualmente la inscripción para probar módulo de morosidad
 UPDATE actividades.InscriptoCategoriaSocio
@@ -282,3 +286,35 @@ SELECT * FROM socios.Socio
 
  -- Faltaria generar facturas posteriores y ver si la mora se factura bien
 SELECT * FROM cobranzas.Mora
+
+-- Se modifica manualmente la inscripción para probar módulo de morosidad
+UPDATE actividades.InscriptoCategoriaSocio
+SET fecha = '2025-06-01'
+WHERE id_socio IN (SELECT GFS.id_socio 
+				   FROM socios.GrupoFamiliarSocio GFS
+				   INNER JOIN socios.GrupoFamiliar GF ON GF.id_grupo = GFS.id_grupo
+				   INNER JOIN socios.Socio S ON S.id_socio = GF.id_socio_rp
+				   WHERE S.dni = 10000000);
+
+SELECT * FROM actividades.InscriptoCategoriaSocio
+
+-- Generación de cuotas
+EXEC facturacion.GenerarCuotasMensualesPorFecha '2025-06-21';
+GO
+
+SELECT * FROM facturacion.CuotaMensual;
+
+-- Generación de facturas grupales (vencidas)
+EXEC facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar '2025-06-21';
+GO
+
+
+SELECT * FROM facturacion.Factura F
+WHERE MONTH(fecha_emision) = 6
+SELECT * FROM facturacion.DetalleFactura DF
+INNER JOIN facturacion.Factura F ON F.id_factura =DF.id_factura
+WHERE MONTH(F.fecha_emision) = 6
+--PODEMOS HACER QUE LA FACTURA BUSQUE SI EL ID DE LA FACTURA TIENE UNA TUPLA EN MORA --> SI LA TIENE SUMAR
+--MEJOR OPCION SERIA USAR EL SALDO_ANTERIOR DEL SOCIO PORQUE --> 1- SI EL SALDO ES NEGATIVO, ES PORQUE DEBE Y FacturasMensualesPorFecha LE SUMA ESE MONTO A LA FACTURA;
+															 --  2- SI EL SALDO ES POSITIVO? EL SP FacturasMensualesPorFecha SE FIJA SI HAY SALDO Y LE SACA AL MONTO TOTAL DE LA FACTURA
+
