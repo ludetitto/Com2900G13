@@ -24,6 +24,7 @@ EXEC socios.GestionarCategoriaSocio 'Mayor', 18, 99, 25000.00, '2025-12-31', 'In
 
 SELECT * FROM socios.CategoriaSocio;
 GO
+--BIEN
 
 -- Alta de socios
 EXEC socios.GestionarSocio
@@ -90,9 +91,11 @@ SELECT * FROM socios.GrupoFamiliar ORDER BY id_grupo;
 SELECT * FROM socios.GrupoFamiliarSocio ORDER BY id_grupo, id_socio;
 SELECT * FROM socios.Tutor ORDER BY id_grupo;
 GO
+--BIEN, PERO FALTA TUTOR OJO
 
 -- Inserción de emisor factura
 EXEC facturacion.GestionarEmisorFactura 'Sol del Norte S.A.', '20-12345678-4', 'Av. Presidente Per�n 1234', 'Argentina', 'La Matanza', '1234', 'Insertar'
+--BIEN 
 
 -- Inserción de actividades base (sin horarios)
 EXEC actividades.GestionarActividad 'Futsal', 25000, '2025-05-31', 'Insertar';
@@ -101,6 +104,9 @@ EXEC actividades.GestionarActividad 'Taekwondo', 25000, '2025-05-31', 'Insertar'
 EXEC actividades.GestionarActividad 'Baile artístico', 30000, '2025-05-31', 'Insertar';
 EXEC actividades.GestionarActividad 'Natación', 45000, '2025-05-31', 'Insertar';
 EXEC actividades.GestionarActividad 'Ajedrez', 2000, '2025-05-31', 'Insertar';
+
+SELECT* FROM actividades.Actividad
+--BIEN
 GO
 
 -- Inserción de clases
@@ -135,15 +141,21 @@ EXEC actividades.GestionarClase 'Ajedrez', 'Matias', 'Mendoza', 'Sábado 14:00',
 EXEC actividades.GestionarClase 'Ajedrez', 'Gabriel', 'Mirabelli', 'Sábado 19:00', 'Mayor', 'Insertar';
 GO
 
+SELECT * FROM actividades.Clase;
+--BIEN
 EXEC actividades.GestionarInscriptoClase '10000000', 'Futsal',  'Lunes 19:00',  'Mayor', '2025-05-13', 'Insertar';
 EXEC actividades.GestionarInscriptoClase '31111225', 'Taekwondo',  'Miércoles 14:00',  'Cadete', '2025-05-13', 'Insertar';
 EXEC actividades.GestionarInscriptoClase '31111224', 'Futsal',  'Lunes 08:00',  'Menor', '2025-05-13', 'Insertar';
 EXEC actividades.GestionarInscriptoClase '31111223', 'Futsal',  'Lunes 14:00',  'Cadete', '2025-05-13', 'Insertar';
 EXEC actividades.GestionarInscriptoClase '31111223', 'Taekwondo',  'Miércoles 14:00',  'Cadete', '2025-05-13', 'Insertar';
 
--- Generación de cuotas
+SELECT * FROM actividades.InscriptoClase;
+
+--BIEN
+-- Generación de cuotas; solo socios individuales
 EXEC facturacion.GenerarCuotasMensualesPorFecha '2025-07-21';
 GO
+SELECT * FROM facturacion.CuotaMensual 
 
 -- Generación de facturas grupales
 EXEC facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar '2025-07-21';
@@ -155,6 +167,7 @@ GO
 
 SELECT * FROM actividades.Clase
 SELECT * FROM facturacion.CargoClases
+SELECT * FROM actividades.InscriptoClase
 SELECT * FROM facturacion.CuotaMensual
 
 SELECT * FROM facturacion.Factura F
@@ -207,7 +220,20 @@ SELECT * FROM facturacion.DetalleFactura DF
 INNER JOIN facturacion.Factura F ON F.id_factura =DF.id_factura
 WHERE MONTH(F.fecha_emision) = MONTH(GETDATE())
 
-EXEC cobranzas.RegistrarCobranza 4, '2025-07-28', 30000, 'Visa';
+--ERROR: LA FECHA DE PAGO ES ANTERIOR A LA EMISION DE LA FACTURA
+EXEC cobranzas.RegistrarCobranza 4, '2025-07-28', 33000, 'Visa';
+
+--CASO VALIDO, en este caso, se usa el saldo a favor que tenia el socio
+SELECT nombre, apellido, saldo FROM socios.Socio where dni = 10000000     
+
+EXEC cobranzas.RegistrarCobranza 4, '2025-07-31', 33000, 'Visa';
+SELECT * FROM facturacion.Factura where id_factura = 4
+SELECT nombre, apellido, saldo FROM socios.Socio where dni = 10000000     
+
+--BIEN HASTA ACA
+
+
+
 
 -- Se modifica manualmente la inscripción para probar módulo de morosidad
 UPDATE actividades.InscriptoCategoriaSocio
@@ -229,20 +255,21 @@ SELECT * FROM facturacion.CuotaMensual;
 -- Generación de facturas grupales (vencidas)
 EXEC facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar '2025-05-21';
 GO
-
-DELETE FROM facturacion.Factura
-WHERE MONTH(fecha_emision) = 5
-
+/* ELIMINACION DE LAS FACTURAS PARA EL MES 5
 DELETE FROM facturacion.DetalleFactura
 WHERE id_factura IN (SELECT id_factura
 					 FROM facturacion.Factura
 					 WHERE MONTH(fecha_emision) = 5)
 
+
+DELETE FROM facturacion.Factura
+WHERE MONTH(fecha_emision) = 5
+*/
 SELECT * FROM facturacion.Factura F
-WHERE MONTH(fecha_emision) = MONTH(GETDATE())
+WHERE MONTH(fecha_emision) = 5
 SELECT * FROM facturacion.DetalleFactura DF
 INNER JOIN facturacion.Factura F ON F.id_factura =DF.id_factura
-WHERE MONTH(F.fecha_emision) = MONTH(GETDATE())
+WHERE MONTH(F.fecha_emision) = 5
 
 
 EXEC cobranzas.AplicarRecargoVencimiento
@@ -252,11 +279,37 @@ SELECT * FROM cobranzas.Mora;
 
 SELECT * FROM socios.Socio
 
+-- Se modifica manualmente la inscripción para probar módulo de morosidad
+UPDATE actividades.InscriptoCategoriaSocio
+SET fecha = '2025-06-01'
+WHERE id_socio IN (SELECT GFS.id_socio 
+				   FROM socios.GrupoFamiliarSocio GFS
+				   INNER JOIN socios.GrupoFamiliar GF ON GF.id_grupo = GFS.id_grupo
+				   INNER JOIN socios.Socio S ON S.id_socio = GF.id_socio_rp
+				   WHERE S.dni = 10000000);
+
+SELECT * FROM actividades.InscriptoCategoriaSocio
+
+-- Generación de cuotas
+EXEC facturacion.GenerarCuotasMensualesPorFecha '2025-06-21';
+GO
+
+SELECT * FROM facturacion.CuotaMensual;
+
+-- Generación de facturas grupales (vencidas)
+EXEC facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar '2025-06-21';
+GO
+
+SELECT * FROM facturacion.Factura F
+WHERE MONTH(fecha_emision) = 6
+SELECT * FROM facturacion.DetalleFactura DF
+INNER JOIN facturacion.Factura F ON F.id_factura =DF.id_factura
+WHERE MONTH(F.fecha_emision) = 6
+--PODEMOS HACER QUE LA FACTURA BUSQUE SI EL ID DE LA FACTURA TIENE UNA TUPLA EN MORA --> SI LA TIENE SUMAR
+--MEJOR OPCION SERIA USAR EL SALDO_ANTERIOR DEL SOCIO PORQUE --> 1- SI EL SALDO ES NEGATIVO, ES PORQUE DEBE Y FacturasMensualesPorFecha LE SUMA ESE MONTO A LA FACTURA;
+															 --  2- SI EL SALDO ES POSITIVO? EL SP FacturasMensualesPorFecha SE FIJA SI HAY SALDO Y LE SACA AL MONTO TOTAL DE LA FACTURA
+
 EXEC cobranzas.AplicarBloqueoVencimiento
 GO
 
 SELECT * FROM socios.Socio
-
-
- -- Faltaria generar facturas posteriores y ver si la mora se factura bien
-SELECT * FROM cobranzas.Mora
