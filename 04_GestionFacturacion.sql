@@ -361,7 +361,7 @@ GO
 
 CREATE PROCEDURE actividades.GestionarPresentismoClase
     @dni_socio VARCHAR(10),
-	@nombre_actividad VARCHAR(100),
+    @nombre_actividad VARCHAR(100),
     @horario VARCHAR(20),
     @nombre_categoria VARCHAR(50),
     @fecha DATE,
@@ -369,21 +369,28 @@ CREATE PROCEDURE actividades.GestionarPresentismoClase
     @operacion CHAR(10)
 AS
 BEGIN
-    SET NOCOUNT ON;
+    SET NOCOUNT ON; -- Evita que se devuelvan recuentos de filas afectados
 
-	DECLARE @id_clase INT;
-	DECLARE @id_socio INT;
-	DECLARE @id_presentismo INT;
-	DECLARE @id_inscripcion INT;
+    -- Declaración de variables
+    DECLARE @id_clase INT;
+    DECLARE @id_socio INT;
+    DECLARE @id_presentismo INT;
+    DECLARE @id_inscripcion INT;
 
-    -- Validación de operación
+    -- ====================================================================
+    -- 1. Validación inicial de la operación
+    -- ====================================================================
     IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
     BEGIN
         RAISERROR('Operación inválida. Usar Insertar, Modificar o Eliminar.', 16, 1);
         RETURN;
     END
 
-    -- Obtener ID de clase considerando también la categoría
+    -- ====================================================================
+    -- 2. Obtener IDs necesarios
+    -- ====================================================================
+
+    -- Obtener ID de clase (considerando actividad, horario y categoría)
     SET @id_clase = (
         SELECT C.id_clase
         FROM actividades.Clase C
@@ -394,6 +401,13 @@ BEGIN
           AND Ca.nombre = @nombre_categoria
     );
 
+    -- Validar si la clase existe
+    IF @id_clase IS NULL
+    BEGIN
+        RAISERROR('La clase especificada (Actividad, Horario, Categoría) no existe.', 16, 1);
+        RETURN;
+    END
+
     -- Obtener ID del socio
     SET @id_socio = (
         SELECT id_socio
@@ -401,22 +415,52 @@ BEGIN
         WHERE dni = @dni_socio
     );
 
-	-- Buscar inscripción existente
+    -- Validar si el socio existe
+    IF @id_socio IS NULL
+    BEGIN
+        RAISERROR('El socio especificado no existe.', 16, 1);
+        RETURN;
+    END
+
+    -- Validar si el socio está activo y no eliminado
+    IF EXISTS (SELECT 1 FROM socios.Socio WHERE id_socio = @id_socio AND (activo = 0 OR eliminado = 1))
+    BEGIN
+        RAISERROR('El socio especificado se encuentra inactivo o eliminado.', 16, 1);
+        RETURN;
+    END
+
+    -- ====================================================================
+    -- 3. Verificar inscripción del socio a la clase (NUEVA VALIDACIÓN)
+    -- ====================================================================
     SET @id_inscripcion = (
-        SELECT TOP 1 id_inscripto_clase 
-		FROM actividades.InscriptoClase IC
-		INNER JOIN actividades.Clase C ON C.id_clase = IC.id_clase
-		WHERE IC.id_clase = @id_clase AND IC.id_socio = @id_socio
+        SELECT TOP 1 id_inscripto_clase
+        FROM actividades.InscriptoClase
+        WHERE id_clase = @id_clase
+          AND id_socio = @id_socio
+        ORDER BY id_inscripto_clase DESC -- Tomar la inscripción más reciente si hay múltiples
     );
 
-	-- Buscar presentismo existente
+    IF @id_inscripcion IS NULL
+    BEGIN
+        RAISERROR('El socio no está inscripto en esta clase.', 16, 1);
+        RETURN;
+    END
+
+    -- ====================================================================
+    -- 4. Buscar presentismo existente para la fecha, clase y socio
+    --    id_clase, id_socio, fecha es una combinacion única para presentismo)
+    -- ====================================================================
     SET @id_presentismo = (
-        SELECT TOP 1 id_presentismo
-        FROM actividades.presentismoClase PC
-		INNER JOIN actividades.Clase C ON C.id_clase = PC.id_clase
-		INNER JOIN actividades.InscriptoClase IC ON IC.id_clase = C.id_clase
-        WHERE C.id_clase = @id_clase AND IC.id_inscripto_clase = @id_inscripcion AND PC.fecha = @fecha
+        SELECT id_presentismo
+        FROM actividades.presentismoClase
+        WHERE id_clase = @id_clase
+          AND id_socio = @id_socio
+          AND fecha = @fecha
     );
+
+    -- ====================================================================
+    -- 5. Lógica de Operación (Eliminar, Modificar, Insertar)
+    -- ====================================================================
 
     -- === Eliminar ===
     IF @operacion = 'Eliminar'
@@ -428,6 +472,7 @@ BEGIN
         END
 
         DELETE FROM actividades.presentismoClase WHERE id_presentismo = @id_presentismo;
+        -- Considerar agregar un mensaje de éxito si es necesario
         RETURN;
     END
 
@@ -440,45 +485,26 @@ BEGIN
             RETURN;
         END
 
+        -- Solo se actualiza el estado. id_clase y fecha son parte de la clave de identificación.
         UPDATE actividades.presentismoClase
-        SET id_clase = COALESCE(@id_clase, id_clase),
-            fecha = COALESCE(@fecha, fecha),
-            estado = COALESCE(@estado, estado)
+        SET estado = COALESCE(@estado, estado) -- Si @estado es NULL, mantiene el valor actual
         WHERE id_presentismo = @id_presentismo;
+        -- Considerar agregar un mensaje de éxito si es necesario
         RETURN;
     END
 
     -- === Insertar ===
     IF @operacion = 'Insertar'
     BEGIN
-        IF @id_clase IS NULL
-        BEGIN
-            RAISERROR('La clase especificada no existe.', 16, 1);
-            RETURN;
-        END
-
-        IF @id_socio IS NULL
-        BEGIN
-            RAISERROR('El socio especificado no existe.', 16, 1);
-            RETURN;
-        END
-
-		IF @id_socio IN (SELECT id_socio 
-						 FROM socios.Socio 
-						 WHERE activo = 0
-						 AND eliminado = 0)
-        BEGIN
-            RAISERROR('El socio especificado se encuentra inactivo.', 16, 1);
-            RETURN;
-        END
-
+        -- Si @fecha es NULL, usa la fecha actual
         IF @fecha IS NULL
             SET @fecha = GETDATE();
 
+        -- Si @estado es NULL, usa 'P' (Presente) como valor por defecto
         IF @estado IS NULL
             SET @estado = 'P';
 
-        -- Validación: evitar duplicados exactos
+        -- Validación: evitar duplicados exactos (presentismo ya cargado para la misma clase, socio y fecha)
         IF @id_presentismo IS NOT NULL
         BEGIN
             RAISERROR('Ya existe un presentismo registrado para esa clase, socio y fecha.', 16, 1);
@@ -487,15 +513,16 @@ BEGIN
 
         INSERT INTO actividades.presentismoClase (id_clase, id_socio, fecha, estado)
         VALUES (
-			@id_clase, 
-			@id_socio,
-			@fecha, 
-			@estado);
+            @id_clase,
+            @id_socio,
+            @fecha,
+            @estado
+        );
+        -- Considerar agregar un mensaje de éxito si es necesario
         RETURN;
     END
 END;
 GO
-
 /*____________________________________________________________________
   __________________ GestionarTarifaColoniaVerano ___________________
   ____________________________________________________________________*/
