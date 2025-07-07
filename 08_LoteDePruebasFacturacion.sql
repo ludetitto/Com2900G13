@@ -196,8 +196,8 @@ EXEC facturacion.GestionarEmisorFactura 'Sol del Norte S.A.', '20-12345678-4', '
 GO
 -- FRANCISCO (45778667) - Mayor
 EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',    'Lunes 19:00', 'Mayor', '2025-06-17', 'P', 'Insertar';
-EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-07-01', 'J', 'Modificar';
-EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',    'Lunes 19:00', 'Mayor', '2025-06-24', 'P', 'Modificar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-06-17', 'J', 'Modificar';
+EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',    'Lunes 19:00', 'Mayor', '2025-06-17', 'P', 'Modificar';
 EXEC actividades.GestionarPresentismoClase '45778667', 'Futsal',	'Lunes 19:00', 'Mayor', '2025-08-12', 'P', 'Insertar';
 EXEC actividades.GestionarPresentismoClase '45778667', 'Taekwondo', 'Miércoles 19:00', 'Mayor', '2025-06-19', 'J', 'Insertar';
 EXEC actividades.GestionarPresentismoClase '45778667', 'Ajedrez',   'Sábado 19:00', 'Mayor', '2025-06-22', 'P', 'Insertar';
