@@ -373,3 +373,91 @@ SELECT * FROM actividades.PresentismoClase
 DROP TABLE IF EXISTS #PresentismoRaw;
 DROP TABLE IF EXISTS #PresentismoInsertado;
 GO
+
+-- =====================
+-- PARTE 4: PAGOS CUOTAS
+-- =====================
+
+-- Nótese que estos pagos no se terminan almacenando ya que las fechas de pago son previas al registro de presentismo e inscripciones.
+
+/*
+IF OBJECT_ID('tempdb..#PagosRaw') IS NOT NULL DROP TABLE #PresentismoRaw;
+CREATE TABLE #PagosRaw (
+    id_pago VARCHAR(50),
+    fecha VARCHAR(50),
+    responsable_pago VARCHAR(50),
+    valor VARCHAR(10),
+    medio_de_pago VARCHAR(50)
+);
+GO
+
+/*
+	Cisco: C:\Users\Cisco\Desktop\Unlam\Tercer_Año\BDA\Com2900G13\ETL\Pago_cuotas.csv
+	Lu: C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Pago_cuotas.csv
+*/
+
+BULK INSERT #PagosRaw
+FROM 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Pago_cuotas.csv'
+WITH (
+    DATAFILETYPE = 'char',       -- formato de datos de texto/caracteres
+    CODEPAGE = '65001',          -- UTF-8
+    FIELDTERMINATOR = ';',       -- separador de campos punto y coma
+    ROWTERMINATOR = '0x0A',      -- separador de filas LF (line feed)
+    FIRSTROW = 2                 -- iniciar en la segunda línea (saltando encabezado)
+);
+GO
+
+SELECT * FROM #PagosRaw
+
+-- Inserción manual de cuotas y facturas
+EXEC facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar '2024-01-01';
+EXEC facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar '2024-02-01';
+EXEC facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar '2024-03-01';
+EXEC facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar '2024-04-01';
+EXEC facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar '2024-05-01';
+EXEC facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar '2024-06-01';
+EXEC facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar '2024-07-01';
+EXEC facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar '2024-08-01';
+EXEC facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar '2024-09-01';
+EXEC facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar '2024-10-01';
+EXEC facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar '2024-11-01';
+EXEC facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar '2024-12-01';
+GO
+
+INSERT INTO cobranzas.Pago(nro_transaccion, id_factura, id_medio, monto, fecha_emision, estado)
+SELECT
+    P.id_pago,
+    F.id_factura,
+    COALESCE(MP.id_medio_pago, 'Efectivo'),
+    TRY_CAST(P.valor AS DECIMAL(10,2)),
+    TRY_CAST(P.fecha AS DATE),
+    'Pagado'
+FROM #PagosRaw P
+INNER JOIN socios.Socio S
+    ON S.dni = P.responsable_pago
+INNER JOIN facturacion.Factura F
+    ON F.dni_receptor = S.dni
+    AND FORMAT(F.fecha_emision, 'yyyyMM') = FORMAT(TRY_CAST(P.fecha AS DATE), 'yyyyMM') -- factura del mismo mes
+INNER JOIN cobranzas.MedioDePago MP
+    ON MP.nombre = P.medio_de_pago;
+
+UPDATE F
+SET estado = 'Pagada'
+FROM facturacion.Factura F
+WHERE EXISTS (
+    SELECT 1
+    FROM cobranzas.Pago P
+    WHERE P.id_factura = F.id_factura
+);
+
+-- Verificación final de inserción
+SELECT * FROM facturacion.Factura;
+SELECT * FROM cobranzas.Pago;
+SELECT * FROM cobranzas.Mora;
+SELECT * FROM cobranzas.PagoACuenta;
+SELECT * FROM cobranzas.Reembolso;
+
+-- Limpieza de temporal
+DROP TABLE IF EXISTS #PagosRaw;
+GO
+*/

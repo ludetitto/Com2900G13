@@ -310,7 +310,9 @@ BEGIN
             RETURN;
         END
 
-        DELETE FROM actividades.InscriptoClase WHERE id_inscripto_clase = @id_inscripcion;
+        UPDATE actividades.InscriptoClase 
+		SET activa = 0
+		WHERE id_inscripto_clase = @id_inscripcion;
         RETURN;
     END
 	ELSE
@@ -332,7 +334,7 @@ BEGIN
         IF EXISTS (
             SELECT 1
             FROM actividades.InscriptoClase
-            WHERE id_socio = @id_socio AND id_clase = @id_clase
+            WHERE id_socio = @id_socio AND id_clase = @id_clase AND activa = 1
         )
         BEGIN
             RAISERROR('El socio ya está inscripto en esa clase.', 16, 1);
@@ -1625,6 +1627,7 @@ BEGIN
         CREATE TABLE #DatosGrupoFamiliar (
             id_grupo INT,
             dni_facturar VARCHAR(13),
+			id_cuota_mensual_rp INT,
             monto_membresia_total DECIMAL(10,2),
             monto_actividad_total DECIMAL(10,2),
             descuento_membresia_total DECIMAL(10,2),
@@ -1644,12 +1647,16 @@ BEGIN
 		)
 
 		INSERT INTO #DatosGrupoFamiliar (
-			id_grupo, dni_facturar, monto_membresia_total, monto_actividad_total,
+			id_grupo, dni_facturar, id_cuota_mensual_rp, monto_membresia_total, monto_actividad_total,
 			descuento_membresia_total, descuento_actividad_total, saldo_grupo
 		)
 		SELECT 
 			GF.id_grupo,
 			COALESCE(SR.dni, T.dni, MIN(S.dni)) AS dni_facturar,
+			MAX(CASE 
+				WHEN S.id_socio = GF.id_socio_rp THEN CM.id_cuota_mensual
+				ELSE NULL
+			END) AS id_cuota_mensual_rp,
 			SUM(CM.monto_membresia) AS monto_membresia_total,
 			SUM(CM.monto_actividad) AS monto_actividad_total,
 			CASE 
@@ -1662,15 +1669,22 @@ BEGIN
 			END) AS descuento_actividad_total,
 			SUM(S.saldo) AS saldo_grupo
 		FROM socios.GrupoFamiliar GF
-		JOIN socios.GrupoFamiliarSocio GFS ON GFS.id_grupo = GF.id_grupo
-		JOIN socios.Socio S ON S.id_socio = GFS.id_socio AND S.activo = 1 AND S.eliminado = 0
-		JOIN actividades.InscriptoCategoriaSocio ICS ON ICS.id_socio = S.id_socio
-		JOIN facturacion.CuotaMensual CM ON CM.id_inscripto_categoria = ICS.id_inscripto_categoria AND CM.fecha = @ultimo_dia_mes
-		LEFT JOIN socios.Socio SR ON SR.id_socio = GF.id_socio_rp
-		LEFT JOIN socios.Tutor T ON T.id_grupo = GF.id_grupo
-		LEFT JOIN ActividadesPorSocio APS ON APS.id_socio = S.id_socio
+		JOIN socios.GrupoFamiliarSocio GFS 
+			ON GFS.id_grupo = GF.id_grupo
+		JOIN socios.Socio S 
+			ON S.id_socio = GFS.id_socio AND S.activo = 1 AND S.eliminado = 0
+		JOIN actividades.InscriptoCategoriaSocio ICS 
+			ON ICS.id_socio = S.id_socio
+		JOIN facturacion.CuotaMensual CM 
+			ON CM.id_inscripto_categoria = ICS.id_inscripto_categoria
+			AND CM.fecha = @ultimo_dia_mes
+		LEFT JOIN socios.Socio SR 
+			ON SR.id_socio = GF.id_socio_rp
+		LEFT JOIN socios.Tutor T 
+			ON T.id_grupo = GF.id_grupo
+		LEFT JOIN ActividadesPorSocio APS 
+			ON APS.id_socio = S.id_socio
 		GROUP BY GF.id_grupo, SR.dni, T.dni;
-
  
         INSERT INTO facturacion.Factura (
             id_emisor, id_cuota_mensual, nro_comprobante, tipo_factura,
@@ -1680,7 +1694,7 @@ BEGIN
         )
         SELECT
             (SELECT TOP 1 id_emisor FROM facturacion.EmisorFactura ORDER BY id_emisor DESC),
-            NULL,
+            G.id_cuota_mensual_rp,
             RIGHT('00000000' + CAST(ABS(CHECKSUM(NEWID())) AS VARCHAR), 8),
             'C',
             G.dni_facturar,
@@ -1941,9 +1955,15 @@ BEGIN
             'Consumidor Final',
             RIGHT('00000000000000' + CAST(ABS(CHECKSUM(NEWID())) AS VARCHAR), 14),
             C.monto,
-            @ultimo_dia_mes,
-            DATEADD(DAY, 5, @ultimo_dia_mes),
-            DATEADD(DAY, 10, @ultimo_dia_mes),
+            C.fecha,
+            CASE
+				WHEN C.dni_facturar IN (SELECT dni FROM socios.Socio) THEN DATEADD(DAY, 5, C.fecha)
+				ELSE C.fecha
+			END,
+            CASE
+				WHEN C.dni_facturar IN (SELECT dni FROM socios.Socio) THEN DATEADD(DAY, 10, C.fecha)
+				ELSE C.fecha
+			END,
             'Emitida',
             C.saldo
         FROM #CargosAFacturar C;

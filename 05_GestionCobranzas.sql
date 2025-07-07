@@ -159,7 +159,7 @@ BEGIN
         WHERE F.id_factura = @id_factura;
 
 		-- Validar monto ingresado
-        IF NOT EXISTS (SELECT 1 FROM facturacion.Factura WHERE id_factura = @id_factura AND monto_total <= @monto + (SELECT saldo FROM socios.Socio S WHERE S.id_socio = @id_socio_pago))
+        IF NOT EXISTS (SELECT 1 FROM facturacion.Factura WHERE id_factura = @id_factura AND monto_total <= @monto + COALESCE((SELECT saldo FROM socios.Socio S WHERE S.id_socio = @id_socio_pago),0))
         BEGIN
             RAISERROR('Monto de pago insuficiente para la factura.', 16, 1);
             ROLLBACK TRAN;
