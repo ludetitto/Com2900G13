@@ -89,24 +89,33 @@ GO
 
 CREATE PROCEDURE cobranzas.RegistrarCobranza
     @id_factura INT,
-    @monto DECIMAL(10,2),
+    @fecha_pago_actual DATETIME,
+    @monto DECIMAL(10,2), -- Monto pagado por el cliente con el medio de pago
     @medio_de_pago VARCHAR(50)
 AS
 BEGIN
     SET NOCOUNT ON;
-    SET XACT_ABORT ON;
-    SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+    SET XACT_ABORT ON; -- Aborta la transacción si ocurre un error en tiempo de ejecución
+    SET TRANSACTION ISOLATION LEVEL READ COMMITTED; -- Nivel de aislamiento de la transacción
 
     BEGIN TRY
-        BEGIN TRAN;
+        BEGIN TRAN; -- Inicia la transacción
 
         DECLARE @id_medio_pago INT;
         DECLARE @id_pago INT;
         DECLARE @monto_factura DECIMAL(10,2);
         DECLARE @id_socio_pago INT;
         DECLARE @fecha_emision_factura DATE;
-        DECLARE @fecha_pago_actual DATETIME = GETDATE();
         DECLARE @factura_anulada BIT; -- Variable para verificar si la factura está anulada
+        DECLARE @saldo_actual_socio DECIMAL(10,2);
+        DECLARE @monto_restante_a_pagar DECIMAL(10,2); -- Monto de la factura después de aplicar el saldo
+        DECLARE @monto_efectivo_pagado DECIMAL(10,2); -- Monto que realmente se registra del @monto proporcionado
+
+        -- Si la fecha de pago actual es nula, se establece a la fecha y hora actuales
+        IF @fecha_pago_actual IS NULL
+            BEGIN
+                SET @fecha_pago_actual = GETDATE();
+            END
 
         -- Validar existencia y estado de la factura (anulada o no)
         SELECT
@@ -172,13 +181,82 @@ BEGIN
         LEFT JOIN socios.Socio S3 ON S3.dni = F.dni_receptor
         WHERE F.id_factura = @id_factura;
 
-        -- Validar monto ingresado considerando el saldo a favor del socio
-        IF @monto_factura > (@monto + COALESCE((SELECT saldo FROM socios.Socio WHERE id_socio = @id_socio_pago), 0))
+        -- Inicializar el monto restante a pagar con el monto total de la factura
+        SET @monto_restante_a_pagar = @monto_factura;
+
+        -- Obtener el saldo actual del socio
+        SET @saldo_actual_socio = COALESCE((SELECT saldo FROM socios.Socio WHERE id_socio = @id_socio_pago), 0);
+
+        -- Lógica para aplicar el saldo del socio
+        IF @id_socio_pago IS NOT NULL
         BEGIN
-            RAISERROR('Monto de pago insuficiente para la factura.', 16, 1);
+            -- Caso 1: El socio tiene saldo a favor (saldo > 0)
+            IF @saldo_actual_socio > 0
+            BEGIN
+                -- Si el saldo a favor es suficiente para cubrir la factura
+                IF @saldo_actual_socio >= @monto_restante_a_pagar
+                BEGIN
+                    -- La factura se cubre completamente con el saldo a favor
+                    UPDATE socios.Socio
+                    SET saldo = @saldo_actual_socio - @monto_restante_a_pagar
+                    WHERE id_socio = @id_socio_pago;
+
+                    SET @monto_efectivo_pagado = 0; -- No se necesita pago con el medio proporcionado
+                    SET @monto_restante_a_pagar = 0; -- La factura está cubierta
+
+                    -- Insertar el pago con monto 0, ya que fue cubierto por saldo
+                    INSERT INTO cobranzas.Pago (id_factura, nro_transaccion, fecha_emision, id_medio, monto, estado)
+                    VALUES (
+                        @id_factura,
+                        RIGHT('00000000000000000000' + CAST(ABS(CHECKSUM(NEWID())) AS VARCHAR), 20),
+                        @fecha_pago_actual,
+                        @id_medio_pago,
+                        @monto_efectivo_pagado,
+                        'Aprobado'
+                    );
+                    SET @id_pago = SCOPE_IDENTITY();
+
+                    -- Marcar factura como pagada
+                    UPDATE facturacion.Factura
+                    SET estado = 'Paga'
+                    WHERE id_factura = @id_factura;
+
+                    -- Mensaje informativo (esto se manejaría a nivel de aplicación)
+                    -- SELECT 'La factura fue cubierta completamente con el saldo a favor del socio. No fue necesario usar el método de pago proporcionado.';
+
+                    COMMIT TRAN;
+                    RETURN; -- Sale del procedimiento ya que la factura ya está pagada
+                END
+                ELSE -- El saldo a favor cubre solo una parte de la factura
+                BEGIN
+                    SET @monto_restante_a_pagar = @monto_restante_a_pagar - @saldo_actual_socio;
+                    UPDATE socios.Socio
+                    SET saldo = 0 -- Se consume todo el saldo a favor
+                    WHERE id_socio = @id_socio_pago;
+                END
+            END
+            -- Caso 2: El socio tiene saldo negativo (deuda)
+            ELSE IF @saldo_actual_socio < 0
+            BEGIN
+                -- El saldo negativo se suma al monto de la factura, incrementando la deuda
+                SET @monto_restante_a_pagar = @monto_restante_a_pagar - @saldo_actual_socio; -- Restar un negativo es sumar
+                UPDATE socios.Socio
+                SET saldo = 0 -- El saldo negativo se absorbe en la factura
+                WHERE id_socio = @id_socio_pago;
+            END
+            -- Caso 3: El socio tiene saldo cero (no se hace nada, @monto_restante_a_pagar ya es @monto_factura)
+        END
+
+        -- Validar si el monto proporcionado por el cliente es suficiente para cubrir el monto restante
+        IF @monto < @monto_restante_a_pagar
+        BEGIN
+            RAISERROR('Monto de pago insuficiente para la factura después de considerar el saldo del socio.', 16, 1);
             ROLLBACK TRAN;
             RETURN;
         END
+
+        -- El monto efectivo a registrar en el pago es el monto restante de la factura
+        SET @monto_efectivo_pagado = @monto_restante_a_pagar;
 
         -- Insertar el pago
         INSERT INTO cobranzas.Pago (id_factura, nro_transaccion, fecha_emision, id_medio, monto, estado)
@@ -187,33 +265,24 @@ BEGIN
             RIGHT('00000000000000000000' + CAST(ABS(CHECKSUM(NEWID())) AS VARCHAR), 20),
             @fecha_pago_actual,
             @id_medio_pago,
-            @monto_factura,
+            @monto_efectivo_pagado, -- Se registra el monto necesario para cubrir la factura
             'Aprobado'
         );
 
         SET @id_pago = SCOPE_IDENTITY();
 
-        -- Lógica de manejo de saldo del socio
-        IF @id_socio_pago IS NOT NULL
+        -- Lógica de manejo de excedente de pago (si el monto proporcionado es mayor al requerido)
+        DECLARE @excedente_de_pago DECIMAL(10,2) = @monto - @monto_efectivo_pagado;
+
+        IF @excedente_de_pago > 0 -- Hay un excedente de pago con el medio proporcionado
         BEGIN
-            DECLARE @saldo_socio DECIMAL(10,2) = COALESCE((SELECT saldo FROM socios.Socio WHERE id_socio = @id_socio_pago), 0);
-            DECLARE @diferencia DECIMAL(10,2) = @monto - @monto_factura;
+            INSERT INTO cobranzas.PagoACuenta (id_pago, id_socio, fecha, monto, motivo)
+            VALUES (@id_pago, @id_socio_pago, @fecha_pago_actual, @excedente_de_pago, 'Excedente de pago de factura.');
 
-            IF @diferencia > 0 -- Hay un excedente de pago
-            BEGIN
-                INSERT INTO cobranzas.PagoACuenta (id_pago, id_socio, fecha, monto, motivo)
-                VALUES (@id_pago, @id_socio_pago, @fecha_pago_actual, @diferencia, 'Excedente de pago.');
-
-                UPDATE socios.Socio
-                SET saldo = @saldo_socio + @diferencia
-                WHERE id_socio = @id_socio_pago;
-            END
-            ELSE IF @diferencia < 0 -- El pago es parcial y se usa saldo a favor
-            BEGIN
-                UPDATE socios.Socio
-                SET saldo = @saldo_socio + @diferencia -- @diferencia es negativo
-                WHERE id_socio = @id_socio_pago;
-            END
+            -- Sumar el excedente al saldo del socio (que debería ser 0 o positivo si ya tenía saldo a favor)
+            UPDATE socios.Socio
+            SET saldo = COALESCE((SELECT saldo FROM socios.Socio WHERE id_socio = @id_socio_pago), 0) + @excedente_de_pago
+            WHERE id_socio = @id_socio_pago;
         END
 
         -- Marcar factura como pagada
@@ -221,15 +290,16 @@ BEGIN
         SET estado = 'Paga'
         WHERE id_factura = @id_factura;
 
-        COMMIT;
+        COMMIT TRAN; -- Confirma la transacción
     END TRY
     BEGIN CATCH
-        IF @@TRANCOUNT > 0 ROLLBACK;
+        -- Si ocurre un error, se revierte la transacción
+        IF @@TRANCOUNT > 0 ROLLBACK TRAN;
+        -- Vuelve a lanzar el error para que sea manejado por la aplicación que llama
         THROW;
     END CATCH
 END;
 GO
-
 /*____________________________________________________________________
   ______________________ GenerarReintegroPorLluvia ___________________
   ____________________________________________________________________*/
