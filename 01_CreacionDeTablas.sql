@@ -29,6 +29,9 @@ DROP PROCEDURE IF EXISTS cobranzas.AplicarBloqueoVencimiento;
 /* =============================
    ELIMINAR PROCEDIMIENTOS
    ============================= */
+DROP PROCEDURE IF EXISTS cobranzas.IngresosMensualesPorActividad
+DROP PROCEDURE IF EXISTS cobranzas.Reporte3
+DROP PROCEDURE IF EXISTS actividades.SociosConInasistencias
 DROP PROCEDURE IF EXISTS facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar
 DROP PROCEDURE IF EXISTS actividades.GestionarInscriptoPiletaVerano
 DROP PROCEDURE IF EXISTS actividades.GestionarActividad
@@ -46,8 +49,6 @@ DROP PROCEDURE IF EXISTS administracion.VerCuotasPagasGrupoFamiliar
 DROP PROCEDURE IF EXISTS actividades.GestionarReservaSum
 DROP PROCEDURE IF EXISTS administracion.GestionarInvitado
 DROP PROCEDURE IF EXISTS administracion.GestionarSocio
-DROP PROCEDURE IF EXISTS administracion.GestionarProfesor
-DROP PROCEDURE IF EXISTS administracion.GestionarPersona
 DROP PROCEDURE IF EXISTS administracion.GestionarCategoriaSocio
 DROP PROCEDURE IF EXISTS administracion.GestionarGrupoFamiliar
 

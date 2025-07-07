@@ -155,6 +155,7 @@ GO
 
 SELECT * FROM actividades.Clase
 SELECT * FROM facturacion.CargoClases
+SELECT * FROM actividades.InscriptoClase
 SELECT * FROM facturacion.CuotaMensual
 
 SELECT * FROM facturacion.Factura F
