@@ -29,6 +29,9 @@ DROP PROCEDURE IF EXISTS cobranzas.AplicarBloqueoVencimiento;
 /* =============================
    ELIMINAR PROCEDIMIENTOS
    ============================= */
+DROP PROCEDURE IF EXISTS cobranzas.IngresosMensualesPorActividad
+DROP PROCEDURE IF EXISTS cobranzas.Reporte3
+DROP PROCEDURE IF EXISTS actividades.SociosConInasistencias
 DROP PROCEDURE IF EXISTS facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar
 DROP PROCEDURE IF EXISTS actividades.GestionarInscriptoPiletaVerano
 DROP PROCEDURE IF EXISTS actividades.GestionarActividad
@@ -46,8 +49,6 @@ DROP PROCEDURE IF EXISTS administracion.VerCuotasPagasGrupoFamiliar
 DROP PROCEDURE IF EXISTS actividades.GestionarReservaSum
 DROP PROCEDURE IF EXISTS administracion.GestionarInvitado
 DROP PROCEDURE IF EXISTS administracion.GestionarSocio
-DROP PROCEDURE IF EXISTS administracion.GestionarProfesor
-DROP PROCEDURE IF EXISTS administracion.GestionarPersona
 DROP PROCEDURE IF EXISTS administracion.GestionarCategoriaSocio
 DROP PROCEDURE IF EXISTS administracion.GestionarGrupoFamiliar
 
@@ -86,6 +87,7 @@ DROP PROCEDURE IF EXISTS facturacion.GenerarFacturaInvitado
 DROP PROCEDURE IF EXISTS facturacion.GestionarDescuentos
 DROP PROCEDURE IF EXISTS facturacion.GestionarEmisorFactura
 DROP VIEW IF EXISTS facturacion.vwResponsablesDeFactura
+DROP VIEW IF EXISTS facturacion.vwFacturasPendientesPorGrupoFamiliar
 
 DROP PROCEDURE IF EXISTS tarifas.GestionarTarifaColoniaVerano
 DROP PROCEDURE IF EXISTS tarifas.GestionarTarifaReservaSum
@@ -204,7 +206,7 @@ CREATE TABLE socios.Socio (
     id_socio INT IDENTITY PRIMARY KEY,
     nombre VARCHAR(50),
     apellido VARCHAR(50),
-    dni CHAR(8) CONSTRAINT CHK_Socio_DNI CHECK (dni NOT LIKE '%[^0-9]%' AND LEN(dni) = 8),
+    dni VARCHAR(9) CONSTRAINT CHK_Socio_DNI CHECK (dni NOT LIKE '%[^0-9]%'),
 	nro_socio VARCHAR(50) UNIQUE,
     email VARCHAR(100) CONSTRAINT CHK_Socio_Email CHECK (email IS NULL OR email LIKE '%@%.%'),
     fecha_nacimiento DATE,
@@ -235,7 +237,7 @@ CREATE TABLE socios.GrupoFamiliarSocio (
 CREATE TABLE socios.Tutor (
     id_tutor INT IDENTITY PRIMARY KEY,
     id_grupo INT NOT NULL, 
-    dni VARCHAR(10) NOT NULL CONSTRAINT CHK_Tutor_DNI CHECK (dni NOT LIKE '%[^0-9]%' AND LEN(dni) = 8),
+    dni VARCHAR(9) NOT NULL CONSTRAINT CHK_Tutor_DNI CHECK (dni NOT LIKE '%[^0-9]%'),
     nombre CHAR(50) NOT NULL,
     apellido CHAR(50) NOT NULL,
     domicilio VARCHAR(200) NOT NULL,
@@ -245,7 +247,7 @@ GO
 CREATE TABLE socios.Invitado (
     id_invitado INT IDENTITY PRIMARY KEY,
 	id_socio INT NOT NULL,
-    dni CHAR(8) NOT NULL CONSTRAINT CHK_Invitado_DNI CHECK (dni NOT LIKE '%[^0-9]%' AND LEN(dni) = 8),
+    dni VARCHAR(9) NOT NULL CONSTRAINT CHK_Invitado_DNI CHECK (dni NOT LIKE '%[^0-9]%'),
     nombre VARCHAR(50) NOT NULL,
     apellido VARCHAR(50) NOT NULL,
     domicilio VARCHAR(150) NOT NULL,
@@ -409,7 +411,7 @@ CREATE TABLE facturacion.Factura (
 	id_cargo_actividad_extra INT,
 	nro_comprobante CHAR(8),
 	tipo_factura CHAR,
-	dni_receptor CHAR(13), 
+	dni_receptor VARCHAR(9) CONSTRAINT CHK_Factura_DNI CHECK (dni_receptor NOT LIKE '%[^0-9]%'),
 	condicion_iva_receptor CHAR(50) NOT NULL,
 	cae CHAR(14) UNIQUE, 
     monto_total DECIMAL(10,2) CONSTRAINT CHK_Factura_Monto CHECK (monto_total > 0),
@@ -446,7 +448,7 @@ CREATE TABLE cobranzas.Mora (
 
 CREATE TABLE cobranzas.Pago (
     id_pago INT IDENTITY PRIMARY KEY ,
-    id_factura INT,
+    id_factura INT NOT NULL,
 	id_medio INT NOT NULL,
 	nro_transaccion VARCHAR(20),
 	monto DECIMAL(10,2) CONSTRAINT CHK_Pago_Monto CHECK (monto > 0),

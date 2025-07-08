@@ -78,7 +78,7 @@ OUTPUT INSERTED.id_socio, INSERTED.nro_socio INTO #GrupoTempResponsables (id_soc
 SELECT
     LTRIM(RTRIM(nombre)),
     LTRIM(RTRIM(apellido)),
-    RIGHT('00000000' + LTRIM(RTRIM(dni)), 8),
+    RIGHT('000000000' + LTRIM(RTRIM(dni)), 9),
     LTRIM(RTRIM(nro_socio)),
     CASE WHEN email LIKE '%@%.%' THEN LTRIM(RTRIM(REPLACE(email, ' ', ''))) ELSE NULL END,
     TRY_CONVERT(DATE, fecha_nacimiento, 103),
@@ -391,10 +391,10 @@ CREATE TABLE #PagosRaw (
 );
 GO
 
-/*
+
 	Cisco: C:\Users\Cisco\Desktop\Unlam\Tercer_Año\BDA\Com2900G13\ETL\Pago_cuotas.csv
 	Lu: C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Pago_cuotas.csv
-*/
+
 
 BULK INSERT #PagosRaw
 FROM 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Pago_cuotas.csv'

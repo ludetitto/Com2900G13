@@ -167,7 +167,6 @@ EXEC socios.GestionarSocio
     @nombre = 'Julián',
     @apellido = 'Pérez',
     @dni = '31111111',
-    @nro_socio = 'SN-4002',
     @email = 'julian.perez@email.com',
     @fecha_nacimiento = '2012-10-15',
     @telefono = '2233445566',
