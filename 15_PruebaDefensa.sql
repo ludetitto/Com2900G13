@@ -43,9 +43,9 @@ GO
 
 EXEC socios.GestionarSocio
     @nombre = 'Valeria1',
-    @apellido = 'Pérez',
+    @apellido = 'De Rosa',
     @dni = '31111223',
-    @email = 'martina.perez@email.com',
+    @email = 'valeria.derosa1@email.com',
     @fecha_nacimiento = '2010-07-01',
     @telefono = '3344556677',
     @telefono_emergencia = '7788990011',
@@ -58,9 +58,9 @@ GO
 
 EXEC socios.GestionarSocio
     @nombre = 'Valeria2',
-    @apellido = 'Pérez',
+    @apellido = 'De Rosa',
     @dni = '31111224',
-    @email = 'martina.perez@email.com',
+    @email = 'valeria.derosa2@email.com',
     @fecha_nacimiento = '2015-07-01',
     @telefono = '3344556677',
     @telefono_emergencia = '7788990011',
@@ -73,9 +73,9 @@ GO
 
 EXEC socios.GestionarSocio
     @nombre = 'Valeria3',
-    @apellido = 'Pérez',
+    @apellido = 'De Rosa',
     @dni = '31111225',
-    @email = 'martina.perez@email.com',
+    @email = 'valeria.derosa3@email.com',
     @fecha_nacimiento = '2010-07-01',
     @telefono = '3344556677',
     @telefono_emergencia = '7788990011',
@@ -87,6 +87,7 @@ EXEC socios.GestionarSocio
 GO
 
 SELECT * FROM socios.Socio ORDER BY id_socio;
+SELECT * FROM socios.Socio where dni = 10000000  ORDER BY id_socio;
 SELECT * FROM socios.GrupoFamiliar ORDER BY id_grupo;
 SELECT * FROM socios.GrupoFamiliarSocio ORDER BY id_grupo, id_socio;
 SELECT * FROM socios.Tutor ORDER BY id_grupo;
@@ -178,7 +179,7 @@ SELECT * FROM facturacion.Factura F
 WHERE MONTH(fecha_emision) = MONTH(GETDATE())
 SELECT * FROM facturacion.DetalleFactura DF
 INNER JOIN facturacion.Factura F ON F.id_factura =DF.id_factura
-WHERE MONTH(F.fecha_emision) = MONTH(GETDATE())
+WHERE MONTH(F.fecha_emision) = MONTH(GETDATE()) ORDER BY DF.id_factura
 
 SELECT * 
 FROM facturacion.vwFacturaTotalGrupoFamiliar
@@ -193,7 +194,7 @@ EXEC cobranzas.GestionarMedioDePago 'Pago Fácil', 'Insertar'
 EXEC cobranzas.GestionarMedioDePago 'Rapipago', 'Insertar';
 EXEC cobranzas.GestionarMedioDePago 'Transferencia Mercado Pago', 'Insertar';
 GO
-
+SELECT * FROM cobranzas.MedioDePago
 -- Registrar pago
 EXEC cobranzas.RegistrarCobranza 1, '2025-08-5', 180000, 'Visa';
 

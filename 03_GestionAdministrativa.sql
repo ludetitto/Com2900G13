@@ -249,17 +249,21 @@ BEGIN
 			
 			IF @nro_socio IS NULL
 			BEGIN
-				-- Obtener el último nro_socio
-				SELECT TOP 1 @ultimo_nro = nro_socio
-				FROM socios.Socio
-				ORDER BY id_socio DESC;
+				;WITH UltimoSocioNumerico AS (
+					SELECT 
+						numero = CAST(SUBSTRING(nro_socio, 4, LEN(nro_socio)) AS INT)
+					FROM socios.Socio
+					WHERE ISNUMERIC(SUBSTRING(nro_socio, 4, LEN(nro_socio))) = 1
+						AND nro_socio LIKE 'SN-%'
+				)
+				SELECT @numero = ISNULL(MAX(numero), 4000) + 1
+				FROM UltimoSocioNumerico;
 
-				-- Extraer parte numérica y convertir a int
-				SET @numero = CAST(SUBSTRING(@ultimo_nro, 4, LEN(@ultimo_nro) - 1) AS INT) + 1;
+				PRINT @numero
 
-				-- Armar el nuevo número con prefijo 'S'
-				SET @nro_socio = 'SN-' + CAST(@numero AS VARCHAR);
+				SET @nro_socio = 'SN-' + RIGHT('0000' + CAST(@numero AS VARCHAR), 4);
 			END
+
 
             INSERT INTO socios.Socio (
                 nombre, apellido, dni, email, fecha_nacimiento,
