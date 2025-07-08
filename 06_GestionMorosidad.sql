@@ -69,17 +69,6 @@ BEGIN
 	UPDATE facturacion.Factura
 	SET estado = 'Vencida'
 	WHERE anulada = 0 AND GETDATE() > fecha_vencimiento1
-
-    -- Actualizar saldo solo para las moras recién generadas
-    UPDATE s
-    SET s.saldo = s.saldo - t.total_mora
-    FROM socios.Socio s
-    INNER JOIN (
-        SELECT M.id_socio, SUM(M.monto) AS total_mora
-        FROM cobranzas.Mora M
-        INNER JOIN #MorasGeneradas MG ON MG.id_mora = M.id_mora
-        GROUP BY M.id_socio
-    ) t ON t.id_socio = s.id_socio;
 END;
 GO
 

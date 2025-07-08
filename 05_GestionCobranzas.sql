@@ -916,7 +916,7 @@ IF OBJECT_ID('cobranzas.EjecutarDebitoAutomatico', 'P') IS NOT NULL
 GO
 
 CREATE PROCEDURE cobranzas.EjecutarDebitoAutomatico
-	@fecha DATE = NULL
+	@fecha DATE = NULL -- Del mes siguiente porque el pago es al mes siguiente
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -925,8 +925,8 @@ BEGIN
 
     BEGIN TRY
         DECLARE @fecha_actual DATE = ISNULL(@fecha, CAST(GETDATE() AS DATE));
-        DECLARE @anio INT = YEAR(@fecha_actual),
-				@mes INT = MONTH(@fecha_actual),
+        DECLARE @anio_anterior INT = YEAR(DATEADD(MONTH, -1, @fecha_actual)),
+				@mes_anterior INT = MONTH(DATEADD(MONTH, -1, @fecha_actual)),
 				@max_rn INT,
 				@i INT;
 
@@ -960,8 +960,8 @@ BEGIN
         JOIN facturacion.Factura f ON f.dni_receptor = s.dni
         WHERE 
             t.debito_automatico = 1
-            AND MONTH(f.fecha_emision) = @mes
-            AND YEAR(f.fecha_emision) = @anio
+            AND MONTH(f.fecha_emision) = @mes_anterior
+            AND YEAR(f.fecha_emision) = @anio_anterior
             AND f.anulada = 0
             AND f.estado <> 'Paga';
 
@@ -995,7 +995,7 @@ BEGIN
                 -- Pago aprobado
                 EXEC cobranzas.RegistrarCobranza
                     @id_factura = @id_factura,
-                    @fecha_pago = @fecha_actual,
+                    @fecha_pago_actual = @fecha_actual,
                     @monto = @monto,
                     @medio_de_pago = @medio_pago;
 
