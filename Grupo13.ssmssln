@@ -16,12 +16,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		05_TestingCobranzas.sql = 05_TestingCobranzas.sql
 		06_GestionMorosidad.sql = 06_GestionMorosidad.sql
 		06_TestingMorosidad.sql = 06_TestingMorosidad.sql
-		10_LoteDePruebasMorosidad.sql = 10_LoteDePruebasMorosidad.sql
-		11_Reportes.sql = 11_Reportes.sql
-		12_RequisitosSeguridad.sql = 12_RequisitosSeguridad.sql
-		13_OptimizarEstadisticas.sql = 13_OptimizarEstadisticas.sql
-		14_ImportacionDeArchivos.sql = 14_ImportacionDeArchivos.sql
-		15_PruebaDefensa.sql = 15_PruebaDefensa.sql
+		07_ImportacionDeArchivos.sql = 07_ImportacionDeArchivos.sql
+		08_PruebaDefensa.sql = 08_PruebaDefensa.sql
+		09_Reportes.sql = 09_Reportes.sql
+		10_RequisitosSeguridad.sql = 10_RequisitosSeguridad.sql
+		11_OptimizarEstadisticas.sql = 11_OptimizarEstadisticas.sql
 	EndProjectSection
 EndProject
 Global
@@ -29,7 +28,7 @@ Global
 		Default|Default = Default|Default
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{BF61893E-3CC2-482F-8AFD-71C2F4A1672B}.Default|Default.ActiveCfg = Default
+		{96FA64AB-70E6-4A53-901E-38204E7BE62C}.Default|Default.ActiveCfg = Default
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
