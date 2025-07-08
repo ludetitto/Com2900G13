@@ -54,8 +54,9 @@ CREATE TABLE #SociosRaw (
 GO
 
 /*
-	Cisco: C:\Users\Cisco\Desktop\Unlam\Tercer_Año\BDA\Com2900G13\ETL\Datos_socios.csv
-	Lu: C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Datos_socios.csv
+	Cisco:	C:\Users\Cisco\Desktop\Unlam\Tercer_Año\BDA\Com2900G13\ETL\Datos_socios.csv
+	Lu:		C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Datos_socios.csv
+	Tomi:	C:\Users\tomi1\Desktop\Carrera de ingenieria\2025\1er Cuatri\BDA\BDA_TP_V2\Com2900G13\ETL\Datos_socios.csv
 */
 
 BULK INSERT #SociosRaw
@@ -111,8 +112,7 @@ GO
 
 -- Verificación de inserción
 SELECT * FROM socios.Socio;
-SELECT * FROM socios.GrupoFamiliar;
-SELECT * FROM socios.GrupoFamiliarSocio;
+
 
 -- ===============================
 -- PARTE 2: GRUPOS FAMILIARES
@@ -139,10 +139,11 @@ GO
 /*
 	Cisco: C:\Users\Cisco\Desktop\Unlam\Tercer_Año\BDA\Com2900G13\ETL\Grupo_familiar.csv
 	Lu: C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Grupo_familiar.csv
+	Tomi:	C:\Users\tomi1\Desktop\Carrera de ingenieria\2025\1er Cuatri\BDA\BDA_TP_V2\Com2900G13\ETL\Grupo_familiar.csv
 */
 
 BULK INSERT #GrupoFamiliarRaw
-FROM 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Grupo_familiar.csv'
+FROM 'C:\Users\tomi1\Desktop\Carrera de ingenieria\2025\1er Cuatri\BDA\BDA_TP_V2\Com2900G13\ETL\Grupo_familiar.csv'
 WITH (
     DATAFILETYPE = 'char',       -- formato de datos de texto/caracteres
     CODEPAGE = '65001',          -- UTF-8
@@ -253,8 +254,9 @@ CREATE TABLE #PresentismoInsertado (
 GO
 
 /*
-	Cisco: C:\Users\Cisco\Desktop\Unlam\Tercer_Año\BDA\Com2900G13\ETL\Presentismo_actividades.csv
-	Lu: C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Presentismo_actividades.csv
+	Cisco:	C:\Users\Cisco\Desktop\Unlam\Tercer_Año\BDA\Com2900G13\ETL\Presentismo_actividades.csv
+	Lu:		C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Presentismo_actividades.csv
+	Tomi:	C:\Users\tomi1\Desktop\Carrera de ingenieria\2025\1er Cuatri\BDA\BDA_TP_V2\Com2900G13\ETL\Presentismo_actividades.csv
 */
 
 BULK INSERT #PresentismoRaw
@@ -394,7 +396,7 @@ GO
 
 	Cisco: C:\Users\Cisco\Desktop\Unlam\Tercer_Año\BDA\Com2900G13\ETL\Pago_cuotas.csv
 	Lu: C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Pago_cuotas.csv
-
+	Tomi:	C:\Users\tomi1\Desktop\Carrera de ingenieria\2025\1er Cuatri\BDA\BDA_TP_V2\Com2900G13\ETL\Pago_cuotas.csv
 
 BULK INSERT #PagosRaw
 FROM 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Pago_cuotas.csv'
