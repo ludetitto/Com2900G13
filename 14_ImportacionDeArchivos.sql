@@ -59,7 +59,7 @@ GO
 */
 
 BULK INSERT #SociosRaw
-FROM 'C:\Users\Cisco\Desktop\Unlam\Tercer_Año\BDA\Com2900G13\ETL\Datos_socios.csv'
+FROM 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Datos_socios.csv'
 WITH (
     DATAFILETYPE = 'char',       -- formato de datos de texto/caracteres
     CODEPAGE = '65001',          -- UTF-8
@@ -78,7 +78,7 @@ OUTPUT INSERTED.id_socio, INSERTED.nro_socio INTO #GrupoTempResponsables (id_soc
 SELECT
     LTRIM(RTRIM(nombre)),
     LTRIM(RTRIM(apellido)),
-    RIGHT('00000000' + LTRIM(RTRIM(dni)), 8),
+    RIGHT('000000000' + LTRIM(RTRIM(dni)), 9),
     LTRIM(RTRIM(nro_socio)),
     CASE WHEN email LIKE '%@%.%' THEN LTRIM(RTRIM(REPLACE(email, ' ', ''))) ELSE NULL END,
     TRY_CONVERT(DATE, fecha_nacimiento, 103),
@@ -142,7 +142,7 @@ GO
 */
 
 BULK INSERT #GrupoFamiliarRaw
-FROM 'C:\Users\Cisco\Desktop\Unlam\Tercer_Año\BDA\Com2900G13\ETL\Grupo_familiar.csv'
+FROM 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Grupo_familiar.csv'
 WITH (
     DATAFILETYPE = 'char',       -- formato de datos de texto/caracteres
     CODEPAGE = '65001',          -- UTF-8
@@ -258,7 +258,7 @@ GO
 */
 
 BULK INSERT #PresentismoRaw
-FROM 'C:\Users\Cisco\Desktop\Unlam\Tercer_Año\BDA\Com2900G13\ETL\Presentismo_actividades.csv'
+FROM 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Presentismo_actividades.csv'
 WITH (
     DATAFILETYPE = 'char',       -- formato de datos de texto/caracteres
     CODEPAGE = '65001',          -- UTF-8

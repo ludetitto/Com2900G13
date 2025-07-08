@@ -1530,7 +1530,10 @@ BEGIN
 		SELECT
 			(SELECT TOP 1 id_emisor FROM facturacion.EmisorFactura ORDER BY id_emisor DESC),
 			F.id_cuota_mensual,
-			RIGHT('00000000' + CAST(ABS(CHECKSUM(NEWID())) AS VARCHAR), 8),
+			CASE
+				WHEN NOT EXISTS (SELECT TOP 1 nro_comprobante FROM facturacion.Factura ORDER BY nro_comprobante DESC) THEN 1
+				ELSE RIGHT('00000000' + CAST((SELECT TOP 1 nro_comprobante FROM facturacion.Factura ORDER BY nro_comprobante DESC) + 1 AS VARCHAR), 8)
+			END,
 			'C',
 			F.dni_facturar,
 			'Consumidor Final',
@@ -1666,8 +1669,8 @@ BEGIN
 
         -- TABLA TEMPORAL PARA MATERIALIZAR DatosFactura
         CREATE TABLE #DatosFacturaCalculados (
-            id_grupo INT,
-            dni_facturar VARCHAR(13) PRIMARY KEY,
+            id_grupo INT PRIMARY KEY,
+            dni_facturar VARCHAR(13),
             id_socio_principal INT NULL, -- El ID del socio cuyo DNI se usa para facturar (si es un socio)
             monto_membresia_total DECIMAL(18, 2),
             monto_actividad_total DECIMAL(18, 2),
@@ -1777,7 +1780,10 @@ BEGIN
             ) AS id_cuota_mensual,
             -- id_cargo_actividad_extra: se deja NULL por ahora, si no hay una tabla CargoActividadExtra clara
             NULL AS id_cargo_actividad_extra, -- O puedes intentar una lógica similar para un CargoClases principal si es lo que se espera
-            RIGHT('00000000' + CAST(ABS(CHECKSUM(NEWID())) AS VARCHAR), 8),
+			CASE
+				WHEN NOT EXISTS (SELECT TOP 1 nro_comprobante FROM facturacion.Factura ORDER BY nro_comprobante DESC) THEN 1
+				ELSE RIGHT('00000000' + CAST((SELECT TOP 1 nro_comprobante FROM facturacion.Factura ORDER BY nro_comprobante DESC) + 1 AS VARCHAR), 8)
+			END,            
             'C',
             D.dni_facturar,
             'Consumidor Final',
