@@ -1330,7 +1330,7 @@ BEGIN
         RETURN;
     END
 
-    -- Insertar un cargo por cada clase en la que esté inscripto ese día cada spcop (sin duplicados)
+    -- Insertar un cargo por cada clase en la que esté inscripto ese día cada socio (sin duplicados)
     INSERT INTO facturacion.CargoClases (id_inscripto_clase, monto, fecha)
     SELECT
         IC.id_inscripto_clase,
