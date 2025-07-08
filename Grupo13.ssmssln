@@ -16,9 +16,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		05_TestingCobranzas.sql = 05_TestingCobranzas.sql
 		06_GestionMorosidad.sql = 06_GestionMorosidad.sql
 		06_TestingMorosidad.sql = 06_TestingMorosidad.sql
-		07_LoteDePruebasAdministrativa.sql = 07_LoteDePruebasAdministrativa.sql
-		08_LoteDePruebasFacturacion.sql = 08_LoteDePruebasFacturacion.sql
-		09_LoteDePruebasCobranza.sql = 09_LoteDePruebasCobranza.sql
 		10_LoteDePruebasMorosidad.sql = 10_LoteDePruebasMorosidad.sql
 		11_Reportes.sql = 11_Reportes.sql
 		12_RequisitosSeguridad.sql = 12_RequisitosSeguridad.sql
@@ -32,7 +29,7 @@ Global
 		Default|Default = Default|Default
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{3C717A12-D5DB-4A4D-A15C-7D087A5D4333}.Default|Default.ActiveCfg = Default
+		{BF61893E-3CC2-482F-8AFD-71C2F4A1672B}.Default|Default.ActiveCfg = Default
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
