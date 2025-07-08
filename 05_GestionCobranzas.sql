@@ -88,7 +88,7 @@ IF OBJECT_ID('cobranzas.RegistrarCobranza', 'P') IS NOT NULL
 GO
 
 CREATE PROCEDURE cobranzas.RegistrarCobranza
-    @id_factura INT,
+    @nro_comprobante VARCHAR(20),
     @fecha_pago_actual DATETIME,
     @monto DECIMAL(10,2), -- Monto pagado por el cliente con el medio de pago
     @medio_de_pago VARCHAR(50)
@@ -106,6 +106,7 @@ BEGIN
         DECLARE @monto_factura DECIMAL(10,2);
         DECLARE @id_socio_pago INT;
         DECLARE @fecha_emision_factura DATE;
+		DECLARE @id_factura INT = (SELECT TOP 1 id_factura FROM facturacion.Factura WHERE nro_comprobante = @nro_comprobante);
         DECLARE @factura_anulada BIT; -- Variable para verificar si la factura está anulada
         DECLARE @saldo_actual_socio DECIMAL(10,2);
         DECLARE @monto_restante_a_pagar DECIMAL(10,2); -- Monto de la factura después de aplicar el saldo
@@ -916,7 +917,7 @@ IF OBJECT_ID('cobranzas.EjecutarDebitoAutomatico', 'P') IS NOT NULL
 GO
 
 CREATE PROCEDURE cobranzas.EjecutarDebitoAutomatico
-	@fecha DATE = NULL
+	@fecha DATE = NULL -- Del mes siguiente porque el pago es al mes siguiente
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -925,8 +926,8 @@ BEGIN
 
     BEGIN TRY
         DECLARE @fecha_actual DATE = ISNULL(@fecha, CAST(GETDATE() AS DATE));
-        DECLARE @anio INT = YEAR(@fecha_actual),
-				@mes INT = MONTH(@fecha_actual),
+        DECLARE @anio_anterior INT = YEAR(DATEADD(MONTH, -1, @fecha_actual)),
+				@mes_anterior INT = MONTH(DATEADD(MONTH, -1, @fecha_actual)),
 				@max_rn INT,
 				@i INT;
 
@@ -960,8 +961,8 @@ BEGIN
         JOIN facturacion.Factura f ON f.dni_receptor = s.dni
         WHERE 
             t.debito_automatico = 1
-            AND MONTH(f.fecha_emision) = @mes
-            AND YEAR(f.fecha_emision) = @anio
+            AND MONTH(f.fecha_emision) = @mes_anterior
+            AND YEAR(f.fecha_emision) = @anio_anterior
             AND f.anulada = 0
             AND f.estado <> 'Paga';
 
@@ -995,7 +996,7 @@ BEGIN
                 -- Pago aprobado
                 EXEC cobranzas.RegistrarCobranza
                     @id_factura = @id_factura,
-                    @fecha_pago = @fecha_actual,
+                    @fecha_pago_actual = @fecha_actual,
                     @monto = @monto,
                     @medio_de_pago = @medio_pago;
 

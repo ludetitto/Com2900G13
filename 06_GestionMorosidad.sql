@@ -69,17 +69,6 @@ BEGIN
 	UPDATE facturacion.Factura
 	SET estado = 'Vencida'
 	WHERE anulada = 0 AND GETDATE() > fecha_vencimiento1
-
-    -- Actualizar saldo solo para las moras recién generadas
-    UPDATE s
-    SET s.saldo = s.saldo - t.total_mora
-    FROM socios.Socio s
-    INNER JOIN (
-        SELECT M.id_socio, SUM(M.monto) AS total_mora
-        FROM cobranzas.Mora M
-        INNER JOIN #MorasGeneradas MG ON MG.id_mora = M.id_mora
-        GROUP BY M.id_socio
-    ) t ON t.id_socio = s.id_socio;
 END;
 GO
 
@@ -98,50 +87,86 @@ BEGIN
 
     DECLARE @hoy DATE = CAST(GETDATE() AS DATE);
 
-    -- 1. Caso: dni pertenece a un socio responsable
-    UPDATE s
-    SET s.activo = 0
-    FROM socios.Socio s
-    INNER JOIN socios.GrupoFamiliarSocio gfs ON gfs.id_socio = s.id_socio
-    WHERE gfs.id_grupo IN (
-        SELECT gf.id_grupo
-        FROM facturacion.Factura f
-        JOIN socios.Socio sr ON sr.dni = f.dni_receptor
-        JOIN socios.GrupoFamiliar gf ON gf.id_socio_rp = sr.id_socio
-        WHERE f.anulada = 0 AND f.fecha_vencimiento2 < @hoy
-    )
-    AND s.activo = 1;
+    BEGIN TRANSACTION;
 
-    -- 2. Caso: dni pertenece a un tutor
-    UPDATE s
-    SET s.activo = 0
-    FROM socios.Socio s
-    INNER JOIN socios.GrupoFamiliarSocio gfs ON gfs.id_socio = s.id_socio
-    WHERE gfs.id_grupo IN (
-        SELECT t.id_grupo
-        FROM facturacion.Factura f
-        JOIN socios.Tutor t ON t.dni = f.dni_receptor
-        WHERE f.anulada = 0 AND f.fecha_vencimiento2 < @hoy
-    )
-    AND s.activo = 1;
+    BEGIN TRY
+        -- Tabla temporal para almacenar los socios que deben ser bloqueados
+        CREATE TABLE #SociosABloquear (
+            id_socio INT PRIMARY KEY
+        );
 
-    -- 3. Caso: dni pertenece a un socio individual (no tutor ni responsable)
-    UPDATE s
-    SET s.activo = 0
-    FROM socios.Socio s
-    WHERE s.dni IN (
-        SELECT f.dni_receptor
-        FROM facturacion.Factura f
-        WHERE 
-            f.anulada = 0 AND f.fecha_vencimiento2 < @hoy
-            AND f.dni_receptor NOT IN (
-                SELECT sr.dni
-                FROM socios.Socio sr
-                JOIN socios.GrupoFamiliar gf ON gf.id_socio_rp = sr.id_socio
-            )
-            AND f.dni_receptor NOT IN (
-                SELECT t.dni FROM socios.Tutor t
-            )
-    )
-    AND s.activo = 1;
+        -- Paso 1: Identificar a todos los socios activos que deben ser bloqueados
+        INSERT INTO #SociosABloquear (id_socio)
+        SELECT DISTINCT s.id_socio
+        FROM socios.Socio S
+        WHERE S.activo = 1 
+          AND (
+                -- CASO A: El propio DNI del socio es el receptor de una factura vencida
+                EXISTS (
+                    SELECT 1
+                    FROM facturacion.Factura F
+                    WHERE F.dni_receptor = S.dni
+                      AND F.estado NOT IN ('Paga', 'Anulada')
+                      AND F.fecha_vencimiento2 < @hoy -- Factura con segunda fecha de vencimiento pasada
+                )
+                OR
+                -- Caso B: El socio pertenece a un grupo cuyo Socio Responsable tiene una factura vencida
+                EXISTS (
+                    SELECT 1
+                    FROM socios.GrupoFamiliarSocio GFS -- Miembros del grupo
+                    JOIN socios.GrupoFamiliar GF ON GFS.id_grupo = GF.id_grupo
+                    JOIN socios.Socio S ON GF.id_socio_rp = S.id_socio -- Socio Responsable del grupo
+                    JOIN facturacion.Factura F ON F.dni_receptor = S.dni -- Factura a nombre del Socio Responsable
+                    WHERE GFS.id_socio = S.id_socio -- Vincula al socio actual 's' con el grupo
+                      AND F.estado NOT IN ('Paga', 'Anulada')
+                      AND F.fecha_vencimiento2 < @hoy
+                )
+                OR
+                -- Caso C: El socio pertenece a un grupo cuyo Tutor tiene una factura vencida
+                EXISTS (
+                    SELECT 1
+                    FROM socios.GrupoFamiliarSocio GFS -- Miembros del grupo
+                    JOIN socios.GrupoFamiliar GF ON GFS.id_grupo = GF.id_grupo
+                    JOIN socios.Tutor T ON T.id_grupo = GF.id_grupo -- Tutor del grupo
+                    JOIN facturacion.Factura F ON F.dni_receptor = T.dni -- Factura a nombre del Tutor
+                    WHERE GFS.id_socio = S.id_socio -- Vincula al socio actual 's' con el grupo
+                      AND F.estado NOT IN ('Paga', 'Anulada')
+                      AND F.fecha_vencimiento2 < @hoy
+                )
+              );
+
+        -- Paso 2: Desactivar a los socios identificados en la tabla socios.Socio
+        UPDATE S
+        SET S.activo = 0
+        FROM socios.Socio S
+        JOIN #SociosABloquear SB ON S.id_socio = SB.id_socio
+        WHERE S.activo = 1;
+
+		-- Paso 3: Desactivar inscripciones de dichos socios
+		UPDATE ICS
+        SET activo = 0
+        FROM actividades.InscriptoCategoriaSocio ICS
+        JOIN #SociosABloquear S ON ICS.id_socio = S.id_socio
+        WHERE ICS.activo = 1;
+
+        UPDATE IC
+        SET activa = 0
+        FROM actividades.InscriptoClase IC
+        JOIN #SociosABloquear S ON IC.id_socio = S.id_socio
+        WHERE IC.activa = 1;
+
+        -- Eliminar la tabla temporal
+        DROP TABLE #SociosABloquear;
+
+        COMMIT TRANSACTION;
+
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION;
+        DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+        DECLARE @ErrSeverity INT = ERROR_SEVERITY();
+        DECLARE @ErrState INT = ERROR_STATE();
+        RAISERROR(@ErrMsg, @ErrSeverity, @ErrState);
+    END CATCH
 END;
+GO

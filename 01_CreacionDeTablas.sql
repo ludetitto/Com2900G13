@@ -87,6 +87,7 @@ DROP PROCEDURE IF EXISTS facturacion.GenerarFacturaInvitado
 DROP PROCEDURE IF EXISTS facturacion.GestionarDescuentos
 DROP PROCEDURE IF EXISTS facturacion.GestionarEmisorFactura
 DROP VIEW IF EXISTS facturacion.vwResponsablesDeFactura
+DROP VIEW IF EXISTS facturacion.vwFacturasPendientesPorGrupoFamiliar
 
 DROP PROCEDURE IF EXISTS tarifas.GestionarTarifaColoniaVerano
 DROP PROCEDURE IF EXISTS tarifas.GestionarTarifaReservaSum
