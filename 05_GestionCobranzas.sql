@@ -916,6 +916,7 @@ IF OBJECT_ID('cobranzas.EjecutarDebitoAutomatico', 'P') IS NOT NULL
 GO
 
 CREATE PROCEDURE cobranzas.EjecutarDebitoAutomatico
+	@fecha DATE = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -923,7 +924,7 @@ BEGIN
     SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 
     BEGIN TRY
-        DECLARE @fecha_actual DATE = CAST(GETDATE() AS DATE);
+        DECLARE @fecha_actual DATE = ISNULL(@fecha, CAST(GETDATE() AS DATE));
         DECLARE @anio INT = YEAR(@fecha_actual),
 				@mes INT = MONTH(@fecha_actual),
 				@max_rn INT,

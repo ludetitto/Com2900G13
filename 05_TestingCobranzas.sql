@@ -36,8 +36,6 @@ EXEC cobranzas.GestionarMedioDePago
 SELECT * FROM cobranzas.MedioDePago;
 GO
 
-
-
 -- ✅ Eliminar medio existente
 EXEC cobranzas.GestionarMedioDePago 
     @nombre = 'Visa',
@@ -147,7 +145,7 @@ GO
 /*_____________________________________________________________________
   ________________ PRUEBAS RegistrarReintegroLluvia ___________________
   _____________________________________________________________________ */
-  
+/* 
   ACLARACIONES: Modificar el path a la ruta donde fue clonado el proyecto,
   o en su defecto, donde esté guardada esta solución SQL. Tenga en cuenta
   que para los procesos ETL fue creada una carpeta dentro del repo.*/
@@ -368,7 +366,7 @@ WHERE dni_receptor = '10000000'
   _____________________________________________________________________ */
 
 -- 🔄 Ejecutar débito automático
-EXEC cobranzas.EjecutarDebitoAutomatico;
+EXEC cobranzas.EjecutarDebitoAutomatico '2025-07-07';
 GO
 
 SELECT * FROM cobranzas.MedioDePago;
