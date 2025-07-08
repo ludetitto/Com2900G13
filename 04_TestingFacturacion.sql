@@ -381,7 +381,6 @@ EXEC actividades.GestionarInscriptoPiletaVerano
     @apellido = NULL,
     @categoria = NULL,
     @email = NULL,
-    @domicilio = NULL,
     @fecha_inscripcion = '2025-12-01',
     @operacion = 'Insertar';
 GO
@@ -399,7 +398,6 @@ EXEC actividades.GestionarInscriptoPiletaVerano
     @apellido = NULL,
     @categoria = NULL,
     @email = NULL,
-    @domicilio = NULL,
     @fecha_inscripcion = '2025-12-02',
     @operacion = 'Insertar';
 GO
@@ -417,7 +415,6 @@ EXEC actividades.GestionarInscriptoPiletaVerano
     @apellido = 'González',
     @categoria = 'Menor',
     @email = 'ana@example.com',
-    @domicilio = 'Calle Falsa 123',
     @fecha_inscripcion = '2025-12-03',
     @operacion = 'Insertar';
 GO
@@ -436,7 +433,6 @@ EXEC actividades.GestionarInscriptoPiletaVerano
     @apellido = NULL,
     @categoria = 'Menor',
     @email = NULL,
-    @domicilio = NULL,
     @fecha_inscripcion = '2025-12-04',
     @operacion = 'Insertar';
 GO
@@ -454,7 +450,6 @@ EXEC actividades.GestionarInscriptoPiletaVerano
     @apellido = NULL,
     @categoria = NULL,
     @email = NULL,
-    @domicilio = NULL,
     @fecha_inscripcion = '2025-12-01',
     @operacion = 'Registrar';
 GO
@@ -469,7 +464,6 @@ EXEC actividades.GestionarInscriptoPiletaVerano
     @apellido = NULL,
     @categoria = NULL,
     @email = NULL,
-    @domicilio = NULL,
     @fecha_inscripcion = '2025-12-05',
     @operacion = 'Insertar';
 GO
@@ -484,7 +478,6 @@ EXEC actividades.GestionarInscriptoPiletaVerano
     @apellido = NULL,
     @categoria = NULL,
     @email = NULL,
-    @domicilio = NULL,
     @fecha_inscripcion = '2030-01-01',
     @operacion = 'Eliminar';
 GO
@@ -499,7 +492,6 @@ EXEC actividades.GestionarInscriptoPiletaVerano
     @apellido = NULL,
     @categoria = NULL,
     @email = NULL,
-    @domicilio = NULL,
     @fecha_inscripcion = '2030-01-01',
     @operacion = 'Modificar';
 GO
@@ -514,7 +506,6 @@ EXEC actividades.GestionarInscriptoPiletaVerano
     @apellido = NULL,
     @categoria = NULL,
     @email = NULL,
-    @domicilio = NULL,
     @fecha_inscripcion = '2025-12-01',
     @operacion = 'Insertar';
 GO
@@ -529,7 +520,6 @@ EXEC actividades.GestionarInscriptoPiletaVerano
     @apellido = NULL,
     @categoria = NULL,
     @email = NULL,
-    @domicilio = NULL,
     @fecha_inscripcion = '2025-12-02',
     @operacion = 'Eliminar';
 GO

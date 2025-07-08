@@ -148,7 +148,6 @@ EXEC socios.GestionarSocio
     @fecha_nacimiento = '1990-05-10',
     @telefono = '1111222233',
     @telefono_emergencia = '1133445566',
-    @domicilio = 'Calle Mayor 123',
     @obra_social = 'OSDE',
     @nro_os = 'OS123456',
     @operacion = 'Insertar';
@@ -171,7 +170,6 @@ EXEC socios.GestionarSocio
     @fecha_nacimiento = '2012-10-15',
     @telefono = '2233445566',
     @telefono_emergencia = '6677889900',
-    @domicilio = 'Calle del Sol 222',
     @obra_social = 'Galeno',
     @nro_os = 'G123',
     @nombre_tutor = 'Laura',
@@ -181,7 +179,6 @@ EXEC socios.GestionarSocio
     @fecha_nac_tutor = '1980-04-12',
     @telefono_tutor = '1199988877',
     @relacion_tutor = 'Madre',
-    @domicilio_tutor = 'Calle del Sol 222',
     @operacion = 'Insertar';
 GO
 -- Verificacion de las tablas
@@ -201,7 +198,6 @@ EXEC socios.GestionarSocio
     @fecha_nacimiento = '2010-07-01',
     @telefono = '3344556677',
     @telefono_emergencia = '7788990011',
-    @domicilio = 'Calle del Sol 222',
     @obra_social = 'Galeno',
     @nro_os = 'G456',
     @dni_integrante_grupo = '10000000',
@@ -216,7 +212,6 @@ EXEC socios.GestionarSocio
     @fecha_nacimiento = '2015-07-01',
     @telefono = '3344556677',
     @telefono_emergencia = '7788990011',
-    @domicilio = 'Calle del Sol 222',
     @obra_social = 'Galeno',
     @nro_os = 'G456',
     @dni_integrante_grupo = '10000000',
@@ -231,7 +226,6 @@ EXEC socios.GestionarSocio
     @fecha_nacimiento = '2010-07-01',
     @telefono = '3344556677',
     @telefono_emergencia = '7788990011',
-    @domicilio = 'Calle del Sol 222',
     @obra_social = 'Galeno',
     @nro_os = 'G456',
     @dni_integrante_grupo = '10000000',
@@ -255,7 +249,6 @@ EXEC socios.GestionarSocio
     @fecha_nacimiento = '1985-08-20',
     @telefono = '1122334455',
     @telefono_emergencia = '1100110011',
-    @domicilio = 'Calle Luna 456',
     @obra_social = 'Swiss Medical',
     @nro_os = 'SM1234',
     @dni_integrante_grupo = '31111113',
@@ -280,7 +273,6 @@ EXEC socios.GestionarSocio
     @fecha_nacimiento = '1982-06-10',
     @telefono = '555666777',
     @telefono_emergencia = '123456789',
-    @domicilio = 'Calle Nueva 999',
     @obra_social = 'IOMA',
     @nro_os = 'IOMA1234',
     @dni_integrante_grupo = '31111111',
@@ -305,7 +297,6 @@ EXEC socios.GestionarSocio
     @fecha_nacimiento = '1988-01-01',
     @telefono = '111222333',
     @telefono_emergencia = '000111222',
-    @domicilio = 'Calle X',
     @obra_social = 'OSDE',
     @nro_os = 'OS000',
     @operacion = 'Insertar';
@@ -322,7 +313,6 @@ EXEC socios.GestionarSocio
     @fecha_nacimiento = '2015-03-21',
     @telefono = '999111000',
     @telefono_emergencia = '111222000',
-    @domicilio = 'Calle N',
     @obra_social = 'IOMA',
     @nro_os = 'I001',
     @operacion = 'Insertar';
@@ -385,7 +375,6 @@ EXEC socios.GestionarSocio
     @fecha_nac_tutor = '1980-05-01',
     @telefono_tutor = '1199998888',
     @relacion_tutor = 'Tía',
-    @domicilio_tutor = 'Calle de la Tía 789',
     @operacion = 'Eliminar';
 GO
 
@@ -421,7 +410,6 @@ EXEC socios.GestionarResponsableGrupoFamiliar
     @tipo_responsable = 'tutor',
     @nombre = 'Roberto',
     @apellido = 'Benítez',
-    @domicilio = 'Calle Ficticia 123',
     @email = 'roberto.benitez@email.com',
     @fecha_nac_tutor = '1980-01-01';
 GO
@@ -440,7 +428,6 @@ EXEC socios.GestionarResponsableGrupoFamiliar
     @tipo_responsable = 'tutor',
     @nombre = 'Marcela',
     @apellido = 'Sosa',
-    @domicilio = 'Calle Nueva 456',
     @email = 'marcela.sosa@email.com',
     @fecha_nac_tutor = '1985-06-15';
 GO
@@ -491,7 +478,6 @@ EXEC socios.GestionarResponsableGrupoFamiliar
     @tipo_responsable = 'tutor',
     @nombre = 'Menor',
     @apellido = 'Tutor',
-    @domicilio = 'Calle Incorrecta',
     @email = 'menor@email.com',
     @fecha_nac_tutor = '2010-01-01';
 -- Esperado: Error por ser menor de edad

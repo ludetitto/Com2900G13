@@ -211,7 +211,6 @@ CREATE TABLE socios.Socio (
     fecha_nacimiento DATE,
     tel_contacto VARCHAR(20),
     tel_emergencia VARCHAR(20),
-    domicilio VARCHAR(200),
     obra_social VARCHAR(100),
     nro_obra_social VARCHAR(50),
     activo BIT CONSTRAINT CHK_Socio_Activo CHECK (activo IN (0,1)),
@@ -239,7 +238,6 @@ CREATE TABLE socios.Tutor (
     dni VARCHAR(9) NOT NULL CONSTRAINT CHK_Tutor_DNI CHECK (dni NOT LIKE '%[^0-9]%'),
     nombre CHAR(50) NOT NULL,
     apellido CHAR(50) NOT NULL,
-    domicilio VARCHAR(200) NOT NULL,
     email VARCHAR(70) NOT NULL CONSTRAINT CHK_Tutor_Email CHECK (email LIKE '%@%.%')
 );
 GO
@@ -249,7 +247,6 @@ CREATE TABLE socios.Invitado (
     dni VARCHAR(9) NOT NULL CONSTRAINT CHK_Invitado_DNI CHECK (dni NOT LIKE '%[^0-9]%'),
     nombre VARCHAR(50) NOT NULL,
     apellido VARCHAR(50) NOT NULL,
-    domicilio VARCHAR(150) NOT NULL,
 	categoria VARCHAR(50) NOT NULL,
     email VARCHAR(100) NOT NULL CONSTRAINT CHK_Invitado_Email CHECK (email LIKE '%@%.%')
 );

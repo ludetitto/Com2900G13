@@ -59,7 +59,7 @@ GO
 */
 
 BULK INSERT #SociosRaw
-FROM 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Datos_socios.csv'
+FROM 'C:\Users\Cisco\Desktop\Unlam\Tercer_Año\BDA\Com2900G13\ETL\Datos_socios.csv'
 WITH (
     DATAFILETYPE = 'char',       -- formato de datos de texto/caracteres
     CODEPAGE = '65001',          -- UTF-8
@@ -70,7 +70,7 @@ WITH (
 
 INSERT INTO socios.Socio (
     nombre, apellido, dni, nro_socio, email, fecha_nacimiento,
-    tel_contacto, tel_emergencia, domicilio,
+    tel_contacto, tel_emergencia,
     obra_social, nro_obra_social,
     activo, eliminado, saldo
 )
@@ -85,7 +85,6 @@ SELECT
     LEFT(tel_contacto, 20),
     LEFT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
         tel_emergencia, '(', ''), ')', ''), '-', ''), '/', ''), ' ', ''), '.', ''), '+', ''), ',', ''), ';', ''), ':', ''), 20),
-    '-' AS domicilio,
     LTRIM(RTRIM(obra_social)),
     LTRIM(RTRIM(nro_obra_social)),
     1, 0, 0.00
@@ -142,7 +141,7 @@ GO
 */
 
 BULK INSERT #GrupoFamiliarRaw
-FROM 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Grupo_familiar.csv'
+FROM 'C:\Users\Cisco\Desktop\Unlam\Tercer_Año\BDA\Com2900G13\ETL\Grupo_familiar.csv'
 WITH (
     DATAFILETYPE = 'char',       -- formato de datos de texto/caracteres
     CODEPAGE = '65001',          -- UTF-8
@@ -154,7 +153,7 @@ GO
 
 INSERT INTO socios.Socio (
     nombre, apellido, dni, nro_socio, email, fecha_nacimiento,
-    tel_contacto, tel_emergencia, domicilio,
+    tel_contacto, tel_emergencia,
     obra_social, nro_obra_social,
     activo, eliminado, saldo
 )
@@ -169,7 +168,6 @@ SELECT
     LEFT(tel_contacto, 20),
     LEFT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
         tel_emergencia, '(', ''), ')', ''), '-', ''), '/', ''), ' ', ''), '.', ''), '+', ''), ',', ''), ';', ''), ':', ''), 20),
-    '-' AS domicilio,
     LTRIM(RTRIM(obra_social)),
     LTRIM(RTRIM(nro_obra_social)),
     1, 0, 0.00
@@ -258,7 +256,7 @@ GO
 */
 
 BULK INSERT #PresentismoRaw
-FROM 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Presentismo_actividades.csv'
+FROM 'C:\Users\Cisco\Desktop\Unlam\Tercer_Año\BDA\Com2900G13\ETL\Presentismo_actividades.csv'
 WITH (
     DATAFILETYPE = 'char',       -- formato de datos de texto/caracteres
     CODEPAGE = '65001',          -- UTF-8
@@ -397,7 +395,7 @@ GO
 
 
 BULK INSERT #PagosRaw
-FROM 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\Pago_cuotas.csv'
+FROM 'C:\Users\Cisco\Desktop\Unlam\Tercer_Año\BDA\Com2900G13\ETL\Pago_cuotas.csv'
 WITH (
     DATAFILETYPE = 'char',       -- formato de datos de texto/caracteres
     CODEPAGE = '65001',          -- UTF-8

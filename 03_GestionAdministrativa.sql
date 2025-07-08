@@ -118,7 +118,6 @@ CREATE PROCEDURE socios.GestionarSocio
     @fecha_nacimiento    DATE = NULL,
     @telefono            VARCHAR(20) = NULL,
     @telefono_emergencia VARCHAR(20) = NULL,
-    @domicilio           VARCHAR(200) = NULL,
     @obra_social         VARCHAR(100) = NULL,
     @nro_os              VARCHAR(50) = NULL,
     @dni_integrante_grupo CHAR(8) = NULL,
@@ -129,7 +128,6 @@ CREATE PROCEDURE socios.GestionarSocio
     @fecha_nac_tutor     DATE = NULL,
     @telefono_tutor      VARCHAR(20) = NULL,
     @relacion_tutor      VARCHAR(50) = NULL,
-    @domicilio_tutor     VARCHAR(200) = NULL,
     @es_responsable      BIT = NULL,
     @dni_nuevo_rp        CHAR(8) = NULL,
     @operacion           CHAR(10)
@@ -165,7 +163,7 @@ BEGIN
         SET @edad = DATEDIFF(YEAR, @fecha_nacimiento, GETDATE());
 
         IF @edad < 18 AND @dni_integrante_grupo IS NULL
-            AND (@dni_tutor IS NULL OR @nombre_tutor IS NULL OR @email_tutor IS NULL OR @domicilio_tutor IS NULL)
+            AND (@dni_tutor IS NULL OR @nombre_tutor IS NULL OR @email_tutor IS NULL)
         BEGIN
             RAISERROR('Los datos del tutor son obligatorios para menores sin grupo.', 16, 1);
             RETURN;
@@ -201,7 +199,6 @@ BEGIN
                     fecha_nacimiento = @fecha_nacimiento,
                     tel_contacto = @telefono,
                     tel_emergencia = @telefono_emergencia,
-                    domicilio = @domicilio,
                     obra_social = @obra_social,
                     nro_obra_social = @nro_os,
                     nro_socio = @nro_socio,
@@ -267,13 +264,13 @@ BEGIN
 
             INSERT INTO socios.Socio (
                 nombre, apellido, dni, email, fecha_nacimiento,
-                tel_contacto, tel_emergencia, domicilio,
+                tel_contacto, tel_emergencia,
                 obra_social, nro_obra_social, nro_socio,
                 activo, eliminado, saldo
             )
             VALUES (
                 @nombre, @apellido, @dni, @email, @fecha_nacimiento,
-                @telefono, @telefono_emergencia, @domicilio,
+                @telefono, @telefono_emergencia,
                 @obra_social, @nro_os, COALESCE(@nro_socio, CAST('SN-4001' AS VARCHAR(50))),
                 1, 0, 0
             );
@@ -325,10 +322,10 @@ BEGIN
             IF @edad < 18
             BEGIN
                 INSERT INTO socios.Tutor (
-                    id_grupo, dni, nombre, apellido, domicilio, email
+                    id_grupo, dni, nombre, apellido, email
                 )
                 VALUES (
-                    @id_grupo_nuevo, @dni_tutor, @nombre_tutor, @apellido_tutor, @domicilio_tutor, @email_tutor
+                    @id_grupo_nuevo, @dni_tutor, @nombre_tutor, @apellido_tutor, @email_tutor
                 );
             END
         END
@@ -387,7 +384,7 @@ BEGIN
             ELSE IF @dni_tutor IS NOT NULL
             BEGIN
                 IF @nombre_tutor IS NULL OR @apellido_tutor IS NULL OR @email_tutor IS NULL OR
-                   @fecha_nac_tutor IS NULL OR @domicilio_tutor IS NULL
+                   @fecha_nac_tutor IS NULL 
                 BEGIN
                     RAISERROR('Faltan datos obligatorios del tutor responsable.', 16, 1);
                     RETURN;
@@ -401,8 +398,8 @@ BEGIN
 
                 DELETE FROM socios.Tutor WHERE id_grupo = @id_grupo_ref;
 
-                INSERT INTO socios.Tutor (id_grupo, dni, nombre, apellido, domicilio, email)
-                VALUES (@id_grupo_ref, @dni_tutor, @nombre_tutor, @apellido_tutor, @domicilio_tutor, @email_tutor);
+                INSERT INTO socios.Tutor (id_grupo, dni, nombre, apellido, email)
+                VALUES (@id_grupo_ref, @dni_tutor, @nombre_tutor, @apellido_tutor, @email_tutor);
 
                 UPDATE socios.GrupoFamiliar
                 SET id_socio_rp = NULL
@@ -419,8 +416,8 @@ BEGIN
             SELECT 1 FROM socios.Tutor WHERE id_grupo = @id_grupo_ref AND dni = @dni
         )
         BEGIN
-            INSERT INTO socios.Tutor (id_grupo, dni, nombre, apellido, domicilio, email)
-            SELECT @id_grupo_ref, dni, nombre, apellido, domicilio, email
+            INSERT INTO socios.Tutor (id_grupo, dni, nombre, apellido, email)
+            SELECT @id_grupo_ref, dni, nombre, apellido, email
             FROM socios.Socio
             WHERE id_socio = @id_socio;
         END
@@ -450,7 +447,6 @@ CREATE PROCEDURE socios.GestionarResponsableGrupoFamiliar
     @tipo_responsable   VARCHAR(10),   -- 'socio' o 'tutor'
     @nombre             VARCHAR(50) = NULL,
     @apellido           VARCHAR(50) = NULL,
-    @domicilio          VARCHAR(200) = NULL,
     @email              VARCHAR(70) = NULL,
     @fecha_nac_tutor    DATE = NULL
 AS
@@ -519,7 +515,7 @@ BEGIN
     END
     ELSE IF @tipo_responsable = 'tutor'
     BEGIN
-        IF @nombre IS NULL OR @apellido IS NULL OR @domicilio IS NULL OR @email IS NULL OR @fecha_nac_tutor IS NULL
+        IF @nombre IS NULL OR @apellido IS NULL OR @email IS NULL OR @fecha_nac_tutor IS NULL
         BEGIN
             RAISERROR('Faltan datos obligatorios del tutor.', 16, 1);
             RETURN;
@@ -543,8 +539,8 @@ BEGIN
         DELETE FROM socios.Tutor
         WHERE id_grupo = @id_grupo;
 
-        INSERT INTO socios.Tutor (id_grupo, dni, nombre, apellido, domicilio, email)
-        VALUES (@id_grupo, @dni_normalizado, @nombre, @apellido, @domicilio, @email);
+        INSERT INTO socios.Tutor (id_grupo, dni, nombre, apellido, email)
+        VALUES (@id_grupo, @dni_normalizado, @nombre, @apellido, @email);
 
         UPDATE socios.GrupoFamiliar
         SET id_socio_rp = NULL
@@ -572,7 +568,6 @@ SELECT
     S.email,
     S.tel_contacto,
     S.tel_emergencia,
-    S.domicilio,
     S.obra_social,
     S.nro_obra_social,
     CS.nombre AS categoria,

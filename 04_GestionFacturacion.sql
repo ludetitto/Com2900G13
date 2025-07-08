@@ -1056,7 +1056,6 @@ CREATE PROCEDURE actividades.GestionarInscriptoPiletaVerano
 	@apellido CHAR(50),
 	@categoria VARCHAR(50),
 	@email VARCHAR(70),
-	@domicilio VARCHAR(200),
     @fecha_inscripcion DATE,
     @operacion CHAR(10)
 AS
@@ -1127,14 +1126,14 @@ BEGIN
 		-- Validar invitado
 		IF @id_invitado IS NULL
 		BEGIN
-			IF @nombre IS NULL OR @apellido IS NULL OR @categoria IS NULL OR @email IS NULL OR @domicilio IS NULL
+			IF @nombre IS NULL OR @apellido IS NULL OR @categoria IS NULL OR @email IS NULL
 			BEGIN
 				RAISERROR('Faltan datos obligatorios para registrar al invitado.', 16, 1);
 				RETURN;
 			END
 
-			INSERT INTO socios.Invitado(id_socio, dni, nombre, apellido, categoria, email, domicilio)
-			VALUES(@id_socio, @dni_invitado, @nombre, @apellido, @categoria, @email, @domicilio);
+			INSERT INTO socios.Invitado(id_socio, dni, nombre, apellido, categoria, email)
+			VALUES(@id_socio, @dni_invitado, @nombre, @apellido, @categoria, @email);
 
 			SET @id_invitado = SCOPE_IDENTITY();
 		END
