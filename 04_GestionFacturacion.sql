@@ -1051,7 +1051,7 @@ GO
 
 CREATE PROCEDURE actividades.GestionarInscriptoPiletaVerano
     @dni_socio VARCHAR(10),
-	@dni_invitado  CHAR(10),
+	@dni_invitado  CHAR(9),
 	@nombre CHAR(50),
 	@apellido CHAR(50),
 	@categoria VARCHAR(50),
@@ -1063,10 +1063,10 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-	DECLARE @id_socio INT;
-	DECLARE @id_invitado INT;
-	DECLARE @id_inscripcion INT;
-	DECLARE @id_tarifa INT;
+	DECLARE @id_socio INT,
+			@id_invitado INT,
+			@id_inscripcion INT,
+			@id_tarifa INT;
 
     -- Validar operación
     IF @operacion NOT IN ('Insertar', 'Modificar', 'Eliminar')
@@ -1134,7 +1134,7 @@ BEGIN
 			END
 
 			INSERT INTO socios.Invitado(id_socio, dni, nombre, apellido, categoria, email, domicilio)
-			VALUES(@id_socio, @dni_invitado, @nombre, @apellido, @categoria, @email, @domicilio);
+			VALUES(@id_socio, CAST(@dni_invitado AS INT), @nombre, @apellido, @categoria, @email, @domicilio);
 
 			SET @id_invitado = SCOPE_IDENTITY();
 		END
@@ -1157,12 +1157,25 @@ BEGIN
 	END
 
 	-- Buscar inscripción existente
-    SET @id_inscripcion = (
-        SELECT TOP 1 id_inscripto_pileta
-        FROM actividades.InscriptoPiletaVerano
-        WHERE (id_socio = @id_socio OR id_invitado = @id_invitado)
-        AND fecha = @fecha_inscripcion
-    );
+
+	IF @dni_socio IS NOT NULL
+	BEGIN
+		SET @id_inscripcion = (
+			SELECT TOP 1 id_inscripto_pileta
+			FROM actividades.InscriptoPiletaVerano
+			WHERE id_socio = @id_socio AND  id_invitado = @id_invitado
+			AND fecha = @fecha_inscripcion 
+		)
+	END
+	ELSE
+	BEGIN
+		SET @id_inscripcion = (
+			SELECT TOP 1 id_inscripto_pileta
+			FROM actividades.InscriptoPiletaVerano
+			WHERE id_socio = @id_socio
+			AND fecha = @fecha_inscripcion 
+		)
+	END
 
     -- === Eliminar ===
     IF @operacion = 'Eliminar'
@@ -1952,12 +1965,14 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
+    -- Validar que la fecha no sea nula
     IF @fecha IS NULL
     BEGIN
         RAISERROR('La fecha ingresada es inválida.', 16, 1);
         RETURN;
     END
 
+    -- Calcular el primer y último día del mes de la fecha proporcionada
     DECLARE @primer_dia_mes DATE = DATEFROMPARTS(YEAR(@fecha), MONTH(@fecha), 1);
     DECLARE @ultimo_dia_mes DATE = EOMONTH(@fecha);
 
@@ -1965,7 +1980,7 @@ BEGIN
     INSERT INTO facturacion.CargoActividadExtra (id_inscripto_colonia)
     SELECT IC.id_inscripto_colonia
     FROM actividades.InscriptoColoniaVerano IC
-    WHERE IC.fecha BETWEEN @primer_dia_mes AND @ultimo_dia_mes
+    WHERE IC.fecha BETWEEN @primer_dia_mes AND @ultimo_dia_mes -- Se busca en todo el mes
       AND NOT EXISTS (
           SELECT 1 FROM facturacion.CargoActividadExtra CAE
           WHERE CAE.id_inscripto_colonia = IC.id_inscripto_colonia
@@ -1975,7 +1990,7 @@ BEGIN
     INSERT INTO facturacion.CargoActividadExtra (id_inscripto_pileta)
     SELECT IP.id_inscripto_pileta
     FROM actividades.InscriptoPiletaVerano IP
-    WHERE IP.fecha BETWEEN @primer_dia_mes AND @ultimo_dia_mes
+    WHERE IP.fecha BETWEEN @primer_dia_mes AND @ultimo_dia_mes -- Se busca en todo el mes
       AND NOT EXISTS (
           SELECT 1 FROM facturacion.CargoActividadExtra CAE
           WHERE CAE.id_inscripto_pileta = IP.id_inscripto_pileta
@@ -1985,7 +2000,7 @@ BEGIN
     INSERT INTO facturacion.CargoActividadExtra (id_reserva_sum)
     SELECT R.id_reserva_sum
     FROM reservas.ReservaSum R
-    WHERE R.fecha BETWEEN @primer_dia_mes AND @ultimo_dia_mes
+    WHERE R.fecha BETWEEN @primer_dia_mes AND @ultimo_dia_mes -- Se busca en todo el mes
       AND NOT EXISTS (
           SELECT 1 FROM facturacion.CargoActividadExtra CAE
           WHERE CAE.id_reserva_sum = R.id_reserva_sum
@@ -1993,7 +2008,6 @@ BEGIN
 
 END;
 GO
-
 
 /*____________________________________________________________________
   ______________ GenerarFacturasActividadesExtraPorFecha _____________
@@ -2064,28 +2078,28 @@ BEGIN
         INSERT INTO #CargosAFacturar
 		SELECT 
 			CAE.id_cargo_extra,
-			IP.id_socio,
+			IPV.id_socio,
 			'Pileta',
 			'Pileta de verano',
-			ISNULL(IP.monto, 0),
-			IP.fecha,
+			ISNULL(IPV.monto, 0),
+			IPV.fecha,
 			CASE 
-				WHEN IP.id_invitado IS NOT NULL THEN I.dni     -- DNI invitado cuando corresponda
+				WHEN IPV.id_invitado IS NOT NULL THEN I.dni     -- DNI invitado cuando corresponda
 				ELSE COALESCE(SR.dni, T.dni, S.dni)            -- Sino socio responsable o tutor
 			END AS dni_receptor,
 			CASE
-				WHEN IP.id_invitado IS NOT NULL THEN 0
+				WHEN IPV.id_invitado IS NOT NULL THEN 0
 				ELSE S.saldo
 			END AS saldo
 		FROM facturacion.CargoActividadExtra CAE
-		JOIN actividades.InscriptoPiletaVerano IP ON CAE.id_inscripto_pileta = IP.id_inscripto_pileta
-		JOIN socios.Socio S ON S.id_socio = IP.id_socio
-		LEFT JOIN socios.Invitado I ON I.id_invitado = IP.id_invitado 
+		JOIN actividades.InscriptoPiletaVerano IPV ON CAE.id_inscripto_pileta = IPV.id_inscripto_pileta
+		JOIN socios.Socio S ON S.id_socio = IPV.id_socio
+		LEFT JOIN socios.Invitado I ON I.id_invitado = IPV.id_invitado 
 		LEFT JOIN socios.GrupoFamiliarSocio GFS ON GFS.id_socio = S.id_socio
 		LEFT JOIN socios.GrupoFamiliar GF ON GF.id_grupo = GFS.id_grupo
 		LEFT JOIN socios.Socio SR ON SR.id_socio = GF.id_socio_rp
 		LEFT JOIN socios.Tutor T ON T.id_grupo = GF.id_grupo
-		WHERE IP.fecha BETWEEN DATEFROMPARTS(YEAR(@fecha), MONTH(@fecha), 1) AND @ultimo_dia_mes
+		WHERE IPV.fecha BETWEEN DATEFROMPARTS(YEAR(@fecha), MONTH(@fecha), 1) AND @ultimo_dia_mes
 		  AND NOT EXISTS (
 			  SELECT 1 FROM facturacion.Factura F WHERE F.id_cargo_actividad_extra = CAE.id_cargo_extra
 		  );
@@ -2218,3 +2232,66 @@ INNER JOIN facturacion.CuotaMensual CM ON CM.id_inscripto_categoria = ICS.id_ins
 INNER JOIN facturacion.Factura F ON F.id_cuota_mensual = CM.id_cuota_mensual
 WHERE S.activo = 1 AND S.eliminado = 0
 GROUP BY RP.dni, RP.apellido, RP.nombre, F.fecha_emision;
+GO
+
+/*____________________________________________________________________
+  ________________ vwFacturasPendientesPorGrupoFamiliar ______________
+  ____________________________________________________________________*/
+
+CREATE OR ALTER VIEW facturacion.vwFacturasPendientesPorGrupoFamiliar
+AS
+-- Primero, creamos una tabla temporal (CTE) para obtener todos los DNIs asociados a un grupo familiar.
+-- Esto incluye tanto a los socios miembros como a los tutores.
+WITH MiembrosYTutoresDelGrupo AS (
+    -- Obtenemos los DNI de los socios activos en cada grupo
+    SELECT
+        GFS.id_grupo,
+        S.dni
+    FROM socios.GrupoFamiliarSocio GFS
+    JOIN socios.Socio S ON GFS.id_socio = S.id_socio
+    WHERE S.activo = 1 AND S.eliminado = 0
+    UNION
+    -- Unimos los DNI de los tutores asociados a cada grupo
+    SELECT
+        T.id_grupo,
+        T.dni
+    FROM socios.Tutor T
+	)
+	SELECT
+		-- Información del Socio Responsable de Pago del Grupo
+		RP.id_socio AS id_responsable_pago,
+		RP.nro_socio AS nro_socio_responsable,
+		RP.dni AS dni_responsable,
+		RP.apellido + ', ' + RP.nombre AS nombre_responsable,
+
+		-- Detalles de la Factura individual
+		F.id_factura,
+		F.nro_comprobante,
+		F.fecha_emision,
+		F.monto_total,
+		F.estado AS estado_actual,
+		F.fecha_vencimiento1,
+		F.fecha_vencimiento2,
+		F.dni_receptor, -- Columna útil para saber a qué miembro/tutor se le emitió la factura
+
+		-- Columna calculada para un estado más claro
+		CASE
+			WHEN F.estado NOT IN ('Pagada', 'Anulada') AND (F.fecha_vencimiento2 < GETDATE() OR F.fecha_vencimiento1 < GETDATE()) THEN 'Vencida'
+			WHEN F.estado NOT IN ('Pagada', 'Anulada') THEN 'Pendiente'
+			ELSE F.estado
+		END AS estado_calculado
+	FROM
+		facturacion.Factura F
+	-- Unimos las facturas con nuestra tabla de DNIs para saber a qué grupo pertenecen
+	INNER JOIN
+		MiembrosYTutoresDelGrupo MYT ON F.dni_receptor = MYT.dni
+	-- Obtenemos la información del grupo familiar, incluyendo el ID del responsable
+	INNER JOIN
+		socios.GrupoFamiliar GF ON MYT.id_grupo = GF.id_grupo
+	-- Obtenemos los datos completos del socio responsable
+	LEFT JOIN
+		socios.Socio RP ON GF.id_socio_rp = RP.id_socio
+	WHERE
+		-- Filtramos solo por las facturas que no han sido pagadas ni anuladas
+		F.estado NOT IN ('Pagada', 'Anulada');
+GO

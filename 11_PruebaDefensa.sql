@@ -162,9 +162,9 @@ EXEC actividades.GestionarInscriptoClase '31111223', 'Taekwondo',  'Miércoles 1
 
 SELECT * FROM actividades.InscriptoClase;
 
-/*	____________________________________________________
-	______________ Gestión de Facturación ______________
-	____________________________________________________ */
+/*	________________________________________________________________
+	______________ Gestión de Facturación y Cobranzas ______________
+	________________________________________________________________ */
 
 -- Inserción de emisor factura
 EXEC facturacion.GestionarEmisorFactura 'Sol del Norte S.A.', '20-12345678-4', 'Av. Presidente Per�n 1234', 'Argentina', 'La Matanza', '1234', 'Insertar';
@@ -201,15 +201,17 @@ EXEC facturacion.GenerarFacturasMensualesPorFecha '2025-07-21';
 GO
 
 -- Se testea con el grupo familiar del responsable SN-4005 con socio a cargo SN-4144
-SELECT * FROM facturacion.Factura
-WHERE MONTH(fecha_emision) = MONTH('2025-07-21')
- AND dni_receptor = 292632869; -- Cuyo menor a cargo es 47258764
-
-SELECT * FROM facturacion.DetalleFactura DF
-INNER JOIN facturacion.Factura F ON F.id_factura = DF.id_factura
-WHERE MONTH(F.fecha_emision) = MONTH('2025-07-21')
- AND F.dni_receptor = 292632869
-ORDER BY DF.id_factura;
+SELECT 
+    nombre_responsable,
+    nro_comprobante,
+    monto_total,
+    fecha_emision,
+    fecha_vencimiento1,
+    estado_calculado 
+FROM 
+    facturacion.vwFacturasPendientesPorGrupoFamiliar
+WHERE 
+    dni_responsable = '10000000';
 
 -- Vista de factura total al mes actual del grupo familiar indicado
 SELECT * 
@@ -220,15 +222,17 @@ WHERE dni_responsable = 292632869;
 -- IMPORTANTE: Revisar numero de factura antes de ejecutar
 EXEC cobranzas.RegistrarCobranza 245, '2025-08-01', 112000, 'Visa';
 
-SELECT * FROM facturacion.Factura
-WHERE MONTH(fecha_emision) = MONTH('2025-07-21')
- AND dni_receptor = 292632869; -- Cuyo menor a cargo es 47258764
-
-SELECT * FROM facturacion.DetalleFactura DF
-INNER JOIN facturacion.Factura F ON F.id_factura = DF.id_factura
-WHERE MONTH(F.fecha_emision) = MONTH('2025-07-21')
- AND F.dni_receptor = 292632869
-ORDER BY DF.id_factura;
+SELECT 
+    nombre_responsable,
+    nro_comprobante,
+    monto_total,
+    fecha_emision,
+    fecha_vencimiento1,
+    estado_calculado 
+FROM 
+    facturacion.vwFacturasPendientesPorGrupoFamiliar
+WHERE 
+    dni_responsable = '10000000';
 
 SELECT * FROM cobranzas.Pago
 SELECT * FROM socios.Socio WHERE dni = 292632869
@@ -247,15 +251,17 @@ EXEC facturacion.GenerarFacturasMensualesPorFecha '2025-08-21';
 GO
 
 -- Se testea con el grupo familiar del responsable SN-4005 con socio a cargo SN-4144
-SELECT * FROM facturacion.Factura
-WHERE MONTH(fecha_emision) = MONTH('2025-08-21')
- AND dni_receptor = 292632869; -- Cuyo menor a cargo es 47258764
-
-SELECT * FROM facturacion.DetalleFactura DF
-INNER JOIN facturacion.Factura F ON F.id_factura = DF.id_factura
-WHERE MONTH(F.fecha_emision) = MONTH('2025-08-21')
- AND F.dni_receptor = 292632869
-ORDER BY DF.id_factura;
+SELECT 
+    nombre_responsable,
+    nro_comprobante,
+    monto_total,
+    fecha_emision,
+    fecha_vencimiento1,
+    estado_calculado 
+FROM 
+    facturacion.vwFacturasPendientesPorGrupoFamiliar
+WHERE 
+    dni_responsable = '10000000';
 
 -- Inserción de tarjeta de crédito para débito automático
 EXEC cobranzas.GestionarTarjeta
@@ -281,15 +287,17 @@ GO
 SELECT * FROM cobranzas.MedioDePago;
 
 -- Se testea con el grupo familiar del responsable SN-4155 con socios a cargo SN-4156, SN-4157 y SN-4158
-SELECT * FROM facturacion.Factura
-WHERE MONTH(fecha_emision) = MONTH('2025-08-21')
- AND dni_receptor = 10000000;
-
-SELECT * FROM facturacion.DetalleFactura DF
-INNER JOIN facturacion.Factura F ON F.id_factura = DF.id_factura
-WHERE MONTH(F.fecha_emision) = MONTH('2025-08-21')
- AND F.dni_receptor = 10000000
-ORDER BY DF.id_factura;
+SELECT 
+    nombre_responsable,
+    nro_comprobante,
+    monto_total,
+    fecha_emision,
+    fecha_vencimiento1,
+    estado_calculado 
+FROM 
+    facturacion.vwFacturasPendientesPorGrupoFamiliar
+WHERE 
+    dni_responsable = '10000000';
 
 SELECT id_pago, id_factura, nro_transaccion, monto, estado, fecha_emision
 FROM cobranzas.Pago
@@ -309,11 +317,17 @@ SELECT * FROM facturacion.CuotaMensual;
 EXEC facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar '2025-05-21';
 GO
 
-SELECT * FROM facturacion.Factura F
-WHERE MONTH(fecha_emision) = MONTH('2025-05-21')
-SELECT * FROM facturacion.DetalleFactura DF
-INNER JOIN facturacion.Factura F ON F.id_factura =DF.id_factura
-WHERE MONTH(F.fecha_emision) = MONTH('2025-05-21')
+SELECT 
+    nombre_responsable,
+    nro_comprobante,
+    monto_total,
+    fecha_emision,
+    fecha_vencimiento1,
+    estado_calculado 
+FROM 
+    facturacion.vwFacturasPendientesPorGrupoFamiliar
+WHERE 
+    dni_responsable = '10000000';
 
 -- Aplicación del recargo en caso de superar la 1ra fecha de vencimiento
 EXEC cobranzas.AplicarRecargoVencimiento
@@ -334,75 +348,132 @@ SELECT * FROM facturacion.CuotaMensual;
 EXEC facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar '2025-06-21';
 GO
 
-SELECT * FROM facturacion.Factura F
-WHERE MONTH(fecha_emision) = 6
- AND dni_receptor = 292632869
-SELECT * FROM facturacion.DetalleFactura DF
-INNER JOIN facturacion.Factura F ON F.id_factura =DF.id_factura
-WHERE MONTH(F.fecha_emision) = 6
- AND F.dni_receptor = 292632869
+SELECT 
+    nombre_responsable,
+    nro_comprobante,
+    monto_total,
+    fecha_emision,
+    fecha_vencimiento1,
+    estado_calculado 
+FROM 
+    facturacion.vwFacturasPendientesPorGrupoFamiliar
+WHERE 
+    dni_responsable = '10000000';
 
 -- Registrar pago a la cuota del mes de julio del repsonsable 292632869
 -- IMPORTANTE: Revisar numero de factura antes de ejecutar
 EXEC cobranzas.RegistrarCobranza 605, '2025-07-01', 140000, 'MasterCard';
 
 
---PODEMOS HACER QUE LA FACTURA BUSQUE SI EL ID DE LA FACTURA TIENE UNA TUPLA EN MORA --> SI LA TIENE SUMAR
---MEJOR OPCION SERIA USAR EL SALDO_ANTERIOR DEL SOCIO PORQUE --> 1- SI EL SALDO ES NEGATIVO, ES PORQUE DEBE Y FacturasMensualesPorFecha LE SUMA ESE MONTO A LA FACTURA;
-															 --  2- SI EL SALDO ES POSITIVO? EL SP FacturasMensualesPorFecha SE FIJA SI HAY SALDO Y LE SACA AL MONTO TOTAL DE LA FACTURA
--- Generación de cuotas
-EXEC facturacion.GenerarCuotasMensualesPorFecha '2025-01-21';
-GO
-
-SELECT * FROM facturacion.CuotaMensual;
-
--- Generación de facturas grupales (vencidas)
-EXEC facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar '2025-01-21';
-GO
-
-SELECT * FROM facturacion.Factura F
-WHERE MONTH(fecha_emision) = 1
-SELECT * FROM facturacion.DetalleFactura DF
-INNER JOIN facturacion.Factura F ON F.id_factura =DF.id_factura
-WHERE MONTH(F.fecha_emision) = 1
-
+-- CASO: Se generan inscripciones a actividades extra en una fecha en el que hubieron lluvias
 -- Inserción de tarifas de pileta de verano
 EXEC tarifas.GestionarTarifaPiletaVerano 'Mayor', '0', 25000, '2025-09-25', 'Insertar'
 EXEC tarifas.GestionarTarifaPiletaVerano 'Mayor', '1', 30000, '2025-09-25', 'Insertar'
 GO
 
-EXEC actividades.GestionarInscriptoPiletaVerano '10000000', NULL, NULL, NULL, NULL, NULL, NULL, '2025-07-15', 'Insertar';
-
-EXEC actividades.GestionarInscriptoPiletaVerano '10000000', '10000001', 'InvitadoVal', 'Gonzalez', 'Mayor', 'InvitadoVal@mail.com', 'Calle Falsa 100', '2025-07-28', 'Insertar';
-
-EXEC facturacion.GenerarFacturasActividadesExtraPorFecha '2025-07-30';
+EXEC actividades.GestionarInscriptoPiletaVerano 292632869, NULL, NULL, NULL, NULL, NULL, NULL, '2025-02-15', 'Insertar';
+EXEC actividades.GestionarInscriptoPiletaVerano 292632869, 12345678, 'InvitadoVal', 'Gonzalez', 'Mayor', 'InvitadoVal@mail.com', 'Calle Falsa 100', '2025-02-28', 'Insertar';
 GO
 
+EXEC facturacion.GenerarFacturasActividadesExtraPorFecha '2025-02-15';
+EXEC facturacion.GenerarFacturasActividadesExtraPorFecha '2025-02-28';
+GO
 
-EXEC cobranzas.RegistrarCobranza 4, '2025-07-31', 33000, 'Visa';
+SELECT 
+    nombre_responsable,
+    nro_comprobante,
+    monto_total,
+    fecha_emision,
+    fecha_vencimiento1,
+    estado_calculado 
+FROM 
+    facturacion.vwFacturasPendientesPorGrupoFamiliar
+WHERE 
+    dni_responsable = '292632869';
+
+EXEC cobranzas.RegistrarCobranza 49211465, '2025-02-15', 33000, 'Visa';
+EXEC cobranzas.RegistrarCobranza 24567535, '2025-02-28', 30000, 'Visa';
+
 SELECT * FROM facturacion.Factura where id_factura = 4
 SELECT nombre, apellido, saldo FROM socios.Socio where dni = 10000000    
 
 -- Generar reintegros por lluvia
 EXEC cobranzas.GenerarReintegroPorLluvia
-    @mes = 01,
+    @mes = 02,
     @año = 2025,
     @path = 'C:\Users\ldeti\Desktop\College\BDA\TP BDA\Com2900G13\ETL\open-meteo-buenosaires_2025.csv';
 GO
 
-SELECT * FROM facturacion.CargoActividadExtra
-SELECT * FROM facturacion.Factura F
-WHERE MONTH(fecha_emision) = MONTH(GETDATE())
-SELECT * FROM facturacion.DetalleFactura DF
-INNER JOIN facturacion.Factura F ON F.id_factura = DF.id_factura
-WHERE MONTH(F.fecha_emision) = MONTH(GETDATE())
+SELECT 
+    nombre_responsable,
+    nro_comprobante,
+    monto_total,
+    fecha_emision,
+    fecha_vencimiento1,
+    estado_calculado 
+FROM 
+    facturacion.vwFacturasPendientesPorGrupoFamiliar
+WHERE 
+    dni_responsable = '292632869';
 
 SELECT * FROM cobranzas.Reembolso
 SELECT * FROM cobranzas.PagoACuenta;
 SELECT * FROM socios.vwGrupoFamiliarConCategorias ORDER BY apellido, nombre;
 
--- Aplicar bloqueo
+-- Dar de baja al socio 10000000
+EXEC socios.GestionarSocio
+    @nombre = 'Valeria',
+    @apellido = 'De Rosa',
+    @dni = '10000000',
+    @email = 'valeria.derosa@email.com',
+    @fecha_nacimiento = '1990-05-10',
+    @telefono = '1111222233',
+    @telefono_emergencia = '1133445566',
+    @domicilio = 'Calle Mayor 123',
+    @obra_social = 'OSDE',
+    @nro_os = 'OS123456',
+	@dni_nuevo_rp = '292632869',
+    @operacion = 'Eliminar';
+GO
+
+SELECT * FROM socios.Socio;
+SELECT * FROM socios.GrupoFamiliar;
+SELECT * FROM socios.GrupoFamiliarSocio;
+SELECT * FROM facturacion.Factura;
+
+-- Dar de alta a socio 10000000
+EXEC socios.GestionarSocio
+    @nombre = 'Valeria',
+    @apellido = 'De Rosa',
+    @dni = '10000000',
+    @email = 'valeria.derosa@email.com',
+    @fecha_nacimiento = '1990-05-10',
+    @telefono = '1111222233',
+    @telefono_emergencia = '1133445566',
+    @domicilio = 'Calle Mayor 123',
+    @obra_social = 'OSDE',
+    @nro_os = 'OS123456',
+	@dni_integrante_grupo = '31111223',
+    @operacion = 'Insertar';
+GO
+
+SELECT * FROM socios.Socio;
+SELECT * FROM socios.GrupoFamiliar;
+SELECT * FROM socios.GrupoFamiliarSocio;
+SELECT * FROM facturacion.Factura;
+
+-- Generación de cuotas; solo socios individuales
+EXEC facturacion.GenerarCuotasMensualesPorFecha '2025-04-21'
+GO
+
+-- Generación de facturas grupales
+EXEC facturacion.GenerarFacturasMensualesPorFechaGrupoFamiliar '2025-04-21';
+GO
+
+-- Aplicación del bloqueo en caso de superar la 2da fecha de vencimiento
 EXEC cobranzas.AplicarBloqueoVencimiento
 GO
 
-SELECT * FROM socios.Socio
+SELECT * FROM actividades.InscriptoCategoriaSocio;
+SELECT * FROM actividades.InscriptoClase;
+SELECT * FROM socios.Socio;
