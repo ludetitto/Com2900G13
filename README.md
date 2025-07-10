@@ -5,7 +5,5 @@ Práctico integrador para la materia Bases de Datos Aplicadas.
   <ins>Nombre y apellido</ins>: Lucia De Titto ---> <ins>Alias</ins>: ludetitto  
   
   <ins>Nombre y apellido</ins>: Francisco Vignardel ---> <ins>Alias</ins>: Cisco
-  
-  <ins>Nombre y apellido</ins>: Sebastián Rodriguez ---> <ins>Alias</ins>: Sez003
 
-  <ins>Nombre y apellido</ins>: Borja Tomas ---> <ins>Alias</ins>: 
+  <ins>Nombre y apellido</ins>: Borja Tomas ---> <ins>Alias</ins>: Tomi
